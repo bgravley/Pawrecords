@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 
 export default function Auth() {
   const [screen, setScreen] = useState('landing')
+  const [resetEmail, setResetEmail] = useState('')
   const [isSignUp, setIsSignUp] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -40,6 +41,16 @@ export default function Auth() {
     const { error } = await supabase.auth.signInWithOtp({ phone: formatted })
     if (error) msg('error', error.message)
     else { msg('success', `Code sent to ${formatted}`); setScreen('phone_verify') }
+    setLoading(false)
+  }
+
+  const handleForgotPassword = async (e) => {
+    e.preventDefault(); setLoading(true); clearMsg()
+    const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+      redirectTo: window.location.origin + '?reset=true'
+    })
+    if (error) msg('error', error.message)
+    else msg('success', 'Password reset email sent! Check your inbox.')
     setLoading(false)
   }
 
@@ -200,6 +211,27 @@ export default function Auth() {
               <button type="button" onClick={() => { setIsSignUp(!isSignUp); clearMsg(); }}
                 style={{ width: '100%', background: 'none', border: 'none', color: '#8B7355', fontSize: 14, cursor: 'pointer', fontFamily: 'Nunito, sans-serif' }}>
                 {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up free"}
+              </button>
+              {!isSignUp && (
+                <button type="button" onClick={() => { setResetEmail(email); setScreen('forgot'); clearMsg(); }}
+                  style={{ width: '100%', background: 'none', border: 'none', color: '#2D7D6F', fontSize: 13, cursor: 'pointer', marginTop: 4, fontFamily: 'Nunito, sans-serif' }}>
+                  Forgot your password?
+                </button>
+              )}
+            </form>
+          )}
+
+          {/* FORGOT PASSWORD */}
+          {screen === 'forgot' && (
+            <form onSubmit={handleForgotPassword}>
+              <BackBtn to="email"/>
+              <h2 style={{ fontFamily: "'Lora', serif", fontSize: 22, marginBottom: 8, color: '#2C2017', fontStyle: 'italic' }}>Reset Password</h2>
+              <p style={{ color: '#8B7355', fontSize: 14, marginBottom: 16, fontFamily: 'Nunito, sans-serif' }}>Enter your email and we'll send you a reset link.</p>
+              <input style={inp} type="email" placeholder="Email address" value={resetEmail} onChange={e => setResetEmail(e.target.value)} required/>
+              <PrimaryBtn type="submit" disabled={loading}>{loading ? 'Sending...' : 'Send Reset Link'}</PrimaryBtn>
+              <button type="button" onClick={() => { setScreen('email'); clearMsg(); }}
+                style={{ width: '100%', background: 'none', border: 'none', color: '#8B7355', fontSize: 14, cursor: 'pointer', fontFamily: 'Nunito, sans-serif' }}>
+                Back to sign in
               </button>
             </form>
           )}
