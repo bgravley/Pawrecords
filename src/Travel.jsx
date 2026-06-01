@@ -154,9 +154,12 @@ Return ONLY a valid JSON array of requirement objects. No markdown, no explanati
 Example format:
 [{"title":"Health Certificate","description":"USDA-accredited vet must issue a health certificate within 10 days of travel","category":"health_certificate","deadline_days_before":null,"window_start_days":10,"window_end_days":1,"requires_document":true,"source_url":"https://www.aphis.usda.gov","source_name":"USDA APHIS","notes":"Must be issued by USDA-accredited veterinarian"}]`;
 
-  const response = await fetch(workerUrl, {
+  const response = await fetch("https://pqqfwgwbwofzfpzzuilq.supabase.co/functions/v1/ai-travel", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBxcWZ3Z3did29memZwenp1aWxxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2MjExNzUsImV4cCI6MjA5NTE5NzE3NX0.H7c5QcAJl4_TEkFIHLU0eIdkqRLSSQbR-Z-k08T4HhM",
+    },
     body: JSON.stringify({
       messages: [{ role: "user", content: prompt }]
     })
