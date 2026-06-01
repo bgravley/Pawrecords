@@ -149,9 +149,9 @@ For EACH requirement, provide:
 - source_name: name of the source (e.g. "USDA APHIS", "CDC", "Delta Airlines")
 - notes: any important caveats or warnings
 
-Return ONLY a valid JSON array of requirement objects. No markdown, no explanation, just the JSON array.
+CRITICAL: Return ONLY a raw JSON array. No markdown. No backticks. No explanation text before or after. Start your response with [ and end with ]. Nothing else.
 
-Example format:
+Example:
 [{"title":"Health Certificate","description":"USDA-accredited vet must issue a health certificate within 10 days of travel","category":"health_certificate","deadline_days_before":null,"window_start_days":10,"window_end_days":1,"requires_document":true,"source_url":"https://www.aphis.usda.gov","source_name":"USDA APHIS","notes":"Must be issued by USDA-accredited veterinarian"}]`;
 
   const response = await fetch("https://pqqfwgwbwofzfpzzuilq.supabase.co/functions/v1/Ai-travel", {
@@ -169,13 +169,28 @@ Example format:
   if (data.error) throw new Error(data.error);
 
   const text = data.choices?.[0]?.message?.content || "";
+  if (!text) throw new Error("Empty response from AI");
+  
+  // Strip markdown and find JSON array
   const clean = text.replace(/```json|```/g, "").trim();
-
-  // Find JSON array in response
   const start = clean.indexOf('[');
   const end = clean.lastIndexOf(']') + 1;
-  if (start === -1 || end === 0) throw new Error("No valid checklist returned");
-
+  
+  if (start === -1 || end === 0) {
+    // Try to find a JSON object instead
+    const objStart = clean.indexOf('{');
+    const objEnd = clean.lastIndexOf('}') + 1;
+    if (objStart !== -1 && objEnd > 0) {
+      const obj = JSON.parse(clean.slice(objStart, objEnd));
+      // If it has a checklist or items key, use that
+      if (obj.checklist) return obj.checklist;
+      if (obj.items) return obj.items;
+      if (obj.requirements) return obj.requirements;
+      return [obj]; // wrap single object in array
+    }
+    throw new Error("No valid checklist returned");
+  }
+  
   return JSON.parse(clean.slice(start, end));
 };
 
