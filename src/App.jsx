@@ -7,7 +7,7 @@ import TravelModule from './Travel'
 export default function App() {
   const [session, setSession] = useState(undefined)
   const [profile, setProfile] = useState(null)
-  const [activeTab, setActiveTab] = useState('health')
+  const [activeTab, setActiveTab] = useState('pets')
   const [dogs, setDogs] = useState([])
 
   useEffect(() => {
@@ -59,8 +59,8 @@ export default function App() {
   return (
     <div style={{ minHeight: '100vh', background: '#FAF6F0' }}>
 
-      {/* Health Records tab */}
-      <div style={{ display: activeTab === 'health' ? 'block' : 'none' }}>
+      {/* My Pets tab */}
+      <div style={{ display: activeTab === 'pets' ? 'block' : 'none' }}>
         <PawRecord
           userId={userId}
           profile={profile}
@@ -91,15 +91,15 @@ export default function App() {
         boxShadow: '0 -2px 12px rgba(44,32,23,0.06)',
         fontFamily: "'Nunito', sans-serif"
       }}>
-        <button onClick={() => setActiveTab('health')} style={{
+        <button onClick={() => setActiveTab('pets')} style={{
           flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
           justifyContent: 'center', gap: 3, background: 'none', border: 'none',
-          color: activeTab === 'health' ? '#2D7D6F' : '#8B7355',
-          fontSize: 11, fontWeight: activeTab === 'health' ? 800 : 600,
+          color: activeTab === 'pets' ? '#2D7D6F' : '#8B7355',
+          fontSize: 11, fontWeight: activeTab === 'pets' ? 800 : 600,
           fontFamily: "'Nunito', sans-serif", cursor: 'pointer'
         }}>
           <span style={{ fontSize: 22 }}>📋</span>
-          Health Records
+          My Pets
         </button>
         <button onClick={() => setActiveTab('travel')} style={{
           flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
