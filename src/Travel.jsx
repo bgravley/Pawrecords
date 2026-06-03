@@ -116,82 +116,69 @@ const inp = {
 // ── AI REQUIREMENTS ENGINE ───────────────────────────────
 const generateChecklist = async (trip, pets, workerUrl) => {
   const petList = pets.map(p =>
-    `${p.name} (${p.breed || 'mixed'}, ${p.gender || 'unknown'} ${p.neutered ? ', neutered/spayed' : ''}, microchip: ${p.microchip || 'none'}${p.is_service_animal ? ', SERVICE ANIMAL' : ''}${p.is_esa ? ', EMOTIONAL SUPPORT ANIMAL' : ''})`
+    `${p.name} (${p.breed || 'mixed'}, ${p.gender || 'unknown'}${p.neutered ? ', neutered/spayed' : ''}${p.is_service_animal ? ', SERVICE ANIMAL' : ''}${p.is_esa ? ', EMOTIONAL SUPPORT ANIMAL' : ''})`
   ).join('; ');
 
-  const prompt = `You are an expert in international and domestic pet travel regulations. A pet owner needs to travel with their pet(s) and needs an accurate, comprehensive checklist of requirements.
+  const prompt = `You are an expert in international and domestic pet travel regulations. Research current requirements for traveling with pets on this route and return ONLY a JSON array. Start with [ and end with ]. No markdown, no backticks, no explanation text before or after.
 
-TRIP DETAILS:
-- Origin: ${trip.origin_city}, ${trip.origin_country}
-- Destination: ${trip.destination_city}, ${trip.destination_country}
-- Departure date: ${trip.departure_date}
-- Airline: ${trip.airline || 'not specified'}
-- Pets traveling: ${petList}
+TRIP: ${trip.origin_city}, ${trip.origin_country} to ${trip.destination_city}, ${trip.destination_country}
+DEPARTURE: ${trip.departure_date}
+AIRLINE: ${trip.airline || 'not specified'}
+PETS: ${petList}
 
-Please research the current requirements for this specific route and provide a comprehensive checklist. Check:
-1. Destination country/state import requirements for pets
-2. Origin country export requirements for pets
-3. Airline-specific pet policies (if airline specified)
-4. USDA APHIS requirements if US is involved
-5. CDC requirements if applicable
-6. Any transit country requirements if applicable
-7. Special requirements for service animals or ESAs if applicable
+Return a JSON array where each item has these exact fields:
+- title (string): short name
+- description (string): what needs to be done
+- category (string): one of health_certificate, vaccination, treatment, documentation, airline, government_form, entry_document, other
+- deadline_days_before (number or null): days before departure this must be done
+- window_start_days (number or null): for time-window requirements, first day before departure it can be done
+- window_end_days (number or null): for time-window requirements, last day before departure it must be done
+- requires_document (boolean): true if they need to upload proof
+- source_url (string): official URL
+- source_name (string): name of source e.g. USDA APHIS, CDC, airline name
+- notes (string or null): important warnings
 
-For EACH requirement, provide:
-- title: short name of the requirement
-- description: detailed explanation of what's needed
-- category: one of "health_certificate", "vaccination", "treatment", "documentation", "airline", "government_form", "entry_document", "other"
-- deadline_days_before: how many days before departure this must be done (null if no deadline)
-- window_start_days: if there's a window (like screwworm treatment), first day before departure it can be done
-- window_end_days: last day before departure it must be done
-- requires_document: true if they need to upload a document
-- source_url: the official government or airline URL where this requirement is documented
-- source_name: name of the source (e.g. "USDA APHIS", "CDC", "Delta Airlines")
-- notes: any important caveats or warnings
+Example: [{"title":"Health Certificate","description":"Must be issued by accredited vet within 10 days","category":"health_certificate","deadline_days_before":null,"window_start_days":10,"window_end_days":1,"requires_document":true,"source_url":"https://www.aphis.usda.gov","source_name":"USDA APHIS","notes":null}]
 
-CRITICAL: Return ONLY a raw JSON array. No markdown. No backticks. No explanation text before or after. Start your response with [ and end with ]. Nothing else.
+Return ONLY the JSON array starting with [`;
 
-Example:
-[{"title":"Health Certificate","description":"USDA-accredited vet must issue a health certificate within 10 days of travel","category":"health_certificate","deadline_days_before":null,"window_start_days":10,"window_end_days":1,"requires_document":true,"source_url":"https://www.aphis.usda.gov","source_name":"USDA APHIS","notes":"Must be issued by USDA-accredited veterinarian"}]`;
+  const supabaseUrl = "https://pqqfwgwbwofzfpzzuilq.supabase.co/functions/v1/Ai-travel";
+  const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBxcWZ3Z3did29memZwenp1aWxxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2MjExNzUsImV4cCI6MjA5NTE5NzE3NX0.H7c5QcAJl4_TEkFIHLU0eIdkqRLSSQbR-Z-k08T4HhM";
 
-  const response = await fetch("https://pqqfwgwbwofzfpzzuilq.supabase.co/functions/v1/Ai-travel", {
+  const response = await fetch(supabaseUrl, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBxcWZ3Z3did29memZwenp1aWxxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2MjExNzUsImV4cCI6MjA5NTE5NzE3NX0.H7c5QcAJl4_TEkFIHLU0eIdkqRLSSQbR-Z-k08T4HhM",
+      "apikey": supabaseKey,
+      "Authorization": `Bearer ${supabaseKey}`,
     },
     body: JSON.stringify({
       messages: [{ role: "user", content: prompt }]
     })
   });
 
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`Function error ${response.status}: ${errText}`);
+  }
+
   const data = await response.json();
+  
   if (data.error) throw new Error(data.error);
 
   const text = data.choices?.[0]?.message?.content || "";
-  if (!text) throw new Error("Empty response from AI");
-  
-  // Strip markdown and find JSON array
-  const clean = text.replace(/```json|```/g, "").trim();
-  const start = clean.indexOf('[');
-  const end = clean.lastIndexOf(']') + 1;
-  
-  if (start === -1 || end === 0) {
-    // Try to find a JSON object instead
-    const objStart = clean.indexOf('{');
-    const objEnd = clean.lastIndexOf('}') + 1;
-    if (objStart !== -1 && objEnd > 0) {
-      const obj = JSON.parse(clean.slice(objStart, objEnd));
-      // If it has a checklist or items key, use that
-      if (obj.checklist) return obj.checklist;
-      if (obj.items) return obj.items;
-      if (obj.requirements) return obj.requirements;
-      return [obj]; // wrap single object in array
-    }
-    throw new Error("No valid checklist returned");
+  if (!text) throw new Error("OpenAI returned empty response - check API key and credits");
+
+  // Find JSON array
+  const start = text.indexOf('[');
+  const end = text.lastIndexOf(']') + 1;
+  if (start === -1 || end === 0) throw new Error(`No JSON array found in response. Got: ${text.slice(0, 200)}`);
+
+  try {
+    return JSON.parse(text.slice(start, end));
+  } catch (e) {
+    throw new Error(`JSON parse failed: ${e.message}. Content: ${text.slice(start, Math.min(start+200, end))}`);
   }
-  
-  return JSON.parse(clean.slice(start, end));
 };
 
 // ── TRIP FORM ────────────────────────────────────────────
