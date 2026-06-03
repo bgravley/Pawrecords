@@ -116,31 +116,17 @@ const inp = {
 // ── AI REQUIREMENTS ENGINE ───────────────────────────────
 const generateChecklist = async (trip, pets, workerUrl) => {
   const petList = pets.map(p =>
-    `${p.name} (${p.breed || 'mixed'}, ${p.gender || 'unknown'}${p.neutered ? ', neutered/spayed' : ''}${p.is_service_animal ? ', SERVICE ANIMAL' : ''}${p.is_esa ? ', EMOTIONAL SUPPORT ANIMAL' : ''})`
+    `${p.name} (${p.breed || 'mixed'}${p.is_service_animal ? ', SERVICE ANIMAL' : ''}${p.is_esa ? ', ESA' : ''})`
   ).join('; ');
 
-  const prompt = `You are an expert in international and domestic pet travel regulations. Research current requirements for traveling with pets on this route and return ONLY a JSON array. Start with [ and end with ]. No markdown, no backticks, no explanation text before or after.
+  const prompt = `List pet travel requirements for: ${trip.origin_city}, ${trip.origin_country} to ${trip.destination_city}, ${trip.destination_country}. Departure: ${trip.departure_date}. Airline: ${trip.airline || 'unspecified'}. Pets: ${petList}.
 
-TRIP: ${trip.origin_city}, ${trip.origin_country} to ${trip.destination_city}, ${trip.destination_country}
-DEPARTURE: ${trip.departure_date}
-AIRLINE: ${trip.airline || 'not specified'}
-PETS: ${petList}
+Return ONLY a JSON array, no other text, no markdown, no backticks. Each item must have these exact fields:
+{"title":"","description":"","category":"","deadline_days_before":null,"window_start_days":null,"window_end_days":null,"requires_document":true,"source_url":"","source_name":"","notes":null}
 
-Return a JSON array where each item has these exact fields:
-- title (string): short name
-- description (string): what needs to be done
-- category (string): one of health_certificate, vaccination, treatment, documentation, airline, government_form, entry_document, other
-- deadline_days_before (number or null): days before departure this must be done
-- window_start_days (number or null): for time-window requirements, first day before departure it can be done
-- window_end_days (number or null): for time-window requirements, last day before departure it must be done
-- requires_document (boolean): true if they need to upload proof
-- source_url (string): official URL
-- source_name (string): name of source e.g. USDA APHIS, CDC, airline name
-- notes (string or null): important warnings
+Valid categories: health_certificate, vaccination, treatment, documentation, airline, government_form, entry_document, other.
 
-Example: [{"title":"Health Certificate","description":"Must be issued by accredited vet within 10 days","category":"health_certificate","deadline_days_before":null,"window_start_days":10,"window_end_days":1,"requires_document":true,"source_url":"https://www.aphis.usda.gov","source_name":"USDA APHIS","notes":null}]
-
-Return ONLY the JSON array starting with [`;
+Start your response with [ and end with ]`;
 
   const supabaseUrl = "https://pqqfwgwbwofzfpzzuilq.supabase.co/functions/v1/Ai-travel";
   const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBxcWZ3Z3did29memZwenp1aWxxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2MjExNzUsImV4cCI6MjA5NTE5NzE3NX0.H7c5QcAJl4_TEkFIHLU0eIdkqRLSSQbR-Z-k08T4HhM";
@@ -163,21 +149,19 @@ Return ONLY the JSON array starting with [`;
   }
 
   const data = await response.json();
-  
   if (data.error) throw new Error(data.error);
 
   const text = data.choices?.[0]?.message?.content || "";
-  if (!text) throw new Error("OpenAI returned empty response - check API key and credits");
+  if (!text) throw new Error("Empty response from AI — check OpenAI API key and credits");
 
-  // Find JSON array
   const start = text.indexOf('[');
   const end = text.lastIndexOf(']') + 1;
-  if (start === -1 || end === 0) throw new Error(`No JSON array found in response. Got: ${text.slice(0, 200)}`);
+  if (start === -1 || end === 0) throw new Error(`No JSON array found. Response: ${text.slice(0, 200)}`);
 
   try {
     return JSON.parse(text.slice(start, end));
   } catch (e) {
-    throw new Error(`JSON parse failed: ${e.message}. Content: ${text.slice(start, Math.min(start+200, end))}`);
+    throw new Error(`JSON parse failed: ${e.message}`);
   }
 };
 
@@ -350,7 +334,6 @@ const ChecklistItem = ({ item, onToggle, onUpload, onDelete }) => {
             <p style={{ fontSize: 13, color: C.sub, lineHeight: 1.5, marginBottom: 8 }}>{item.description}</p>
           )}
 
-          {/* Timeline info */}
           {(item.deadline_date || item.window_start_days || item.window_end_days) && (
             <div style={{ background: C.bg, borderRadius: 8, padding: "8px 12px", fontSize: 12, color: C.sub, marginBottom: 8 }}>
               {item.window_start_days && item.window_end_days
@@ -361,7 +344,6 @@ const ChecklistItem = ({ item, onToggle, onUpload, onDelete }) => {
             </div>
           )}
 
-          {/* Source */}
           {item.source_url && (
             <div style={{ fontSize: 12, color: C.muted, marginBottom: 8 }}>
               <span>📋 Source: </span>
@@ -375,7 +357,6 @@ const ChecklistItem = ({ item, onToggle, onUpload, onDelete }) => {
             </div>
           )}
 
-          {/* Document upload */}
           {item.requires_document && !item.is_completed && (
             <div>
               <input ref={fr} type="file" accept="image/*,.pdf" style={{ display: "none" }}
@@ -561,7 +542,6 @@ ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.i
 
       <div style={{ maxWidth: 680, margin: "0 auto", padding: "20px 16px" }}>
 
-        {/* Progress */}
         {checklist.length > 0 && (
           <Card style={{ marginBottom: 16 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
@@ -581,7 +561,6 @@ ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.i
           </Card>
         )}
 
-        {/* Pets on this trip */}
         {tripPets.length > 0 && (
           <Card style={{ marginBottom: 16 }}>
             <div style={{ fontWeight: 800, fontSize: 12, color: C.sub, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 10 }}>🐾 Traveling Pets</div>
@@ -619,7 +598,7 @@ ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.i
 
           {genError && (
             <div style={{ background: C.dangerDim, border: `1px solid ${C.danger}44`, borderRadius: 12, padding: 14, marginBottom: 12, fontSize: 13, color: C.danger }}>
-              {genError}. Try again or add requirements manually.
+              ⚠ {genError}. Try again or add requirements manually.
             </div>
           )}
 
@@ -627,7 +606,7 @@ ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.i
             <Card style={{ textAlign: "center", padding: 32 }}>
               <div style={{ fontSize: 36, marginBottom: 12 }}>🔍</div>
               <div style={{ fontFamily: "'Lora', serif", fontSize: 18, marginBottom: 6 }}>Researching Requirements...</div>
-              <div style={{ color: C.muted, fontSize: 14 }}>AI is checking official sources for {trip.origin_city} → {trip.destination_city}</div>
+              <div style={{ color: C.muted, fontSize: 14 }}>AI is checking requirements for {trip.origin_city} → {trip.destination_city}</div>
             </Card>
           )}
 
@@ -676,7 +655,6 @@ ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.i
             ))}
         </div>
 
-        {/* Export */}
         {(checklist.length > 0 || documents.length > 0) && (
           <Btn full onClick={exportAllDocs} style={{ background: C.accentDark, color: "#fff", justifyContent: "center" }}>
             📥 Export All Travel Documents
@@ -684,7 +662,6 @@ ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.i
         )}
       </div>
 
-      {/* Add manual item modal */}
       {showAddItem && (
         <Modal title="Add Requirement" onClose={() => setShowAddItem(false)}>
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -705,7 +682,6 @@ ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.i
         </Modal>
       )}
 
-      {/* Upload entry doc modal */}
       {showUploadEntry && (
         <Modal title="Upload Entry Document" onClose={() => setShowUploadEntry(false)}>
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -765,7 +741,6 @@ export default function TravelModule({ userId, dogs, workerUrl }) {
   const past = trips.filter(t => new Date(t.departure_date) < now || t.status === 'completed');
   const displayed = filter === "upcoming" ? upcoming : past;
 
-  // In-app alerts
   const alerts = trips.filter(t => {
     if (t.status === 'completed' || t.status === 'cancelled') return false;
     const days = daysUntil(t.departure_date);
@@ -774,7 +749,6 @@ export default function TravelModule({ userId, dogs, workerUrl }) {
 
   return (
     <div style={{ minHeight: "100vh", background: C.bg }}>
-      {/* Header */}
       <div style={{ background: C.accentDark, padding: "20px 16px" }}>
         <div style={{ maxWidth: 680, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div>
@@ -793,7 +767,6 @@ export default function TravelModule({ userId, dogs, workerUrl }) {
 
       <div style={{ maxWidth: 680, margin: "0 auto", padding: "20px 16px" }}>
 
-        {/* Alerts */}
         {alerts.length > 0 && (
           <div style={{ background: C.warnDim, border: `1px solid ${C.warn}44`, borderRadius: 14, padding: 16, marginBottom: 16 }}>
             <div style={{ fontWeight: 700, color: C.warn, marginBottom: 8 }}>⚠ Upcoming Trip Alerts</div>
@@ -809,7 +782,6 @@ export default function TravelModule({ userId, dogs, workerUrl }) {
           </div>
         )}
 
-        {/* Filter tabs */}
         <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
           {["upcoming", "past"].map(f => (
             <button key={f} onClick={() => setFilter(f)} style={{
