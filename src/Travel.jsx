@@ -13,7 +13,6 @@ const C = {
   shadow:"0 2px 12px rgba(44,32,23,0.08)",
 };
 
-// ── UTILS ────────────────────────────────────────────────
 const uid = () => Math.random().toString(36).slice(2, 9);
 const today = () => new Date().toISOString().slice(0, 10);
 const fmt = d => {
@@ -37,7 +36,6 @@ const tripStatus = (trip) => {
   return { color: C.accent, label: `${days}d away` };
 };
 
-// ── BASE UI ──────────────────────────────────────────────
 const Btn = ({ children, onClick, v = "primary", sm, full, style: s, disabled }) => {
   const V = {
     primary: { background: C.accent, color: "#fff" },
@@ -113,8 +111,11 @@ const inp = {
   fontFamily: "'Nunito', sans-serif",
 };
 
-// ── AI REQUIREMENTS ENGINE ───────────────────────────────
-const generateChecklist = async (trip, pets, workerUrl) => {
+// ── AI REQUIREMENTS ENGINE — calls OpenAI directly ───────
+const generateChecklist = async (trip, pets) => {
+  const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+  if (!apiKey) throw new Error("OpenAI API key not configured in Vercel environment variables");
+
   const petList = pets.map(p =>
     `${p.name} (${p.breed || 'mixed'}${p.is_service_animal ? ', SERVICE ANIMAL' : ''}${p.is_esa ? ', ESA' : ''})`
   ).join('; ');
@@ -128,35 +129,32 @@ Valid categories: health_certificate, vaccination, treatment, documentation, air
 
 Start your response with [ and end with ]`;
 
-  const supabaseUrl = "https://pqqfwgwbwofzfpzzuilq.supabase.co/functions/v1/Ai-travel";
-  const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBxcWZ3Z3did29memZwenp1aWxxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2MjExNzUsImV4cCI6MjA5NTE5NzE3NX0.H7c5QcAJl4_TEkFIHLU0eIdkqRLSSQbR-Z-k08T4HhM";
-
-  const response = await fetch(supabaseUrl, {
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "apikey": supabaseKey,
-      "Authorization": `Bearer ${supabaseKey}`,
+      "Authorization": `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      messages: [{ role: "user", content: prompt }]
-    })
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: prompt }],
+      max_tokens: 1500,
+      temperature: 0.1,
+    }),
   });
 
   if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`Function error ${response.status}: ${errText}`);
+    const err = await response.text();
+    throw new Error(`OpenAI error ${response.status}: ${err}`);
   }
 
   const data = await response.json();
-  if (data.error) throw new Error(data.error);
-
   const text = data.choices?.[0]?.message?.content || "";
-  if (!text) throw new Error("Empty response from AI — check OpenAI API key and credits");
+  if (!text) throw new Error("Empty response from OpenAI");
 
   const start = text.indexOf('[');
   const end = text.lastIndexOf(']') + 1;
-  if (start === -1 || end === 0) throw new Error(`No JSON array found. Response: ${text.slice(0, 200)}`);
+  if (start === -1 || end === 0) throw new Error(`No JSON array found. Got: ${text.slice(0, 200)}`);
 
   try {
     return JSON.parse(text.slice(start, end));
@@ -290,25 +288,14 @@ const ChecklistItem = ({ item, onToggle, onUpload, onDelete }) => {
   const isUrgent = days !== null && days <= 7 && days >= 0 && !item.is_completed;
 
   const categoryColors = {
-    health_certificate: C.accent,
-    vaccination: "#4CAF50",
-    treatment: C.warn,
-    documentation: C.sub,
-    airline: "#2D7D6F",
-    government_form: C.danger,
-    entry_document: C.warn,
-    other: C.muted,
+    health_certificate: C.accent, vaccination: "#4CAF50", treatment: C.warn,
+    documentation: C.sub, airline: "#2D7D6F", government_form: C.danger,
+    entry_document: C.warn, other: C.muted,
   };
-
   const categoryLabels = {
-    health_certificate: "Health Certificate",
-    vaccination: "Vaccination",
-    treatment: "Treatment",
-    documentation: "Documentation",
-    airline: "Airline",
-    government_form: "Government Form",
-    entry_document: "Entry Document",
-    other: "Other",
+    health_certificate: "Health Certificate", vaccination: "Vaccination", treatment: "Treatment",
+    documentation: "Documentation", airline: "Airline", government_form: "Government Form",
+    entry_document: "Entry Document", other: "Other",
   };
 
   return (
@@ -329,62 +316,37 @@ const ChecklistItem = ({ item, onToggle, onUpload, onDelete }) => {
             {isOverdue && <Badge label="OVERDUE" color={C.danger} />}
             {isUrgent && !isOverdue && <Badge label={`${days}d left`} color={C.warn} />}
           </div>
-
-          {item.description && (
-            <p style={{ fontSize: 13, color: C.sub, lineHeight: 1.5, marginBottom: 8 }}>{item.description}</p>
-          )}
-
+          {item.description && <p style={{ fontSize: 13, color: C.sub, lineHeight: 1.5, marginBottom: 8 }}>{item.description}</p>}
           {(item.deadline_date || item.window_start_days || item.window_end_days) && (
             <div style={{ background: C.bg, borderRadius: 8, padding: "8px 12px", fontSize: 12, color: C.sub, marginBottom: 8 }}>
               {item.window_start_days && item.window_end_days
                 ? `⏱ Window: ${item.window_start_days} to ${item.window_end_days} days before departure`
-                : item.deadline_date
-                  ? `📅 Deadline: ${fmt(item.deadline_date)}`
-                  : null}
+                : item.deadline_date ? `📅 Deadline: ${fmt(item.deadline_date)}` : null}
             </div>
           )}
-
           {item.source_url && (
             <div style={{ fontSize: 12, color: C.muted, marginBottom: 8 }}>
-              <span>📋 Source: </span>
-              <a href={item.source_url} target="_blank" rel="noopener noreferrer"
-                style={{ color: C.accent, textDecoration: "none" }}>
-                {item.source_name || item.source_url}
-              </a>
-              {item.researched_at && (
-                <span style={{ color: C.muted }}> · Checked {new Date(item.researched_at).toLocaleDateString()}</span>
-              )}
+              📋 Source: <a href={item.source_url} target="_blank" rel="noopener noreferrer" style={{ color: C.accent, textDecoration: "none" }}>{item.source_name || item.source_url}</a>
+              {item.researched_at && <span> · Checked {new Date(item.researched_at).toLocaleDateString()}</span>}
             </div>
           )}
-
           {item.requires_document && !item.is_completed && (
             <div>
-              <input ref={fr} type="file" accept="image/*,.pdf" style={{ display: "none" }}
-                onChange={e => onUpload(item, e.target.files[0])} />
-              <Btn sm v="secondary" onClick={() => fr.current.click()}>
-                📎 Upload Document
-              </Btn>
+              <input ref={fr} type="file" accept="image/*,.pdf" style={{ display: "none" }} onChange={e => onUpload(item, e.target.files[0])} />
+              <Btn sm v="secondary" onClick={() => fr.current.click()}>📎 Upload Document</Btn>
             </div>
           )}
-
-          {item.notes && (
-            <div style={{ fontSize: 12, color: C.warn, marginTop: 6, fontWeight: 600 }}>
-              ⚠ {item.notes}
-            </div>
-          )}
+          {item.notes && <div style={{ fontSize: 12, color: C.warn, marginTop: 6, fontWeight: 600 }}>⚠ {item.notes}</div>}
         </div>
-
         <button onClick={() => onDelete(item.id)}
-          style={{ background: C.dangerDim, border: `1px solid ${C.danger}44`, borderRadius: 8, padding: "5px 8px", color: C.danger, cursor: "pointer", flexShrink: 0 }}>
-          🗑
-        </button>
+          style={{ background: C.dangerDim, border: `1px solid ${C.danger}44`, borderRadius: 8, padding: "5px 8px", color: C.danger, cursor: "pointer", flexShrink: 0 }}>🗑</button>
       </div>
     </div>
   );
 };
 
 // ── TRIP DETAIL ──────────────────────────────────────────
-const TripDetail = ({ trip, userId, dogs, workerUrl, onBack, onUpdate }) => {
+const TripDetail = ({ trip, userId, dogs, onBack, onUpdate }) => {
   const [checklist, setChecklist] = useState([]);
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -416,7 +378,7 @@ const TripDetail = ({ trip, userId, dogs, workerUrl, onBack, onUpdate }) => {
   const generateRequirements = async () => {
     setGenerating(true); setGenError(null);
     try {
-      const items = await generateChecklist(trip, tripPets, workerUrl);
+      const items = await generateChecklist(trip, tripPets);
       const now = new Date().toISOString();
       const toInsert = items.map((item, i) => ({
         trip_id: trip.id, user_id: userId,
@@ -458,10 +420,7 @@ const TripDetail = ({ trip, userId, dogs, workerUrl, onBack, onUpdate }) => {
       name: `${item.title} — ${file.name}`, doc_date: today(),
       file_path: path, is_entry_document: false,
     }).select().single();
-    if (data) {
-      setDocuments(prev => [...prev, data]);
-      await toggleItem(item);
-    }
+    if (data) { setDocuments(prev => [...prev, data]); await toggleItem(item); }
   };
 
   const deleteItem = async (id) => {
@@ -472,8 +431,7 @@ const TripDetail = ({ trip, userId, dogs, workerUrl, onBack, onUpdate }) => {
   const addManualItem = async () => {
     if (!newItem.title) return;
     const { data } = await supabase.from('trip_checklist_items').insert({
-      trip_id: trip.id, user_id: userId, ...newItem,
-      sort_order: checklist.length,
+      trip_id: trip.id, user_id: userId, ...newItem, sort_order: checklist.length,
     }).select().single();
     if (data) { setChecklist(prev => [...prev, data]); setShowAddItem(false); setNewItem({ title: "", description: "", category: "other", deadline_date: "", notes: "" }); }
   };
@@ -524,39 +482,26 @@ ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.i
 
   return (
     <div style={{ minHeight: "100vh", background: C.bg, paddingBottom: 40 }}>
-      {/* Header */}
       <div style={{ background: C.accentDark, padding: "16px 20px", position: "sticky", top: 0, zIndex: 100 }}>
         <div style={{ maxWidth: 680, margin: "0 auto", display: "flex", alignItems: "center", gap: 12 }}>
           <button onClick={onBack} style={{ background: "rgba(255,255,255,0.2)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 10, padding: "8px 12px", color: "#fff", cursor: "pointer", fontSize: 16 }}>←</button>
           <div style={{ flex: 1 }}>
-            <div style={{ fontFamily: "'Lora', serif", fontSize: 20, color: "#fff", fontWeight: 600 }}>
-              {trip.origin_city} → {trip.destination_city}
-            </div>
-            <div style={{ color: "#F5C45E", fontSize: 13, marginTop: 2 }}>
-              {fmt(trip.departure_date)}{trip.return_date ? ` · Return ${fmt(trip.return_date)}` : ""}
-            </div>
+            <div style={{ fontFamily: "'Lora', serif", fontSize: 20, color: "#fff", fontWeight: 600 }}>{trip.origin_city} → {trip.destination_city}</div>
+            <div style={{ color: "#F5C45E", fontSize: 13, marginTop: 2 }}>{fmt(trip.departure_date)}{trip.return_date ? ` · Return ${fmt(trip.return_date)}` : ""}</div>
           </div>
           <Badge label={st.label} color={st.color} />
         </div>
       </div>
 
       <div style={{ maxWidth: 680, margin: "0 auto", padding: "20px 16px" }}>
-
         {checklist.length > 0 && (
           <Card style={{ marginBottom: 16 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
               <span style={{ fontWeight: 700 }}>Checklist Progress</span>
-              <span style={{ fontWeight: 800, color: completed === checklist.length ? "#4CAF50" : C.accent }}>
-                {completed}/{checklist.length} complete
-              </span>
+              <span style={{ fontWeight: 800, color: completed === checklist.length ? "#4CAF50" : C.accent }}>{completed}/{checklist.length} complete</span>
             </div>
             <div style={{ background: C.border, borderRadius: 20, height: 8, overflow: "hidden" }}>
-              <div style={{
-                background: completed === checklist.length ? "#4CAF50" : C.accent,
-                height: "100%", borderRadius: 20,
-                width: `${checklist.length > 0 ? (completed / checklist.length) * 100 : 0}%`,
-                transition: "width .3s"
-              }} />
+              <div style={{ background: completed === checklist.length ? "#4CAF50" : C.accent, height: "100%", borderRadius: 20, width: `${checklist.length > 0 ? (completed / checklist.length) * 100 : 0}%`, transition: "width .3s" }} />
             </div>
           </Card>
         )}
@@ -576,15 +521,13 @@ ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.i
           </Card>
         )}
 
-        {/* AI Requirements */}
         <div style={{ marginBottom: 16 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
             <h3 style={{ fontFamily: "'Lora', serif", fontSize: 20, color: C.text }}>Requirements Checklist</h3>
             <div style={{ display: "flex", gap: 8 }}>
               <Btn sm v="secondary" onClick={() => setShowAddItem(true)}>+ Add</Btn>
               {checklist.length === 0 && (
-                <Btn sm onClick={generateRequirements} disabled={generating}
-                  style={{ background: C.warn, color: "#2C2017" }}>
+                <Btn sm onClick={generateRequirements} disabled={generating} style={{ background: C.warn, color: "#2C2017" }}>
                   {generating ? "Researching..." : "🤖 AI Generate"}
                 </Btn>
               )}
@@ -615,9 +558,7 @@ ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.i
               <div style={{ fontSize: 36, marginBottom: 12 }}>🛂</div>
               <div style={{ fontFamily: "'Lora', serif", fontSize: 18, marginBottom: 6 }}>No requirements yet</div>
               <div style={{ color: C.muted, fontSize: 14, marginBottom: 20 }}>Let AI research the requirements for this route, or add them manually</div>
-              <Btn onClick={generateRequirements} style={{ margin: "0 auto", background: C.warn, color: "#2C2017" }}>
-                🤖 Generate Requirements with AI
-              </Btn>
+              <Btn onClick={generateRequirements} style={{ margin: "0 auto", background: C.warn, color: "#2C2017" }}>🤖 Generate Requirements with AI</Btn>
             </Card>
           )}
 
@@ -626,39 +567,30 @@ ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.i
           ))}
         </div>
 
-        {/* Documents */}
         <div style={{ marginBottom: 16 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
             <h3 style={{ fontFamily: "'Lora', serif", fontSize: 20, color: C.text }}>Documents</h3>
             <Btn sm v="secondary" onClick={() => setShowUploadEntry(true)}>📎 Upload Entry Doc</Btn>
           </div>
           {documents.length === 0
-            ? <Card style={{ textAlign: "center", padding: 24, borderStyle: "dashed", color: C.muted }}>
-              No documents uploaded yet. Upload checklist docs above or entry documents here.
-            </Card>
+            ? <Card style={{ textAlign: "center", padding: 24, borderStyle: "dashed", color: C.muted }}>No documents uploaded yet.</Card>
             : documents.map(d => (
               <Card key={d.id} style={{ marginBottom: 8 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div>
                     <div style={{ fontWeight: 600 }}>{d.name}</div>
-                    <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
-                      {fmt(d.doc_date)} · {d.is_entry_document ? "📋 Entry Document" : "📄 Travel Document"}
-                    </div>
+                    <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{fmt(d.doc_date)} · {d.is_entry_document ? "📋 Entry Document" : "📄 Travel Document"}</div>
                     {d.notes && <div style={{ fontSize: 12, color: C.sub, marginTop: 2 }}>{d.notes}</div>}
                   </div>
-                  <button onClick={async () => {
-                    await supabase.from('trip_documents').delete().eq('id', d.id);
-                    setDocuments(prev => prev.filter(x => x.id !== d.id));
-                  }} style={{ background: C.dangerDim, border: `1px solid ${C.danger}44`, borderRadius: 8, padding: "5px 8px", color: C.danger, cursor: "pointer" }}>🗑</button>
+                  <button onClick={async () => { await supabase.from('trip_documents').delete().eq('id', d.id); setDocuments(prev => prev.filter(x => x.id !== d.id)); }}
+                    style={{ background: C.dangerDim, border: `1px solid ${C.danger}44`, borderRadius: 8, padding: "5px 8px", color: C.danger, cursor: "pointer" }}>🗑</button>
                 </div>
               </Card>
             ))}
         </div>
 
         {(checklist.length > 0 || documents.length > 0) && (
-          <Btn full onClick={exportAllDocs} style={{ background: C.accentDark, color: "#fff", justifyContent: "center" }}>
-            📥 Export All Travel Documents
-          </Btn>
+          <Btn full onClick={exportAllDocs} style={{ background: C.accentDark, color: "#fff", justifyContent: "center" }}>📥 Export All Travel Documents</Btn>
         )}
       </div>
 
@@ -688,13 +620,9 @@ ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.i
             <p style={{ color: C.sub, fontSize: 14 }}>Upload forms received on arrival — entry permits, import receipts, border stamps, etc.</p>
             <Field label="Document Name"><input style={inp} value={entryDoc.name} onChange={e => setEntryDoc(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Panama Import Receipt" /></Field>
             <Field label="Notes"><input style={inp} value={entryDoc.notes} onChange={e => setEntryDoc(p => ({ ...p, notes: e.target.value }))} /></Field>
-            <input ref={fr} type="file" accept="image/*,.pdf" style={{ display: "none" }}
-              onChange={e => setEntryDoc(p => ({ ...p, file: e.target.files[0] }))} />
-            <div style={{ border: `2px dashed ${C.border}`, borderRadius: 12, padding: 20, textAlign: "center", cursor: "pointer" }}
-              onClick={() => fr.current.click()}>
-              {entryDoc.file
-                ? <div style={{ color: C.accent }}>✓ {entryDoc.file.name}</div>
-                : <div style={{ color: C.muted }}>📷 Tap to upload photo or PDF</div>}
+            <input ref={fr} type="file" accept="image/*,.pdf" style={{ display: "none" }} onChange={e => setEntryDoc(p => ({ ...p, file: e.target.files[0] }))} />
+            <div style={{ border: `2px dashed ${C.border}`, borderRadius: 12, padding: 20, textAlign: "center", cursor: "pointer" }} onClick={() => fr.current.click()}>
+              {entryDoc.file ? <div style={{ color: C.accent }}>✓ {entryDoc.file.name}</div> : <div style={{ color: C.muted }}>📷 Tap to upload photo or PDF</div>}
             </div>
             <div style={{ display: "flex", gap: 10 }}>
               <Btn v="secondary" onClick={() => setShowUploadEntry(false)} full>Cancel</Btn>
@@ -708,7 +636,7 @@ ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.i
 };
 
 // ── TRAVEL DASHBOARD ─────────────────────────────────────
-export default function TravelModule({ userId, dogs, workerUrl }) {
+export default function TravelModule({ userId, dogs }) {
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showNew, setShowNew] = useState(false);
@@ -728,8 +656,7 @@ export default function TravelModule({ userId, dogs, workerUrl }) {
   if (selectedTrip) {
     const trip = trips.find(t => t.id === selectedTrip);
     if (trip) return (
-      <TripDetail
-        trip={trip} userId={userId} dogs={dogs} workerUrl={workerUrl}
+      <TripDetail trip={trip} userId={userId} dogs={dogs}
         onBack={() => setSelectedTrip(null)}
         onUpdate={updated => { setTrips(prev => prev.map(t => t.id === updated.id ? updated : t)); }}
       />
@@ -752,29 +679,21 @@ export default function TravelModule({ userId, dogs, workerUrl }) {
       <div style={{ background: C.accentDark, padding: "20px 16px" }}>
         <div style={{ maxWidth: 680, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div>
-            <div style={{ fontFamily: "'Lora', serif", fontSize: 26, color: "#fff", fontWeight: 600 }}>
-              🛂 Travel Planner
-            </div>
-            <div style={{ color: "#F5C45E", fontSize: 13, marginTop: 2, fontStyle: "italic" }}>
-              Your pet's passport to the world
-            </div>
+            <div style={{ fontFamily: "'Lora', serif", fontSize: 26, color: "#fff", fontWeight: 600 }}>🛂 Travel Planner</div>
+            <div style={{ color: "#F5C45E", fontSize: 13, marginTop: 2, fontStyle: "italic" }}>Your pet's passport to the world</div>
           </div>
-          <Btn onClick={() => setShowNew(true)} style={{ background: C.warn, color: "#2C2017" }}>
-            + New Trip
-          </Btn>
+          <Btn onClick={() => setShowNew(true)} style={{ background: C.warn, color: "#2C2017" }}>+ New Trip</Btn>
         </div>
       </div>
 
       <div style={{ maxWidth: 680, margin: "0 auto", padding: "20px 16px" }}>
-
         {alerts.length > 0 && (
           <div style={{ background: C.warnDim, border: `1px solid ${C.warn}44`, borderRadius: 14, padding: 16, marginBottom: 16 }}>
             <div style={{ fontWeight: 700, color: C.warn, marginBottom: 8 }}>⚠ Upcoming Trip Alerts</div>
             {alerts.map(t => {
               const days = daysUntil(t.departure_date);
               return (
-                <div key={t.id} style={{ fontSize: 14, color: C.text, cursor: "pointer", padding: "4px 0" }}
-                  onClick={() => setSelectedTrip(t.id)}>
+                <div key={t.id} style={{ fontSize: 14, color: C.text, cursor: "pointer", padding: "4px 0" }} onClick={() => setSelectedTrip(t.id)}>
                   <b>{t.origin_city} → {t.destination_city}</b> — {days === 0 ? "Today!" : `${days} days away`} →
                 </div>
               );
@@ -787,8 +706,7 @@ export default function TravelModule({ userId, dogs, workerUrl }) {
             <button key={f} onClick={() => setFilter(f)} style={{
               background: filter === f ? C.accent : C.card, color: filter === f ? "#fff" : C.sub,
               border: `1px solid ${filter === f ? C.accent : C.border}`, borderRadius: 20,
-              padding: "7px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer",
-              fontFamily: "'Nunito', sans-serif"
+              padding: "7px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Nunito', sans-serif"
             }}>
               {f === "upcoming" ? `Upcoming (${upcoming.length})` : `Past (${past.length})`}
             </button>
@@ -807,9 +725,7 @@ export default function TravelModule({ userId, dogs, workerUrl }) {
               {filter === "upcoming" ? "Plan your next adventure with your pet" : "Your completed trips will appear here"}
             </div>
             {filter === "upcoming" && (
-              <Btn onClick={() => setShowNew(true)} style={{ margin: "0 auto", background: C.warn, color: "#2C2017" }}>
-                + Plan First Trip
-              </Btn>
+              <Btn onClick={() => setShowNew(true)} style={{ margin: "0 auto", background: C.warn, color: "#2C2017" }}>+ Plan First Trip</Btn>
             )}
           </div>
         )}
@@ -821,21 +737,14 @@ export default function TravelModule({ userId, dogs, workerUrl }) {
             <Card key={trip.id} onClick={() => setSelectedTrip(trip.id)} style={{ marginBottom: 12 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontFamily: "'Lora', serif", fontSize: 18, fontWeight: 600, marginBottom: 2 }}>
-                    {trip.origin_city} → {trip.destination_city}
-                  </div>
+                  <div style={{ fontFamily: "'Lora', serif", fontSize: 18, fontWeight: 600, marginBottom: 2 }}>{trip.origin_city} → {trip.destination_city}</div>
                   {trip.name && trip.name !== `${trip.origin_city} → ${trip.destination_city}` && (
                     <div style={{ fontSize: 13, color: C.muted, marginBottom: 4 }}>{trip.name}</div>
                   )}
                   <div style={{ fontSize: 13, color: C.sub }}>
-                    {fmt(trip.departure_date)}{trip.return_date ? ` → ${fmt(trip.return_date)}` : ""}
-                    {trip.airline ? ` · ${trip.airline}` : ""}
+                    {fmt(trip.departure_date)}{trip.return_date ? ` → ${fmt(trip.return_date)}` : ""}{trip.airline ? ` · ${trip.airline}` : ""}
                   </div>
-                  {tripPets.length > 0 && (
-                    <div style={{ fontSize: 13, color: C.muted, marginTop: 4 }}>
-                      🐾 {tripPets.map(p => p.name).join(", ")}
-                    </div>
-                  )}
+                  {tripPets.length > 0 && <div style={{ fontSize: 13, color: C.muted, marginTop: 4 }}>🐾 {tripPets.map(p => p.name).join(", ")}</div>}
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
                   <Badge label={st.label} color={st.color} />
