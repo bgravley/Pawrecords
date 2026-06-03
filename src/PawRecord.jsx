@@ -1001,10 +1001,10 @@ const MoreTab=({dog,state,dispatch,userId,tier,onUpgrade})=>{
 };
 
 // ── REDUCER ───────────────────────────────────────────────
-const initState=()=>({dogs:[],vaccinations:[],medications:[],allergies:[],visits:[],weights:[],vets:[],documents:[]});
+const initState=()=>({dogs:[],vaccinations:[],medications:[],allergies:[],visits:[],weights:[],vets:[],documents:[],emergencyContacts:[]});
 const reducer=(s,a)=>{
   switch(a.t){
-    case"LOAD":return{...initState(),...a.s};
+    case"LOAD":return{...initState(),...a.s,emergencyContacts:a.s.emergencyContacts||[]};
     case"SET_DOGS":return{...s,dogs:a.d};
     case"ADD_DOG":return{...s,dogs:[...s.dogs,a.d]};
     case"UPD_DOG":return{...s,dogs:s.dogs.map(x=>x.id===a.d.id?a.d:x)};
@@ -1027,6 +1027,9 @@ const reducer=(s,a)=>{
     case"DEL_VET":return{...s,vets:s.vets.filter(x=>x.id!==a.id)};
     case"ADD_DOC":return{...s,documents:[...s.documents,a.doc]};
     case"DEL_DOC":return{...s,documents:s.documents.filter(x=>x.id!==a.id)};
+    case"ADD_EC":return{...s,emergencyContacts:[...s.emergencyContacts,a.ec]};
+    case"UPD_EC":return{...s,emergencyContacts:s.emergencyContacts.map(x=>x.id===a.ec.id?a.ec:x)};
+    case"DEL_EC":return{...s,emergencyContacts:s.emergencyContacts.filter(x=>x.id!==a.id)};
     default:return s;
   }
 };
@@ -1075,10 +1078,143 @@ const DogDetail=({dog,state,dispatch,userId,tier,onBack,onUpgrade,userEmail})=>{
 };
 
 // ── HOME ──────────────────────────────────────────────────
+
+// ── OWNER PROFILE MODAL ───────────────────────────────────
+const OwnerProfileModal=({userId,onClose})=>{
+  const[f,setF]=useState({fullName:"",phone:"",address:"",city:"",state:"",country:"",instagram:"",facebook:"",twitter:""});
+  const[contacts,setContacts]=useState([]);
+  const[loading,setLoading]=useState(true);
+  const[saving,setSaving]=useState(false);
+  const[addingContact,setAddingContact]=useState(false);
+  const[newContact,setNewContact]=useState({name:"",phone:"",relationship:"",email:"",notes:""});
+  const set=(k,v)=>setF(p=>({...p,[k]:v}));
+
+  useEffect(()=>{
+    const load=async()=>{
+      const{data:prof}=await supabase.from("profiles").select("*").eq("id",userId).single();
+      if(prof)setF({fullName:prof.full_name||"",phone:prof.phone||"",address:prof.address||"",
+        city:prof.city||"",state:prof.state||"",country:prof.country||"",
+        instagram:prof.instagram||"",facebook:prof.facebook||"",twitter:prof.twitter||""});
+      const{data:ec}=await supabase.from("emergency_contacts").select("*").eq("user_id",userId).order("sort_order");
+      setContacts(ec||[]);
+      setLoading(false);
+    };
+    load();
+  },[userId]);
+
+  const saveProfile=async()=>{
+    setSaving(true);
+    await supabase.from("profiles").update({
+      full_name:f.fullName,phone:f.phone,address:f.address,city:f.city,
+      state:f.state,country:f.country,instagram:f.instagram,facebook:f.facebook,twitter:f.twitter
+    }).eq("id",userId);
+    setSaving(false);
+  };
+
+  const addContact=async()=>{
+    if(!newContact.name||!newContact.phone)return;
+    const{data}=await supabase.from("emergency_contacts").insert({
+      user_id:userId,...newContact,sort_order:contacts.length
+    }).select().single();
+    if(data){setContacts(p=>[...p,data]);setNewContact({name:"",phone:"",relationship:"",email:"",notes:""});setAddingContact(false);}
+  };
+
+  const deleteContact=async(id)=>{
+    await supabase.from("emergency_contacts").delete().eq("id",id);
+    setContacts(p=>p.filter(x=>x.id!==id));
+  };
+
+  const inpS={background:"#FAF6F0",border:"1.5px solid #E8DDD0",borderRadius:10,
+    padding:"10px 14px",color:"#2C2017",fontSize:14,width:"100%",outline:"none",
+    fontFamily:"'Nunito',sans-serif"};
+
+  if(loading)return(<Modal title="My Profile" onClose={onClose}><div style={{textAlign:"center",padding:40,color:"#8B7355"}}>Loading...</div></Modal>);
+
+  return(<Modal title="My Profile" onClose={onClose} wide>
+    <div style={{display:"flex",flexDirection:"column",gap:20}}>
+
+      {/* Owner Info */}
+      <div>
+        <div style={{fontWeight:800,fontSize:12,color:"#5A4535",textTransform:"uppercase",letterSpacing:".08em",marginBottom:12}}>👤 Your Information</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <Field label="Full Name" col="1/-1"><input style={inpS} value={f.fullName} onChange={e=>set("fullName",e.target.value)} placeholder="Jane Smith"/></Field>
+          <Field label="Phone"><input style={inpS} value={f.phone} onChange={e=>set("phone",e.target.value)} placeholder="+1 555-0100"/></Field>
+          <Field label="Country"><input style={inpS} value={f.country} onChange={e=>set("country",e.target.value)} placeholder="United States"/></Field>
+          <Field label="City"><input style={inpS} value={f.city} onChange={e=>set("city",e.target.value)} placeholder="Miami"/></Field>
+          <Field label="State/Province"><input style={inpS} value={f.state} onChange={e=>set("state",e.target.value)} placeholder="Florida"/></Field>
+          <Field label="Address" col="1/-1"><input style={inpS} value={f.address} onChange={e=>set("address",e.target.value)} placeholder="123 Main St"/></Field>
+        </div>
+      </div>
+
+      {/* Social Media */}
+      <div>
+        <div style={{fontWeight:800,fontSize:12,color:"#5A4535",textTransform:"uppercase",letterSpacing:".08em",marginBottom:12}}>📱 Social Media</div>
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <span style={{fontSize:20,width:28}}>📸</span>
+            <input style={inpS} value={f.instagram} onChange={e=>set("instagram",e.target.value)} placeholder="Instagram handle (@yourhandle)"/>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <span style={{fontSize:20,width:28}}>👤</span>
+            <input style={inpS} value={f.facebook} onChange={e=>set("facebook",e.target.value)} placeholder="Facebook profile URL"/>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <span style={{fontSize:20,width:28}}>🐦</span>
+            <input style={inpS} value={f.twitter} onChange={e=>set("twitter",e.target.value)} placeholder="X/Twitter handle (@yourhandle)"/>
+          </div>
+        </div>
+      </div>
+
+      <Btn onClick={saveProfile} disabled={saving} full>{saving?"Saving...":"Save Profile"}</Btn>
+
+      {/* Emergency Contacts */}
+      <div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+          <div style={{fontWeight:800,fontSize:12,color:"#5A4535",textTransform:"uppercase",letterSpacing:".08em"}}>🚨 Emergency Contacts</div>
+          <Btn sm onClick={()=>setAddingContact(true)}><Ic n="plus" s={13}/> Add</Btn>
+        </div>
+        <div style={{fontSize:13,color:"#8B7355",marginBottom:12}}>These appear on your pet's QR code and exported records.</div>
+
+        {contacts.length===0&&!addingContact&&(
+          <div style={{textAlign:"center",padding:"20px 0",color:"#8B7355",fontSize:14,border:"1.5px dashed #E8DDD0",borderRadius:12}}>
+            No emergency contacts yet. Add someone who can help in an emergency.
+          </div>
+        )}
+
+        {contacts.map(ec=>(<div key={ec.id} style={{background:"#FAF6F0",border:"1px solid #E8DDD0",borderRadius:12,padding:14,marginBottom:8}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+            <div>
+              <div style={{fontWeight:700,fontSize:15}}>{ec.name}</div>
+              <div style={{fontSize:13,color:"#5A4535"}}>{ec.relationship&&<span>{ec.relationship} · </span>}<a href={`tel:${ec.phone}`} style={{color:"#2D7D6F",textDecoration:"none"}}>{ec.phone}</a></div>
+              {ec.email&&<div style={{fontSize:12,color:"#8B7355"}}>{ec.email}</div>}
+            </div>
+            <button onClick={()=>deleteContact(ec.id)} style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:8,padding:"5px 8px",color:"#C4714A",cursor:"pointer"}}>🗑</button>
+          </div>
+        </div>))}
+
+        {addingContact&&(<div style={{background:"#FAF6F0",border:"1.5px solid #2D7D6F44",borderRadius:12,padding:16,marginTop:8}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+            <Field label="Name" col="1/-1"><input style={inpS} value={newContact.name} onChange={e=>setNewContact(p=>({...p,name:e.target.value}))} placeholder="Jane Doe"/></Field>
+            <Field label="Phone"><input style={inpS} value={newContact.phone} onChange={e=>setNewContact(p=>({...p,phone:e.target.value}))} placeholder="+1 555-0100"/></Field>
+            <Field label="Relationship"><input style={inpS} value={newContact.relationship} onChange={e=>setNewContact(p=>({...p,relationship:e.target.value}))} placeholder="Sister, Vet, Friend"/></Field>
+            <Field label="Email" col="1/-1"><input style={inpS} value={newContact.email} onChange={e=>setNewContact(p=>({...p,email:e.target.value}))} placeholder="jane@email.com"/></Field>
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <Btn v="secondary" sm onClick={()=>setAddingContact(false)} full>Cancel</Btn>
+            <Btn sm onClick={addContact} full>Save Contact</Btn>
+          </div>
+        </div>)}
+      </div>
+
+    </div>
+  </Modal>);
+};
+
 const Home=({state,dispatch,userId,tier,userEmail,onSignOut})=>{
   const[addDog,setAddDog]=useState(false);
   const[selDog,setSelDog]=useState(null);
   const[showUpgrade,setShowUpgrade]=useState(false);
+  const[showProfile,setShowProfile]=useState(false);
   const premium=isPremium(tier);
 
   if(selDog){
@@ -1103,6 +1239,9 @@ const Home=({state,dispatch,userId,tier,userEmail,onSignOut})=>{
           {totalAlerts>0&&<div style={{background:"#E8A83814",border:"1px solid #E8A83844",borderRadius:10,padding:"7px 12px",display:"flex",alignItems:"center",gap:5,color:"#E8A838",fontSize:13}}>
             <Ic n="alert" s={14} c="#E8A838"/>{totalAlerts}
           </div>}
+          <button onClick={()=>setShowProfile(true)} title="My Profile" style={{background:"#FFFFFF",border:"1px solid #E8DDD0",borderRadius:10,padding:"7px 10px",color:"#5A4535",cursor:"pointer"}}>
+            <Ic n="home" s={16} c="#5A4535"/>
+          </button>
           <button onClick={onSignOut} title="Sign out" style={{background:"#FFFFFF",border:"1px solid #E8DDD0",borderRadius:10,padding:"7px 10px",color:"#5A4535",cursor:"pointer"}}>
             <Ic n="logout" s={16} c="#5A4535"/>
           </button>
@@ -1159,6 +1298,7 @@ const Home=({state,dispatch,userId,tier,userEmail,onSignOut})=>{
     </div>
     {addDog&&<DogForm userId={userId} onSave={d=>{dispatch({t:"ADD_DOG",d});setAddDog(false);}} onClose={()=>setAddDog(false)}/>}
     {showUpgrade&&<UpgradeModal userId={userId} userEmail={userEmail} onClose={()=>setShowUpgrade(false)}/>}
+    {showProfile&&<OwnerProfileModal userId={userId} onClose={()=>setShowProfile(false)}/>}
   </div>);
 };
 
