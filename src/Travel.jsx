@@ -113,9 +113,6 @@ const inp = {
 
 // ── AI REQUIREMENTS ENGINE — calls OpenAI directly ───────
 const generateChecklist = async (trip, pets) => {
-  const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
-  if (!apiKey) throw new Error("OpenAI API key not configured in Vercel environment variables");
-
   const petList = pets.map(p =>
     `${p.name} (${p.breed || 'mixed'}${p.is_service_animal ? ', SERVICE ANIMAL' : ''}${p.is_esa ? ', ESA' : ''})`
   ).join('; ');
@@ -129,17 +126,13 @@ Valid categories: health_certificate, vaccination, treatment, documentation, air
 
 Start your response with [ and end with ]`;
 
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+  const response = await fetch("/api/ai-travel", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: "gpt-4o-mini",
       messages: [{ role: "user", content: prompt }],
-      max_tokens: 1500,
-      temperature: 0.1,
     }),
   });
 
