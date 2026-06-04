@@ -380,11 +380,10 @@ const TripDetail = ({ trip, userId, dogs, onBack, onUpdate }) => {
         deadline_date: item.deadline_days_before
           ? new Date(new Date(trip.departure_date).getTime() - item.deadline_days_before * 86400000).toISOString().slice(0, 10)
           : null,
-        window_start_days: item.window_start_days || null,
-        window_end_days: item.window_end_days || null,
+        deadline_window_start: item.window_start_days || null,
+        deadline_window_end: item.window_end_days || null,
         requires_document: item.requires_document || false,
         source_url: item.source_url || null,
-        source_name: item.source_name || null,
         researched_at: now,
         notes: item.notes || null,
         sort_order: i,
