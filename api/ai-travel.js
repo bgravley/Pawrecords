@@ -1,3 +1,35 @@
+// Log AI usage to Supabase
+async function logUsage({ userId, userEmail, feature, model, inputTokens, outputTokens, destination, success, error }) {
+  try {
+    const costPer1kInput = 0.00015;  // gpt-4o-mini input
+    const costPer1kOutput = 0.0006;  // gpt-4o-mini output
+    const estimatedCost = (inputTokens / 1000 * costPer1kInput) + (outputTokens / 1000 * costPer1kOutput);
+    await fetch(`${process.env.SUPABASE_URL}/rest/v1/ai_usage_log`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': process.env.SUPABASE_SERVICE_KEY,
+        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
+      },
+      body: JSON.stringify({
+        user_id: userId || null,
+        user_email: userEmail || null,
+        feature,
+        model,
+        input_tokens: inputTokens,
+        output_tokens: outputTokens,
+        total_tokens: inputTokens + outputTokens,
+        estimated_cost_usd: estimatedCost,
+        trip_destination: destination || null,
+        success,
+        error_message: error || null,
+      })
+    });
+  } catch (e) {
+    console.error('Failed to log usage:', e.message);
+  }
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
