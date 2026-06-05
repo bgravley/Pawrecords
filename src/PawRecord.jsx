@@ -8,7 +8,10 @@ const PRICES = {
   monthly: "price_1TaiD5BP9MtRr7gKKYeQgZQ8",
   annual:  "price_1TaiDcBP9MtRr7gK8Iqvj1Gn",
   lifetime:"price_1TaiENBP9MtRr7gKfqjYXGe3",
-};
+}
+// Coupon codes (created in Stripe dashboard)
+// YPPFREE  = 100% off forever (lifetime free)
+// YPP3FREE = 100% off for 3 months;
 
 const GLOBAL=`
   @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Lora:ital,wght@0,400;0,600;1,400;1,600&display=swap');
@@ -175,27 +178,48 @@ const PremiumLock=({onUpgrade,label="Premium Feature"})=>(
 const UpgradeModal=({userId,userEmail,onClose})=>{
   const[loading,setLoading]=useState(null);
   const[error,setError]=useState(null);
+  const[coupon,setCoupon]=useState("");
+  const[couponApplied,setCouponApplied]=useState(false);
+  const[couponLoading,setCouponLoading]=useState(false);
+
+  const applyCoupon=async()=>{
+    if(!coupon.trim())return;
+    setCouponLoading(true);setError(null);
+    // Validate coupon exists by attempting a $0 checkout with it
+    // We just pass it through to Stripe on checkout
+    setCouponApplied(true);setCouponLoading(false);
+  };
+
   const checkout=async(priceKey,mode)=>{
     setLoading(priceKey);setError(null);
     try{
-      const{data,error:fnErr}=await supabase.functions.invoke("create-checkout",{body:{priceId:PRICES[priceKey],userId,userEmail,mode}});
+      const body={priceId:PRICES[priceKey],userId,userEmail,mode};
+      if(couponApplied&&coupon.trim())body.couponCode=coupon.trim().toUpperCase();
+      const{data,error:fnErr}=await supabase.functions.invoke("create-checkout",{body});
       if(fnErr||data.error)throw new Error(fnErr?.message||data.error);
       window.location.href=data.url;
     }catch(e){setError(e.message);setLoading(null);}
   };
+
   const plans=[
-    {key:"monthly",mode:"subscription",label:"Monthly",price:"$3.99",period:"/month",desc:"Billed monthly, cancel anytime",color:"#2D7D6F"},
-    {key:"annual",mode:"subscription",label:"Annual",price:"$39.99",period:"/year",desc:"Save 17% vs monthly",color:"#2D7D6F",popular:true},
-    {key:"lifetime",mode:"payment",label:"Lifetime",price:"$74.99",period:"one time",desc:"Pay once, own it forever",color:"#E8A838"},
+    {key:"monthly",mode:"subscription",label:"Monthly",price:"$4.99",period:"/month",desc:"Billed monthly, cancel anytime",color:"#2D7D6F"},
+    {key:"annual",mode:"subscription",label:"Annual",price:"$39.99",period:"/year",desc:"Save 33% vs monthly — best value",color:"#2D7D6F",popular:true},
+    {key:"lifetime",mode:"payment",label:"Lifetime",price:"$99",period:"one time",desc:"Pay once, own it forever",color:"#E8A838"},
   ];
+
   return(
     <Modal title="Upgrade to Premium" onClose={onClose}>
       <div style={{display:"flex",flexDirection:"column",gap:14}}>
-        <p style={{color:"#5A4535",fontSize:14,marginBottom:4}}>Unlock AI-powered document scanning, PDF export, weight tracking, QR health cards, and more.</p>
+        <div style={{background:"#2D7D6F0D",borderRadius:12,padding:14}}>
+          <div style={{fontSize:13,fontWeight:700,color:"#2D7D6F",marginBottom:8}}>Premium includes:</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,fontSize:13,color:"#5A4535"}}>
+            {["📷 AI Document Scan","✈️ AI Travel Checklists","📊 Weight Tracking","📄 Export Records","📁 Document Storage","🔲 QR Health Card"].map(f=><div key={f}>{f}</div>)}
+          </div>
+        </div>
         {error&&<div style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:10,padding:12,fontSize:13,color:"#C4714A"}}>{error}</div>}
         {plans.map(plan=>(
           <div key={plan.key} style={{position:"relative",border:`2px solid ${plan.popular?"#2D7D6F":"#E8DDD0"}`,borderRadius:14,padding:18,background:plan.popular?"#2D7D6F08":"transparent"}}>
-            {plan.popular&&<div style={{position:"absolute",top:-10,left:20,background:"#2D7D6F",color:"#FAF6F0",fontSize:11,fontWeight:700,padding:"2px 10px",borderRadius:20}}>MOST POPULAR</div>}
+            {plan.popular&&<div style={{position:"absolute",top:-10,left:20,background:"#2D7D6F",color:"#FAF6F0",fontSize:11,fontWeight:700,padding:"2px 10px",borderRadius:20}}>BEST VALUE</div>}
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
               <div><div style={{fontWeight:700,fontSize:16}}>{plan.label}</div><div style={{color:"#5A4535",fontSize:13,marginTop:2}}>{plan.desc}</div></div>
               <div style={{textAlign:"right"}}><div style={{fontFamily:"'Lora',serif",fontSize:26,color:plan.color,fontWeight:700}}>{plan.price}</div><div style={{color:"#5A4535",fontSize:12}}>{plan.period}</div></div>
@@ -203,7 +227,20 @@ const UpgradeModal=({userId,userEmail,onClose})=>{
             <Btn full onClick={()=>checkout(plan.key,plan.mode)} disabled={!!loading} style={{marginTop:12,background:plan.color,color:"#FAF6F0",justifyContent:"center"}}>{loading===plan.key?"Processing...":`Get ${plan.label}`}</Btn>
           </div>
         ))}
-        <div style={{display:"flex",alignItems:"center",gap:8,justifyContent:"center",color:"#5A4535",fontSize:12,marginTop:4}}><Ic n="lock" s={12} c="#5A4535"/> Secure payment via Stripe</div>
+        {/* Coupon Code */}
+        <div style={{borderTop:"1px solid #E8DDD0",paddingTop:14}}>
+          <div style={{fontSize:13,fontWeight:600,color:"#5A4535",marginBottom:8}}>Have a coupon code?</div>
+          {couponApplied
+            ?<div style={{display:"flex",alignItems:"center",gap:8,color:"#2D7D6F",fontSize:13,fontWeight:600,background:"#2D7D6F14",borderRadius:10,padding:"10px 14px"}}>
+              ✓ Coupon <b>{coupon.toUpperCase()}</b> applied — discount will be reflected at checkout
+              <button onClick={()=>{setCouponApplied(false);setCoupon("");}} style={{marginLeft:"auto",background:"none",border:"none",color:"#8B7355",fontSize:12,cursor:"pointer",textDecoration:"underline"}}>Remove</button>
+            </div>
+            :<div style={{display:"flex",gap:8}}>
+              <input value={coupon} onChange={e=>setCoupon(e.target.value.toUpperCase())} placeholder="Enter code" style={{flex:1,background:"#FAF6F0",border:"1.5px solid #E8DDD0",borderRadius:10,padding:"9px 14px",fontSize:14,color:"#2C2017",outline:"none",fontFamily:"'Nunito',sans-serif",letterSpacing:".05em"}}/>
+              <Btn sm onClick={applyCoupon} disabled={couponLoading||!coupon.trim()}>{couponLoading?"...":"Apply"}</Btn>
+            </div>}
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:8,justifyContent:"center",color:"#5A4535",fontSize:12}}><Ic n="lock" s={12} c="#5A4535"/> Secure payment via Stripe</div>
       </div>
     </Modal>
   );
@@ -775,10 +812,150 @@ const DogDetail=({dog,state,dispatch,userId,tier,onBack,onUpgrade,userEmail})=>{
   </div>);
 };
 
+const BillingSection=({userId,tier,userEmail})=>{
+  const[portalLoading,setPortalLoading]=useState(false);
+  const tierLabel=tier==='lifetime'?'Lifetime Premium':tier==='premium'?'Premium':'Free';
+  const tierColor=tier==='lifetime'?'#E8A838':tier==='premium'?'#2D7D6F':'#8B7355';
+
+  const openPortal=async()=>{
+    setPortalLoading(true);
+    try{
+      const{data,error}=await supabase.functions.invoke("create-portal",{body:{userId,userEmail}});
+      if(error||data.error)throw new Error(error?.message||data.error);
+      window.location.href=data.url;
+    }catch(e){alert("Could not open billing portal: "+e.message);}
+    setPortalLoading(false);
+  };
+
+  return(
+    <div>
+      <div style={{fontWeight:800,fontSize:12,color:"#5A4535",textTransform:"uppercase",letterSpacing:".08em",marginBottom:12}}>💳 Billing & Plan</div>
+      <div style={{background:"#FAF6F0",border:"1.5px solid #E8DDD0",borderRadius:12,padding:16,marginBottom:12}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div>
+            <div style={{fontWeight:700,fontSize:15}}>Current Plan</div>
+            <div style={{fontSize:13,color:"#8B7355",marginTop:2}}>{userEmail}</div>
+          </div>
+          <span style={{background:tierColor+"20",color:tierColor,border:`1px solid ${tierColor}40`,borderRadius:20,padding:"4px 12px",fontSize:13,fontWeight:700}}>{tierLabel}</span>
+        </div>
+      </div>
+      {tier==='free'
+        ?<div style={{fontSize:13,color:"#5A4535"}}>You're on the free plan. Upgrade to unlock AI scanning, travel tools, exports, and more.</div>
+        :tier!=='lifetime'&&<Btn full v="secondary" onClick={openPortal} disabled={portalLoading} style={{justifyContent:"center"}}>{portalLoading?"Opening...":"Manage Subscription / Cancel"}</Btn>}
+      {tier==='lifetime'&&<div style={{fontSize:13,color:"#2D7D6F",fontWeight:600,textAlign:"center",padding:"8px 0"}}>✓ Lifetime access — no subscription needed</div>}
+    </div>
+  );
+};
+
+const OwnerProfileModal=({userId,tier,userEmail,onUpgrade,onClose})=>{
+  const[f,setF]=useState({fullName:"",phone:"",country:"",city:"",state:"",address:"",instagram:"",facebook:"",twitter:""});
+  const[contacts,setContacts]=useState([]);
+  const[loading,setLoading]=useState(true);
+  const[saving,setSaving]=useState(false);
+  const[addingContact,setAddingContact]=useState(false);
+  const[newContact,setNewContact]=useState({name:"",phone:"",relationship:"",email:""});
+  const[section,setSection]=useState("profile"); // profile | billing
+  const set=(k,v)=>setF(p=>({...p,[k]:v}));
+
+  useEffect(()=>{
+    const load=async()=>{
+      const{data:prof}=await supabase.from("profiles").select("*").eq("id",userId).single();
+      if(prof)setF({fullName:prof.full_name||"",phone:prof.phone||"",country:prof.country||"",city:prof.city||"",state:prof.state||"",address:prof.address||"",instagram:prof.instagram||"",facebook:prof.facebook||"",twitter:prof.twitter||""});
+      const{data:ec}=await supabase.from("emergency_contacts").select("*").eq("user_id",userId).order("sort_order");
+      setContacts(ec||[]);
+      setLoading(false);
+    };
+    load();
+  },[userId]);
+
+  const saveProfile=async()=>{
+    setSaving(true);
+    await supabase.from("profiles").update({full_name:f.fullName,phone:f.phone,address:f.address,city:f.city,state:f.state,country:f.country,instagram:f.instagram,facebook:f.facebook,twitter:f.twitter}).eq("id",userId);
+    setSaving(false);
+  };
+
+  const addContact=async()=>{
+    if(!newContact.name||!newContact.phone)return;
+    const{data}=await supabase.from("emergency_contacts").insert({user_id:userId,...newContact,sort_order:contacts.length}).select().single();
+    if(data){setContacts(p=>[...p,data]);setNewContact({name:"",phone:"",relationship:"",email:""});setAddingContact(false);}
+  };
+
+  const deleteContact=async(id)=>{
+    await supabase.from("emergency_contacts").delete().eq("id",id);
+    setContacts(p=>p.filter(x=>x.id!==id));
+  };
+
+  if(loading)return(<Modal title="My Account" onClose={onClose}><div style={{textAlign:"center",padding:40,color:"#8B7355"}}>Loading...</div></Modal>);
+
+  return(<Modal title="My Account" onClose={onClose} wide>
+    {/* Tab nav */}
+    <div style={{display:"flex",gap:8,marginBottom:20,background:"#FAF6F0",borderRadius:12,padding:4}}>
+      {[{id:"profile",label:"👤 Profile"},{id:"billing",label:"💳 Billing"}].map(t=>(
+        <button key={t.id} onClick={()=>setSection(t.id)} style={{flex:1,padding:"9px 0",borderRadius:10,fontWeight:600,fontSize:14,border:"none",cursor:"pointer",background:section===t.id?"#FFFFFF":"transparent",color:section===t.id?"#2C2017":"#8B7355",boxShadow:section===t.id?"0 1px 4px rgba(44,32,23,0.1)":"none",transition:"all .15s"}}>{t.label}</button>
+      ))}
+    </div>
+
+    {section==="profile"&&<div style={{display:"flex",flexDirection:"column",gap:18}}>
+      {/* Basic info */}
+      <div>
+        <div style={{fontWeight:800,fontSize:12,color:"#5A4535",textTransform:"uppercase",letterSpacing:".08em",marginBottom:12}}>👤 Your Information</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <Field label="Full Name" col="1/-1"><input value={f.fullName} onChange={e=>set("fullName",e.target.value)} placeholder="Jane Smith"/></Field>
+          <Field label="Phone"><input value={f.phone} onChange={e=>set("phone",e.target.value)} placeholder="+1 555-0100"/></Field>
+          <Field label="Country"><input value={f.country} onChange={e=>set("country",e.target.value)} placeholder="United States"/></Field>
+          <Field label="City"><input value={f.city} onChange={e=>set("city",e.target.value)} placeholder="Miami"/></Field>
+          <Field label="State/Province"><input value={f.state} onChange={e=>set("state",e.target.value)} placeholder="Florida"/></Field>
+          <Field label="Address" col="1/-1"><input value={f.address} onChange={e=>set("address",e.target.value)} placeholder="123 Main St"/></Field>
+        </div>
+      </div>
+      {/* Social */}
+      <div>
+        <div style={{fontWeight:800,fontSize:12,color:"#5A4535",textTransform:"uppercase",letterSpacing:".08em",marginBottom:12}}>📱 Social Media</div>
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          <div style={{display:"flex",alignItems:"center",gap:10}}><span style={{fontSize:20,width:28}}>📸</span><input value={f.instagram} onChange={e=>set("instagram",e.target.value)} placeholder="Instagram (@yourhandle)"/></div>
+          <div style={{display:"flex",alignItems:"center",gap:10}}><span style={{fontSize:20,width:28}}>👤</span><input value={f.facebook} onChange={e=>set("facebook",e.target.value)} placeholder="Facebook profile URL"/></div>
+          <div style={{display:"flex",alignItems:"center",gap:10}}><span style={{fontSize:20,width:28}}>🐦</span><input value={f.twitter} onChange={e=>set("twitter",e.target.value)} placeholder="X/Twitter (@yourhandle)"/></div>
+        </div>
+      </div>
+      <Btn onClick={saveProfile} disabled={saving} full>{saving?"Saving...":"Save Profile"}</Btn>
+      {/* Emergency Contacts */}
+      <div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+          <div style={{fontWeight:800,fontSize:12,color:"#5A4535",textTransform:"uppercase",letterSpacing:".08em"}}>🚨 Emergency Contacts</div>
+          <Btn sm onClick={()=>setAddingContact(true)}><Ic n="plus" s={13}/> Add</Btn>
+        </div>
+        <div style={{fontSize:13,color:"#8B7355",marginBottom:12}}>Appear on QR codes and exported records.</div>
+        {contacts.length===0&&!addingContact&&<div style={{textAlign:"center",padding:"16px 0",color:"#8B7355",fontSize:14,border:"1.5px dashed #E8DDD0",borderRadius:12}}>No emergency contacts yet.</div>}
+        {contacts.map(ec=>(<div key={ec.id} style={{background:"#FAF6F0",border:"1px solid #E8DDD0",borderRadius:12,padding:14,marginBottom:8}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+            <div><div style={{fontWeight:700,fontSize:15}}>{ec.name}</div><div style={{fontSize:13,color:"#5A4535"}}>{ec.relationship&&<span>{ec.relationship} · </span>}<a href={`tel:${ec.phone}`} style={{color:"#2D7D6F",textDecoration:"none"}}>{ec.phone}</a></div>{ec.email&&<div style={{fontSize:12,color:"#8B7355"}}>{ec.email}</div>}</div>
+            <button onClick={()=>deleteContact(ec.id)} style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:8,padding:"5px 8px",color:"#C4714A",cursor:"pointer"}}><Ic n="trash" s={13}/></button>
+          </div>
+        </div>))}
+        {addingContact&&(<div style={{background:"#FAF6F0",border:"1.5px solid #2D7D6F44",borderRadius:12,padding:16,marginTop:8}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+            <Field label="Name" col="1/-1"><input value={newContact.name} onChange={e=>setNewContact(p=>({...p,name:e.target.value}))} placeholder="Jane Doe"/></Field>
+            <Field label="Phone"><input value={newContact.phone} onChange={e=>setNewContact(p=>({...p,phone:e.target.value}))} placeholder="+1 555-0100"/></Field>
+            <Field label="Relationship"><input value={newContact.relationship} onChange={e=>setNewContact(p=>({...p,relationship:e.target.value}))} placeholder="Sister, Vet, Friend"/></Field>
+            <Field label="Email" col="1/-1"><input value={newContact.email} onChange={e=>setNewContact(p=>({...p,email:e.target.value}))} placeholder="jane@email.com"/></Field>
+          </div>
+          <div style={{display:"flex",gap:8}}><Btn v="secondary" sm onClick={()=>setAddingContact(false)} full>Cancel</Btn><Btn sm onClick={addContact} full>Save Contact</Btn></div>
+        </div>)}
+      </div>
+    </div>}
+
+    {section==="billing"&&<div style={{display:"flex",flexDirection:"column",gap:16}}>
+      <BillingSection userId={userId} tier={tier} userEmail={userEmail}/>
+      {tier==="free"&&<Btn full onClick={onUpgrade} style={{background:"#E8A838",color:"#FAF6F0",justifyContent:"center"}}><Ic n="crown" s={15} c="#FAF6F0"/> Upgrade to Premium</Btn>}
+    </div>}
+  </Modal>);
+};
+
 const Home=({state,dispatch,userId,tier,userEmail,onSignOut})=>{
   const[addDog,setAddDog]=useState(false);
   const[selDog,setSelDog]=useState(null);
   const[showUpgrade,setShowUpgrade]=useState(false);
+  const[showProfile,setShowProfile]=useState(false);
   const premium=isPremium(tier);
 
   if(selDog){
@@ -797,6 +974,7 @@ const Home=({state,dispatch,userId,tier,userEmail,onSignOut})=>{
         <div style={{display:"flex",alignItems:"center",gap:8}}>
           {!premium&&<button onClick={()=>setShowUpgrade(true)} style={{background:"#E8A83820",border:"1px solid #E8A83844",borderRadius:10,padding:"7px 12px",color:"#E8A838",fontWeight:600,fontSize:12,display:"flex",alignItems:"center",gap:5,cursor:"pointer"}}><Ic n="crown" s={13} c="#E8A838"/>Premium</button>}
           {totalAlerts>0&&<div style={{background:"#E8A83814",border:"1px solid #E8A83844",borderRadius:10,padding:"7px 12px",display:"flex",alignItems:"center",gap:5,color:"#E8A838",fontSize:13}}><Ic n="alert" s={14} c="#E8A838"/>{totalAlerts}</div>}
+          <button onClick={()=>setShowProfile(true)} title="My Account" style={{background:"#FFFFFF",border:"1px solid #E8DDD0",borderRadius:10,padding:"7px 10px",color:"#5A4535",cursor:"pointer"}}><Ic n="home" s={16} c="#5A4535"/></button>
           <button onClick={onSignOut} title="Sign out" style={{background:"#FFFFFF",border:"1px solid #E8DDD0",borderRadius:10,padding:"7px 10px",color:"#5A4535",cursor:"pointer"}}><Ic n="logout" s={16} c="#5A4535"/></button>
         </div>
       </div>
@@ -846,6 +1024,7 @@ const Home=({state,dispatch,userId,tier,userEmail,onSignOut})=>{
     </div>
     {addDog&&<DogForm userId={userId} onSave={d=>{dispatch({t:"ADD_DOG",d});setAddDog(false);}} onClose={()=>setAddDog(false)}/>}
     {showUpgrade&&<UpgradeModal userId={userId} userEmail={userEmail} onClose={()=>setShowUpgrade(false)}/>}
+    {showProfile&&<OwnerProfileModal userId={userId} tier={tier} userEmail={userEmail} onUpgrade={()=>{setShowProfile(false);setShowUpgrade(true);}} onClose={()=>setShowProfile(false)}/>}
   </div>);
 };
 
