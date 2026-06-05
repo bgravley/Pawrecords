@@ -12,7 +12,7 @@ export default async function handler(req, res) {
     const { imageBase64, mediaType } = req.body;
     if (!imageBase64) return res.status(400).json({ error: 'No image data provided' });
 
-    const apiKey = process.env.VITE_OPENAI_API_KEY;
+    const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) return res.status(500).json({ error: 'OpenAI API key not configured' });
 
     const prompt = `You are a veterinary record parser. Analyze this vet document image and extract ALL information visible. Return ONLY raw JSON with no markdown, no code fences, no explanation — just the JSON object.
