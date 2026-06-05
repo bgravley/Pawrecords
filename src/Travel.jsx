@@ -378,16 +378,22 @@ const TripDetail = ({ trip, userId, dogs, onBack, onUpdate }) => {
     try {
       const items = await generateChecklist(trip, tripPets);
       const now = new Date().toISOString();
+      const depDate = new Date(trip.departure_date + 'T12:00:00');
+      const daysToDate = (days) => {
+        if (!days && days !== 0) return null;
+        const d = new Date(depDate.getTime() - days * 86400000);
+        return d.toISOString().slice(0, 10);
+      };
+
       const toInsert = items.map((item, i) => ({
         trip_id: trip.id, user_id: userId,
-        title: item.title, description: item.description,
+        title: item.title || 'Requirement',
+        description: item.description || null,
         category: item.category || 'other',
-        deadline_date: item.deadline_days_before
-          ? new Date(new Date(trip.departure_date).getTime() - item.deadline_days_before * 86400000).toISOString().slice(0, 10)
-          : null,
-        deadline_window_start: item.window_start_days || null,
-        deadline_window_end: item.window_end_days || null,
-        requires_document: item.requires_document || false,
+        deadline_date: item.deadline_days_before ? daysToDate(item.deadline_days_before) : null,
+        deadline_window_start: item.window_start_days ? daysToDate(item.window_start_days) : null,
+        deadline_window_end: item.window_end_days ? daysToDate(item.window_end_days) : null,
+        requires_document: item.requires_document === true,
         source_url: item.source_url || null,
         researched_at: now,
         notes: item.notes || null,
