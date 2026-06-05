@@ -117,19 +117,27 @@ const generateChecklist = async (trip, pets) => {
     `${p.name} (${p.breed || 'mixed'}${p.is_service_animal ? ', SERVICE ANIMAL' : ''}${p.is_esa ? ', ESA' : ''})`
   ).join('; ');
 
-  const prompt = `You are a pet travel expert. List all requirements for traveling with pets: ${trip.origin_city}, ${trip.origin_country} to ${trip.destination_city}, ${trip.destination_country}. Departure: ${trip.departure_date}. Airline: ${trip.airline || 'unspecified'}. Pets: ${petList}.
+  const prompt = `You are a pet travel expert. List ALL official requirements for traveling with pets on this route:
+
+Origin: ${trip.origin_city}, ${trip.origin_country}
+Destination: ${trip.destination_city}, ${trip.destination_country}
+Departure: ${trip.departure_date}
+Airline: ${trip.airline || 'unspecified'}
+Pets: ${petList}
+
+IMPORTANT RULES:
+- Always include BOTH origin country export requirements AND destination country entry requirements
+- For Colombia origin: always include the ICA (Instituto Colombiano Agropecuario) export certificate
+- For source_url use this priority order: (1) destination country government/agriculture ministry, (2) origin country government/agriculture ministry, (3) USDA APHIS if USA involved, (4) airline website only for airline-specific requirements
+- Never use an airline website as the source for government or veterinary requirements
+- For description: write numbered steps (Step 1, Step 2, etc.) that a first-time pet traveler can follow. Include who to contact, what to bring, and how long it takes.
+- Be specific to this exact route and airline
 
 Return ONLY a JSON array starting with [ and ending with ]. No markdown, no backticks, no extra text.
+Each item must have: title, description, category, deadline_days_before, window_start_days, window_end_days, requires_document, source_url, notes.
+Valid categories: health_certificate, vaccination, treatment, documentation, airline, government_form, entry_document, other.
 
-Each item must use these exact field names: title, description, category, deadline_days_before, window_start_days, window_end_days, requires_document, source_url, notes.
-
-For description: write clear step-by-step instructions a beginner can follow. Include who to contact, what to bring, and how long it takes.
-For source_url: use the direct URL to the form or application page, not just a homepage.
-For category use only: health_certificate, vaccination, treatment, documentation, airline, government_form, entry_document, other.
-
-Example of ONE item (return multiple): [{"title":"Health Certificate","description":"Step 1: Schedule a vet appointment within 10 days of departure. Step 2: Bring your pet's vaccination records. Step 3: Ask your vet to complete the USDA-endorsed health certificate form. Step 4: Have the form endorsed by a USDA accredited vet.","category":"health_certificate","deadline_days_before":null,"window_start_days":10,"window_end_days":1,"requires_document":true,"source_url":"https://www.aphis.usda.gov/pet-travel","notes":"Must be issued within 10 days of travel"}]
-
-Now return the full array for this trip:`;
+Start with [`;
 
   const response = await fetch("/api/ai-travel", {
     method: "POST",
@@ -296,6 +304,17 @@ const ChecklistItem = ({ item, onToggle, onUpload, onDelete }) => {
     entry_document: "Entry Document", other: "Other",
   };
 
+  const [expanded, setExpanded] = useState(false);
+
+  // Format description into numbered steps on separate lines
+  const formatSteps = (text) => {
+    if (!text) return null;
+    const steps = text.split(/(?=Step \d+:)/);
+    return steps.map((step, i) => step.trim()).filter(Boolean);
+  };
+
+  const steps = formatSteps(item.description);
+
   return (
     <div style={{
       background: item.is_completed ? "#f0fdf4" : C.card,
@@ -306,7 +325,7 @@ const ChecklistItem = ({ item, onToggle, onUpload, onDelete }) => {
         <input type="checkbox" checked={item.is_completed} onChange={() => onToggle(item)}
           style={{ width: 20, height: 20, marginTop: 2, accentColor: C.accent, cursor: "pointer", flexShrink: 0 }} />
         <div style={{ flex: 1 }}>
-          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginBottom: 4 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginBottom: 6 }}>
             <span style={{ fontWeight: 700, fontSize: 15, textDecoration: item.is_completed ? "line-through" : "none", color: item.is_completed ? C.muted : C.text }}>
               {item.title}
             </span>
@@ -314,27 +333,68 @@ const ChecklistItem = ({ item, onToggle, onUpload, onDelete }) => {
             {isOverdue && <Badge label="OVERDUE" color={C.danger} />}
             {isUrgent && !isOverdue && <Badge label={`${days}d left`} color={C.warn} />}
           </div>
-          {item.description && <p style={{ fontSize: 13, color: C.sub, lineHeight: 1.5, marginBottom: 8 }}>{item.description}</p>}
-          {(item.deadline_date || item.window_start_days || item.window_end_days) && (
-            <div style={{ background: C.bg, borderRadius: 8, padding: "8px 12px", fontSize: 12, color: C.sub, marginBottom: 8 }}>
-              {item.window_start_days && item.window_end_days
-                ? `⏱ Window: ${item.window_start_days} to ${item.window_end_days} days before departure`
-                : item.deadline_date ? `📅 Deadline: ${fmt(item.deadline_date)}` : null}
+
+          {/* Deadline */}
+          {item.deadline_date && (
+            <div style={{ background: C.bg, borderRadius: 8, padding: "6px 12px", fontSize: 12, color: C.sub, marginBottom: 8 }}>
+              📅 Deadline: {fmt(item.deadline_date)}
             </div>
           )}
+
+          {/* Notes warning */}
+          {item.notes && <div style={{ fontSize: 12, color: C.warn, marginBottom: 8, fontWeight: 600 }}>⚠ {item.notes}</div>}
+
+          {/* View Instructions expand/collapse */}
+          {item.description && (
+            <div style={{ marginBottom: 8 }}>
+              <button onClick={() => setExpanded(e => !e)} style={{
+                background: C.accentDim, border: `1px solid ${C.accent}44`, borderRadius: 8,
+                padding: "6px 12px", fontSize: 12, fontWeight: 700, color: C.accent,
+                cursor: "pointer", fontFamily: "'Nunito', sans-serif"
+              }}>
+                {expanded ? "▲ Hide Instructions" : "▼ View Instructions"}
+              </button>
+              {expanded && (
+                <div style={{ marginTop: 10, background: C.bg, borderRadius: 10, padding: 14 }}>
+                  {steps.map((step, i) => (
+                    <div key={i} style={{ fontSize: 13, color: C.sub, lineHeight: 1.6, marginBottom: i < steps.length - 1 ? 10 : 0, display: "flex", gap: 8 }}>
+                      <span style={{ fontWeight: 700, color: C.accent, flexShrink: 0 }}>{i + 1}.</span>
+                      <span>{step.replace(/^Step \d+:\s*/, '')}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Official source button */}
           {item.source_url && (
-            <div style={{ fontSize: 12, color: C.muted, marginBottom: 8 }}>
-              📋 Source: <a href={item.source_url} target="_blank" rel="noopener noreferrer" style={{ color: C.accent, textDecoration: "none" }}>{item.source_name || item.source_url}</a>
-              {item.researched_at && <span> · Checked {new Date(item.researched_at).toLocaleDateString()}</span>}
+            <div style={{ marginBottom: 8 }}>
+              <a href={item.source_url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
+                <span style={{
+                  display: "inline-flex", alignItems: "center", gap: 6,
+                  background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8,
+                  padding: "6px 12px", fontSize: 12, fontWeight: 700, color: C.accent,
+                  cursor: "pointer"
+                }}>
+                  🔗 Official Source →
+                </span>
+              </a>
+              {item.researched_at && (
+                <span style={{ fontSize: 11, color: C.muted, marginLeft: 8 }}>
+                  Checked {new Date(item.researched_at).toLocaleDateString()}
+                </span>
+              )}
             </div>
           )}
+
+          {/* Upload document */}
           {item.requires_document && !item.is_completed && (
             <div>
               <input ref={fr} type="file" accept="image/*,.pdf" style={{ display: "none" }} onChange={e => onUpload(item, e.target.files[0])} />
               <Btn sm v="secondary" onClick={() => fr.current.click()}>📎 Upload Document</Btn>
             </div>
           )}
-          {item.notes && <div style={{ fontSize: 12, color: C.warn, marginTop: 6, fontWeight: 600 }}>⚠ {item.notes}</div>}
         </div>
         <button onClick={() => onDelete(item.id)}
           style={{ background: C.dangerDim, border: `1px solid ${C.danger}44`, borderRadius: 8, padding: "5px 8px", color: C.danger, cursor: "pointer", flexShrink: 0 }}>🗑</button>
