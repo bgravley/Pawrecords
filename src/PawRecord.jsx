@@ -516,27 +516,91 @@ const OverviewTab=({dog,state,userId,tier,setModal,onUpgrade,dispatch})=>{
   const premium=isPremium(tier);
   const ptLabel=petTypeLabel(dog.pet_type);
   const ptColor=petTypeColor(dog.pet_type);
-  return(<div style={{display:"flex",flexDirection:"column",gap:14}}>
-    <Card>
-      {ptLabel&&ptColor&&(<div style={{background:ptColor+"15",border:`1px solid ${ptColor}44`,borderRadius:10,padding:"8px 14px",marginBottom:12,display:"flex",alignItems:"center",gap:8}}>
-        <span style={{fontSize:16}}>{dog.pet_type==="service_animal"?"🦺":"💙"}</span>
-        <div><div style={{fontWeight:700,color:ptColor,fontSize:14}}>{dog.pet_type==="service_animal"?"Service Animal":"Emotional Support Animal"}</div><div style={{fontSize:12,color:"#8B7355"}}>{dog.pet_type==="service_animal"?"Special travel rights apply — carries documentation for airline and accommodation access":"Different airline and housing rules apply than a regular pet"}</div></div>
-        {dog.certification_doc_path&&<span style={{marginLeft:"auto",fontSize:12,color:"#2D7D6F",fontWeight:600}}>📋 Certified</span>}
-      </div>)}
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-        {[["Breed",dog.breed||"—"],["Born",fmt(dog.dob)],["Weight",dog.weight?dog.weight+" lbs":"—"],["Gender",(dog.gender||"—")+(dog.neutered?" · Fixed":"")],["Microchip",dog.microchip||"—"],["Color",dog.color||"—"]].map(([k,v])=>(<div key={k}><div style={{fontSize:11,color:"#5A4535",textTransform:"uppercase",letterSpacing:".05em",marginBottom:2}}>{k}</div><div style={{fontWeight:500,fontSize:14}}>{v}</div></div>))}
-      </div>
-      {(dog.emergency_contact||dog.emergency_phone)&&(<div style={{marginTop:12,padding:10,background:"#FFFFFF",borderRadius:10,display:"flex",alignItems:"center",gap:8}}><Ic n="phone" s={14} c="#E8A838"/><span style={{fontSize:13}}><b>Emergency:</b> {dog.emergency_contact} {dog.emergency_phone}</span></div>)}
-      {dog.notes&&<div style={{marginTop:12,padding:10,background:"#FFFFFF",borderRadius:10,fontSize:13,color:"#5A4535"}}>{dog.notes}</div>}
-      <div style={{marginTop:12}}><Btn sm v="secondary" onClick={()=>setModal("editDog")}><Ic n="edit" s={13}/> Edit Profile</Btn></div>
-    </Card>
-    {urgent.length>0&&(<Card style={{border:"1px solid #E8A83844",background:"#E8A83814"}}><div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10,color:"#E8A838",fontWeight:600,fontSize:14}}><Ic n="alert" s={15} c="#E8A838"/> Attention Needed</div>{urgent.map(v=>{const st=vSt(v.next_due);return(<div key={v.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:"1px solid #E8DDD044"}}><span style={{fontSize:14}}>{v.name}</span><Badge label={st.label} color={st.c}/></div>);})}</Card>)}
-    {al.length>0&&(<Card style={{border:"1px solid #C4714A44"}}><div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10,color:"#C4714A",fontWeight:600,fontSize:14}}><Ic n="alert" s={15} c="#C4714A"/> Known Allergies</div>{al.map(a=>(<div key={a.id} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid #E8DDD044",fontSize:14}}><span><b>{a.allergen}</b> — {a.reaction}</span><Badge label={a.severity} color={sev(a.severity)}/></div>))}</Card>)}
-    {meds.length>0&&(<Card><div style={{fontWeight:600,marginBottom:10,fontSize:14,display:"flex",alignItems:"center",gap:8}}><Ic n="pill" s={14} c="#2D7D6F"/> Active Medications</div>{meds.map(m=>(<div key={m.id} style={{fontSize:14,padding:"6px 0",borderBottom:"1px solid #E8DDD044"}}><b>{m.name}</b> · {m.dosage} · {m.frequency}</div>))}</Card>)}
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-      {premium?<Btn full onClick={()=>exportHTML(dog,state)}><Ic n="download" s={14}/> Export Records</Btn>:<Btn full v="secondary" onClick={onUpgrade} style={{opacity:.7}}><Ic n="lock" s={14}/> Export Records</Btn>}
-      <Btn full v="secondary" onClick={()=>setModal("share")}><Ic n="share" s={14}/> Share</Btn>
+  const ptFull=dog.pet_type==='service_animal'?'Service Animal':dog.pet_type==='esa'?'Emotional Support Animal':null;
+
+  const ProfileRow=({label,value})=>value?(
+    <div style={{display:"flex",flexDirection:"column",gap:3,padding:"10px 0",borderBottom:"1px solid #F0E8DC"}}>
+      <div style={{fontSize:11,fontWeight:700,color:"#8B7355",textTransform:"uppercase",letterSpacing:".06em"}}>{label}</div>
+      <div style={{fontWeight:500,fontSize:15,color:"#2C2017"}}>{value}</div>
     </div>
+  ):null;
+
+  return(<div style={{display:"flex",flexDirection:"column",gap:14}}>
+
+    {/* Big Edit Button */}
+    <Btn full onClick={()=>setModal("editDog")} style={{fontSize:15,padding:"13px 20px",background:"#2D7D6F",justifyContent:"center"}}>
+      <Ic n="edit" s={16} c="#FAF6F0"/> Edit Pet Profile
+    </Btn>
+
+    {/* SA/ESA Banner */}
+    {ptFull&&ptColor&&(<Card style={{border:`2px solid ${ptColor}55`,background:ptColor+"0D",padding:16}}>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+        <span style={{fontSize:22}}>{dog.pet_type==="service_animal"?"🦺":"💙"}</span>
+        <div style={{flex:1}}>
+          <div style={{fontWeight:800,color:ptColor,fontSize:16}}>{ptFull}</div>
+          <div style={{fontSize:12,color:"#8B7355",marginTop:2}}>{dog.pet_type==="service_animal"?"Trained to perform specific tasks for a person with a disability":"Provides emotional support — different airline and housing rules apply"}</div>
+        </div>
+      </div>
+      <div style={{background:"#FFFFFF",borderRadius:10,padding:"10px 14px",fontSize:13,color:"#5A4535",lineHeight:1.6}}>
+        {dog.pet_type==="service_animal"
+          ?"✈️ Service animals have special travel rights. Airlines must allow them in cabin. Housing providers must make reasonable accommodations. Carry your documentation at all times."
+          :"✈️ ESAs have different rules than service animals. Airlines may require advance notice and documentation. Housing rules vary. Always check with airline and property before travel."}
+      </div>
+      <div style={{marginTop:10,display:"flex",alignItems:"center",gap:8,fontSize:13,fontWeight:600,color:dog.certification_doc_path?"#2D7D6F":"#8B7355"}}>
+        {dog.certification_doc_path?"📋 Documentation uploaded ✓":"📋 No documentation uploaded — add via Edit Profile"}
+      </div>
+    </Card>)}
+
+    {/* Urgent vaccines */}
+    {urgent.length>0&&(<Card style={{border:"1px solid #E8A83844",background:"#E8A83814"}}><div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10,color:"#E8A838",fontWeight:600,fontSize:14}}><Ic n="alert" s={15} c="#E8A838"/> Attention Needed</div>{urgent.map(v=>{const st=vSt(v.next_due);return(<div key={v.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:"1px solid #E8DDD044"}}><span style={{fontSize:14}}>{v.name}</span><Badge label={st.label} color={st.c}/></div>);})}</Card>)}
+
+    {/* Full Profile */}
+    <Card>
+      <div style={{fontWeight:800,fontSize:12,color:"#5A4535",textTransform:"uppercase",letterSpacing:".08em",marginBottom:4}}>🐾 Pet Profile</div>
+      <ProfileRow label="Name" value={dog.name}/>
+      <ProfileRow label="Breed" value={dog.breed}/>
+      <ProfileRow label="Date of Birth" value={fmt(dog.dob)}/>
+      <ProfileRow label="Age" value={dog.dob?`${Math.floor((Date.now()-new Date(dog.dob+"T12:00:00"))/(365.25*86400000))} years old`:null}/>
+      <ProfileRow label="Weight" value={dog.weight?`${dog.weight} lbs`:null}/>
+      <ProfileRow label="Color" value={dog.color}/>
+      <ProfileRow label="Gender" value={dog.gender?(dog.gender.charAt(0).toUpperCase()+dog.gender.slice(1))+(dog.neutered?" · Neutered/Spayed":""):null}/>
+      <ProfileRow label="Microchip ID" value={dog.microchip}/>
+      <ProfileRow label="Classification" value={ptFull||"Regular Pet"}/>
+      {(dog.emergency_contact||dog.emergency_phone)&&(
+        <div style={{display:"flex",flexDirection:"column",gap:3,padding:"10px 0",borderBottom:"1px solid #F0E8DC"}}>
+          <div style={{fontSize:11,fontWeight:700,color:"#8B7355",textTransform:"uppercase",letterSpacing:".06em"}}>Emergency Contact</div>
+          <div style={{fontWeight:500,fontSize:15,color:"#2C2017",display:"flex",alignItems:"center",gap:8}}>
+            <Ic n="phone" s={14} c="#E8A838"/>
+            {dog.emergency_contact}{dog.emergency_phone?` · ${dog.emergency_phone}`:""}
+          </div>
+        </div>
+      )}
+      {dog.notes&&<ProfileRow label="Notes" value={dog.notes}/>}
+    </Card>
+
+    {/* Allergies */}
+    {al.length>0&&(<Card style={{border:"1px solid #C4714A44"}}><div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10,color:"#C4714A",fontWeight:600,fontSize:14}}><Ic n="alert" s={15} c="#C4714A"/> Known Allergies</div>{al.map(a=>(<div key={a.id} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid #E8DDD044",fontSize:14}}><span><b>{a.allergen}</b> — {a.reaction}</span><Badge label={a.severity} color={sev(a.severity)}/></div>))}</Card>)}
+
+    {/* Active meds */}
+    {meds.length>0&&(<Card><div style={{fontWeight:600,marginBottom:10,fontSize:14,display:"flex",alignItems:"center",gap:8}}><Ic n="pill" s={14} c="#2D7D6F"/> Active Medications</div>{meds.map(m=>(<div key={m.id} style={{fontSize:14,padding:"6px 0",borderBottom:"1px solid #E8DDD044"}}><b>{m.name}</b> · {m.dosage} · {m.frequency}</div>))}</Card>)}
+
+    {/* Action buttons */}
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
+      <Btn full v="secondary" onClick={()=>setModal("editDog")} style={{justifyContent:"center",flexDirection:"column",gap:4,padding:"12px 8px"}}>
+        <Ic n="edit" s={16}/><span style={{fontSize:12}}>Edit</span>
+      </Btn>
+      {premium
+        ?<Btn full onClick={()=>exportHTML(dog,state)} style={{justifyContent:"center",flexDirection:"column",gap:4,padding:"12px 8px"}}>
+          <Ic n="download" s={16} c="#FAF6F0"/><span style={{fontSize:12}}>Export</span>
+        </Btn>
+        :<Btn full v="secondary" onClick={onUpgrade} style={{justifyContent:"center",flexDirection:"column",gap:4,padding:"12px 8px",opacity:.7}}>
+          <Ic n="lock" s={16}/><span style={{fontSize:12}}>Export</span>
+        </Btn>}
+      <Btn full v="secondary" onClick={()=>setModal("share")} style={{justifyContent:"center",flexDirection:"column",gap:4,padding:"12px 8px"}}>
+        <Ic n="share" s={16}/><span style={{fontSize:12}}>Share</span>
+      </Btn>
+    </div>
+
     {!premium&&<div style={{background:"#E8A83810",border:"1px solid #E8A83833",borderRadius:12,padding:12,textAlign:"center",fontSize:13,color:"#E8A838",cursor:"pointer"}} onClick={onUpgrade}><Ic n="crown" s={14} c="#E8A838"/> Upgrade to Premium for AI scanning, exports &amp; more</div>}
   </div>);
 };
