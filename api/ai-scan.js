@@ -1,3 +1,36 @@
+// Log AI usage to Supabase
+async function logUsage({ userId, userEmail, petName, feature, model, inputTokens, outputTokens, success, error }) {
+  try {
+    const costPer1kInput = 0.0025;  // gpt-4o input cost per 1k tokens
+    const costPer1kOutput = 0.01;   // gpt-4o output cost per 1k tokens
+    const estimatedCost = (inputTokens / 1000 * costPer1kInput) + (outputTokens / 1000 * costPer1kOutput);
+
+    await fetch(`${process.env.SUPABASE_URL}/rest/v1/ai_usage_log`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': process.env.SUPABASE_SERVICE_KEY,
+        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
+      },
+      body: JSON.stringify({
+        user_id: userId || null,
+        user_email: userEmail || null,
+        feature,
+        model,
+        input_tokens: inputTokens,
+        output_tokens: outputTokens,
+        total_tokens: inputTokens + outputTokens,
+        estimated_cost_usd: estimatedCost,
+        pet_name: petName || null,
+        success,
+        error_message: error || null,
+      })
+    });
+  } catch (e) {
+    console.error('Failed to log usage:', e.message);
+  }
+}
+
 // api/ai-scan.js
 // Vercel serverless function for AI document scanning (vision)
 export default async function handler(req, res) {
@@ -9,7 +42,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { imageBase64, mediaType } = req.body;
+    const { imageBase64, mediaType, userId, userEmail, petName } = req.body;
     if (!imageBase64) return res.status(400).json({ error: 'No image data provided' });
 
     const apiKey = process.env.OPENAI_API_KEY;
@@ -90,7 +123,8 @@ Rules:
     }
 
     const data = await response.json();
-    console.log('AI Scan - tokens used:', data.usage);
+    const usage = data.usage || {};
+    console.log('AI Scan - tokens used:', usage);
 
     const text = data.choices?.[0]?.message?.content || '';
     console.log('AI Scan - raw response:', text.slice(0, 200));
@@ -103,8 +137,17 @@ Rules:
       parsed = JSON.parse(clean);
     } catch (e) {
       console.error('JSON parse failed:', clean);
+      // Log failed attempt
+      await logUsage({ userId, userEmail, petName, feature: 'document_scan', model: 'gpt-4o',
+        inputTokens: usage.prompt_tokens || 0, outputTokens: usage.completion_tokens || 0,
+        success: false, error: 'JSON parse failed' });
       return res.status(500).json({ error: 'AI returned invalid JSON. Try a clearer photo.' });
     }
+
+    // Log successful usage
+    await logUsage({ userId, userEmail, petName, feature: 'document_scan', model: 'gpt-4o',
+      inputTokens: usage.prompt_tokens || 0, outputTokens: usage.completion_tokens || 0,
+      success: true });
 
     return res.status(200).json({ extracted: parsed });
 
