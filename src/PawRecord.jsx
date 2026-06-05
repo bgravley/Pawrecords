@@ -482,7 +482,30 @@ const AIScanModal=({dog,userId,onSave,onClose})=>{
   const[include,setInclude]=useState({visit:true,vaccines:true,weight:true,medications:true});
   const fr=useRef();
   const cameraRef=useRef();
-  const onFile=e=>{const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=ev=>setImageData(ev.target.result);r.readAsDataURL(file);};
+  const onFile=e=>{
+    const file=e.target.files[0];if(!file)return;
+    if(file.type==="application/pdf"){
+      // Convert PDF first page to image using pdf.js via CDN
+      const r=new FileReader();
+      r.onload=async ev=>{
+        try{
+          const pdfjsLib=await import("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js");
+          pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+          const pdf=await pdfjsLib.getDocument({data:new Uint8Array(ev.target.result)}).promise;
+          const page=await pdf.getPage(1);
+          const scale=2;
+          const viewport=page.getViewport({scale});
+          const canvas=document.createElement("canvas");
+          canvas.width=viewport.width;canvas.height=viewport.height;
+          await page.render({canvasContext:canvas.getContext("2d"),viewport}).promise;
+          setImageData(canvas.toDataURL("image/jpeg",0.92));
+        }catch(err){setError("Could not read PDF: "+err.message);}
+      };
+      r.readAsArrayBuffer(file);
+    } else {
+      const r=new FileReader();r.onload=ev=>setImageData(ev.target.result);r.readAsDataURL(file);
+    }
+  };
   const analyze=async()=>{
     if(!imageData)return;setStep("scanning");setError(null);
     try{
@@ -580,10 +603,7 @@ const OverviewTab=({dog,state,userId,tier,setModal,onUpgrade,onScan,dispatch})=>
 
   return(<div style={{display:"flex",flexDirection:"column",gap:14}}>
 
-    {/* Big Edit Button */}
-    <Btn full onClick={()=>setModal("editDog")} style={{fontSize:15,padding:"13px 20px",background:"#2D7D6F",justifyContent:"center"}}>
-      <Ic n="edit" s={16} c="#FAF6F0"/> Edit Pet Profile
-    </Btn>
+
 
     {/* SA/ESA Banner */}
     {ptFull&&ptColor&&(<Card style={{border:`2px solid ${ptColor}55`,background:ptColor+"0D",padding:16}}>
@@ -637,29 +657,7 @@ const OverviewTab=({dog,state,userId,tier,setModal,onUpgrade,onScan,dispatch})=>
     {/* Active meds */}
     {meds.length>0&&(<Card><div style={{fontWeight:600,marginBottom:10,fontSize:14,display:"flex",alignItems:"center",gap:8}}><Ic n="pill" s={14} c="#2D7D6F"/> Active Medications</div>{meds.map(m=>(<div key={m.id} style={{fontSize:14,padding:"6px 0",borderBottom:"1px solid #E8DDD044"}}><b>{m.name}</b> · {m.dosage} · {m.frequency}</div>))}</Card>)}
 
-    {/* Action buttons - 2x2 grid */}
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-      <Btn full v="secondary" onClick={()=>setModal("editDog")} style={{justifyContent:"center",flexDirection:"column",gap:4,padding:"14px 8px"}}>
-        <Ic n="edit" s={18}/><span style={{fontSize:12,fontWeight:600}}>Edit Profile</span>
-      </Btn>
-      {premium
-        ?<Btn full onClick={()=>exportHTML(dog,state)} style={{justifyContent:"center",flexDirection:"column",gap:4,padding:"14px 8px"}}>
-          <Ic n="download" s={18} c="#FAF6F0"/><span style={{fontSize:12,fontWeight:600}}>Export Records</span>
-        </Btn>
-        :<Btn full v="secondary" onClick={onUpgrade} style={{justifyContent:"center",flexDirection:"column",gap:4,padding:"14px 8px",opacity:.7}}>
-          <Ic n="lock" s={18}/><span style={{fontSize:12,fontWeight:600}}>Export Records</span>
-        </Btn>}
-      {premium
-        ?<Btn full onClick={onScan} style={{background:"#1E5C52",justifyContent:"center",flexDirection:"column",gap:4,padding:"14px 8px"}}>
-          <Ic n="camera" s={18} c="#FAF6F0"/><span style={{fontSize:12,fontWeight:600}}>AI Scan Records</span>
-        </Btn>
-        :<Btn full v="secondary" onClick={onUpgrade} style={{justifyContent:"center",flexDirection:"column",gap:4,padding:"14px 8px",opacity:.7}}>
-          <Ic n="lock" s={18}/><span style={{fontSize:12,fontWeight:600}}>AI Scan Records</span>
-        </Btn>}
-      <Btn full v="secondary" onClick={()=>setModal("share")} style={{justifyContent:"center",flexDirection:"column",gap:4,padding:"14px 8px"}}>
-        <Ic n="share" s={18}/><span style={{fontSize:12,fontWeight:600}}>Share</span>
-      </Btn>
-    </div>
+
 
     {!premium&&<div style={{background:"#E8A83810",border:"1px solid #E8A83833",borderRadius:12,padding:12,textAlign:"center",fontSize:13,color:"#E8A838",cursor:"pointer"}} onClick={onUpgrade}><Ic n="crown" s={14} c="#E8A838"/> Upgrade to Premium for AI scanning, exports &amp; more</div>}
   </div>);
@@ -804,20 +802,44 @@ const DogDetail=({dog,state,dispatch,userId,tier,onBack,onUpgrade,userEmail})=>{
   const ptLabel=petTypeLabel(dog.pet_type);
   const ptColor=petTypeColor(dog.pet_type);
   return(<div style={{minHeight:"100vh",background:"#FAF6F0",paddingBottom:80}}>
-    <div style={{background:"#1E5C52",padding:"14px 16px",position:"sticky",top:0,zIndex:100}}>
-      <div style={{display:"flex",alignItems:"center",gap:10,maxWidth:680,margin:"0 auto"}}>
-        <button onClick={onBack} style={{background:"rgba(255,255,255,0.2)",border:"1px solid rgba(255,255,255,0.3)",borderRadius:10,padding:"8px 10px",color:"#FFFFFF"}}><Ic n="chevL" s={18}/></button>
-        <Avatar dog={dog} size={40}/>
-        <div style={{flex:1}}>
-          <div style={{display:"flex",alignItems:"center",gap:8}}>
-            <div style={{fontFamily:"'Lora',serif",fontSize:20,color:"#FFFFFF"}}>{dog.name}</div>
-            {ptLabel&&ptColor&&<span style={{background:ptColor+"30",color:"#fff",border:`1px solid ${ptColor}66`,borderRadius:20,padding:"2px 8px",fontSize:11,fontWeight:700}}>{ptLabel}</span>}
+    <div style={{position:"sticky",top:0,zIndex:100}}>
+      {/* Main header */}
+      <div style={{background:"#1E5C52",padding:"14px 16px"}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,maxWidth:680,margin:"0 auto"}}>
+          <button onClick={onBack} style={{background:"rgba(255,255,255,0.2)",border:"1px solid rgba(255,255,255,0.3)",borderRadius:10,padding:"8px 10px",color:"#FFFFFF"}}><Ic n="chevL" s={18}/></button>
+          <Avatar dog={dog} size={40}/>
+          <div style={{flex:1}}>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <div style={{fontFamily:"'Lora',serif",fontSize:20,color:"#FFFFFF"}}>{dog.name}</div>
+              {ptLabel&&ptColor&&<span style={{background:ptColor+"30",color:"#fff",border:`1px solid ${ptColor}66`,borderRadius:20,padding:"2px 8px",fontSize:11,fontWeight:700}}>{ptLabel}</span>}
+            </div>
+            <div style={{color:"#F5C45E",fontSize:12}}>{dog.breed||"Dog"}</div>
           </div>
-          <div style={{color:"#F5C45E",fontSize:12}}>{dog.breed||"Dog"}</div>
         </div>
-        {premium
-          ?<button onClick={()=>setShowScan(true)} style={{background:"#2D7D6F22",border:"1px solid #2D7D6F55",borderRadius:10,padding:"7px 11px",color:"#fff",fontWeight:700,fontSize:11,display:"flex",alignItems:"center",gap:4,cursor:"pointer"}}><Ic n="camera" s={13} c="#fff"/>Scan</button>
-          :<button onClick={upgrade} style={{background:"#E8A83820",border:"1px solid #E8A83844",borderRadius:10,padding:"7px 11px",color:"#E8A838",fontWeight:700,fontSize:11,display:"flex",alignItems:"center",gap:4,cursor:"pointer"}}><Ic n="crown" s={13} c="#E8A838"/>Upgrade</button>}
+      </div>
+      {/* Sticky action bar */}
+      <div style={{background:"#164D44",borderBottom:"1px solid #0D3830",padding:"8px 16px"}}>
+        <div style={{display:"flex",gap:8,maxWidth:680,margin:"0 auto"}}>
+          {[
+            {label:"Edit",icon:"edit",action:()=>setModal("editDog"),always:true},
+            {label:"Share",icon:"share",action:()=>setModal("share"),always:true},
+            {label:"Export",icon:"download",action:()=>exportHTML(dog,state),premium:true},
+            {label:"AI Scan",icon:"camera",action:()=>setShowScan(true),premium:true},
+          ].map(btn=>(
+            <button key={btn.label} onClick={btn.always||premium?btn.action:upgrade}
+              style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,
+                background:btn.label==="AI Scan"&&premium?"#2D7D6F":(btn.premium&&!premium?"rgba(255,255,255,0.08)":"rgba(255,255,255,0.15)"),
+                border:"1px solid rgba(255,255,255,0.2)",borderRadius:10,padding:"7px 4px",
+                color:btn.premium&&!premium?"#E8A838":"#FFFFFF",cursor:"pointer",transition:"opacity .15s"}}
+              onMouseEnter={e=>e.currentTarget.style.opacity="0.8"}
+              onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
+              {btn.premium&&!premium
+                ?<Ic n="lock" s={15} c="#E8A838"/>
+                :<Ic n={btn.icon} s={15} c="#FFFFFF"/>}
+              <span style={{fontSize:11,fontWeight:600}}>{btn.label}</span>
+            </button>
+          ))}
+        </div>
       </div>
     </div>
     <div style={{maxWidth:680,margin:"0 auto",padding:"18px 16px"}} className="fade">
