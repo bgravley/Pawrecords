@@ -117,12 +117,25 @@ const generateChecklist = async (trip, pets) => {
     `${p.name} (${p.breed || 'mixed'}${p.is_service_animal ? ', SERVICE ANIMAL' : ''}${p.is_esa ? ', ESA' : ''})`
   ).join('; ');
 
-  const prompt = `List pet travel requirements for: ${trip.origin_city}, ${trip.origin_country} to ${trip.destination_city}, ${trip.destination_country}. Departure: ${trip.departure_date}. Airline: ${trip.airline || 'unspecified'}. Pets: ${petList}.
+  const prompt = `You are a pet travel expert. List ALL official requirements for traveling with pets on this exact route:
 
-Return ONLY a JSON array, no other text, no markdown, no backticks. Each item must have these exact fields:
-{"title":"","description":"","category":"","deadline_days_before":null,"window_start_days":null,"window_end_days":null,"requires_document":true,"source_url":"","source_name":"","notes":null}
+${trip.origin_city}, ${trip.origin_country} to ${trip.destination_city}, ${trip.destination_country}
+Departure: ${trip.departure_date}. Airline: ${trip.airline || 'unspecified'}. Pets: ${petList}.
 
-Valid categories: health_certificate, vaccination, treatment, documentation, airline, government_form, entry_document, other.
+Return ONLY a JSON array, no markdown, no backticks, no extra text.
+
+Each item MUST have these exact fields:
+{
+  "title": "short requirement name",
+  "description": "Step-by-step instructions written so clearly that a first-time pet traveler can follow them. Include: exactly what to do, who to contact (vet, government office, airline), what documents to bring, how long it takes, and what to expect. Be specific.",
+  "category": "one of: health_certificate, vaccination, treatment, documentation, airline, government_form, entry_document, other",
+  "deadline_days_before": null or number of days before departure this must be completed,
+  "window_start_days": null or number of days before departure when this can first be started,
+  "window_end_days": null or number of days before departure by which this must be done,
+  "requires_document": true or false,
+  "source_url": "direct URL to the official form, application page, or government website where they can START this process — not just a homepage",
+  "notes": "any urgent warnings, time-sensitive details, or common mistakes to avoid"
+}
 
 Start your response with [ and end with ]`;
 
