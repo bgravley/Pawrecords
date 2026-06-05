@@ -482,19 +482,21 @@ const AIScanModal=({dog,userId,onSave,onClose})=>{
   const[include,setInclude]=useState({visit:true,vaccines:true,weight:true,medications:true});
   const fr=useRef();
   const cameraRef=useRef();
-  const workerUrl=import.meta.env.VITE_AI_WORKER_URL;
   const onFile=e=>{const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=ev=>setImageData(ev.target.result);r.readAsDataURL(file);};
   const analyze=async()=>{
     if(!imageData)return;setStep("scanning");setError(null);
     try{
       const base64=imageData.split(",")[1];
       const mediaType=imageData.split(";")[0].split(":")[1];
-      const res=await fetch(workerUrl,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:[{role:"user",content:[{type:"image_url",image_url:{url:`data:${mediaType};base64,${base64}`}},{type:"text",text:`You are a veterinary record parser. Analyze this vet document and extract ALL information. Return ONLY raw JSON — no markdown, no explanation.\n\n{"visitDate":"YYYY-MM-DD or null","vetName":"string or null","clinicName":"string or null","reason":"string or null","diagnosis":"string or null","treatment":"string or null","weight":number_or_null,"cost":number_or_null,"notes":"string or null","vaccines":[{"name":"string","dateGiven":"YYYY-MM-DD or null","nextDue":"YYYY-MM-DD or null","lotNumber":"string or null","type":"core or optional"}],"medications":[{"name":"string","dosage":"string or null","frequency":"string or null","reason":"string or null"}]}\n\nRabies/DHPP/DA2PP=core. Others=optional. Calculate nextDue if not shown: Rabies=12mo, DHPP/DA2PP=36mo, others=12mo. Return only JSON.`}]}]})});
+      const res=await fetch("/api/ai-scan",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({imageBase64:base64,mediaType})
+      });
+      if(!res.ok){const e=await res.json();throw new Error(e.error||"Scan request failed");}
       const data=await res.json();
       if(data.error)throw new Error(data.error);
-      const text=data.choices?.[0]?.message?.content||"";
-      const clean=text.replace(/```json|```/g,"").trim();
-      setExtracted(JSON.parse(clean));
+      setExtracted(data.extracted);
       setStep("review");
     }catch(err){setError("Could not analyze: "+(err.message||"Unknown error"));setStep("upload");}
   };
