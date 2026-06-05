@@ -481,6 +481,7 @@ const AIScanModal=({dog,userId,onSave,onClose})=>{
   const[saved,setSaved]=useState(false);
   const[include,setInclude]=useState({visit:true,vaccines:true,weight:true,medications:true});
   const fr=useRef();
+  const cameraRef=useRef();
   const workerUrl=import.meta.env.VITE_AI_WORKER_URL;
   const onFile=e=>{const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=ev=>setImageData(ev.target.result);r.readAsDataURL(file);};
   const analyze=async()=>{
@@ -518,13 +519,26 @@ const AIScanModal=({dog,userId,onSave,onClose})=>{
           <button onClick={onClose} style={{background:"#FFFFFF",border:"1px solid #E8DDD0",borderRadius:8,padding:"6px 8px",color:"#5A4535"}}><Ic n="x" s={16}/></button>
         </div>
         {step==="upload"&&<>{error&&<div style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:12,padding:14,marginBottom:16,fontSize:13,color:"#C4714A"}}>{error}</div>}
-          <input ref={fr} type="file" accept="image/*" capture="environment" style={{display:"none"}} onChange={onFile}/>
-          {!imageData?(<div style={{border:"2px dashed #2D7D6F44",borderRadius:16,padding:40,textAlign:"center",cursor:"pointer",background:"#2D7D6F08"}} onClick={()=>fr.current.click()}>
-            <div style={{fontSize:40,marginBottom:12}}>📷</div>
-            <div style={{fontFamily:"'Lora',serif",fontSize:20,marginBottom:8}}>Take or Upload a Photo</div>
-            <div style={{color:"#5A4535",fontSize:14}}>Vaccine records · Vet reports · Health certificates</div>
-            <Btn style={{margin:"20px auto 0"}} onClick={e=>{e.stopPropagation();fr.current.click();}}><Ic n="camera" s={15}/> Choose Photo</Btn>
-          </div>):(<div><img src={imageData} style={{width:"100%",borderRadius:14,border:"1px solid #E8DDD0",maxHeight:280,objectFit:"contain",background:"#FFFFFF",marginBottom:16}}/><div style={{display:"flex",gap:10}}><Btn v="secondary" onClick={()=>setImageData(null)} full>Retake</Btn><Btn onClick={analyze} full><Ic n="syringe" s={15}/> Analyze Document</Btn></div></div>)}</>}
+          <input ref={fr} type="file" accept="image/*,application/pdf" style={{display:"none"}} onChange={onFile}/>
+          <input ref={cameraRef} type="file" accept="image/*" capture="environment" style={{display:"none"}} onChange={onFile}/>
+          {!imageData?(<div style={{display:"flex",flexDirection:"column",gap:10}}>
+            <div style={{border:"2px dashed #2D7D6F44",borderRadius:16,padding:28,textAlign:"center",background:"#2D7D6F08"}}>
+              <div style={{fontSize:36,marginBottom:8}}>📄</div>
+              <div style={{fontFamily:"'Lora',serif",fontSize:18,marginBottom:4}}>Scan or Upload a Record</div>
+              <div style={{color:"#5A4535",fontSize:13,marginBottom:16}}>Vet invoices · Vaccine records · Health certificates</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+                <button onClick={()=>cameraRef.current.click()} style={{background:"#2D7D6F",color:"#FAF6F0",borderRadius:10,padding:"10px 6px",fontWeight:600,fontSize:12,border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+                  <Ic n="camera" s={18} c="#FAF6F0"/>Take Photo
+                </button>
+                <button onClick={()=>{fr.current.accept="image/*";fr.current.click();}} style={{background:"#FFFFFF",color:"#2C2017",borderRadius:10,padding:"10px 6px",fontWeight:600,fontSize:12,border:"1.5px solid #E8DDD0",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+                  <Ic n="camera" s={18}/>Photo Library
+                </button>
+                <button onClick={()=>{fr.current.accept="image/*,application/pdf";fr.current.click();}} style={{background:"#FFFFFF",color:"#2C2017",borderRadius:10,padding:"10px 6px",fontWeight:600,fontSize:12,border:"1.5px solid #E8DDD0",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+                  <Ic n="doc" s={18}/>Upload File
+                </button>
+              </div>
+            </div>
+          </div>):(<div><img src={imageData} style={{width:"100%",borderRadius:14,border:"1px solid #E8DDD0",maxHeight:280,objectFit:"contain",background:"#FFFFFF",marginBottom:16}}/><div style={{display:"flex",gap:10}}><Btn v="secondary" onClick={()=>setImageData(null)} full>Retake / Change</Btn><Btn onClick={analyze} full><Ic n="syringe" s={15}/> Analyze Document</Btn></div></div>)}</>}
         {step==="scanning"&&(<div style={{textAlign:"center",padding:"40px 0"}}><div style={{fontSize:48,marginBottom:20,animation:"spin 1.5s linear infinite",display:"inline-block"}}>🔍</div><style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style><div style={{fontFamily:"'Lora',serif",fontSize:22,marginBottom:8}}>Reading Document...</div><div style={{color:"#5A4535",fontSize:14}}>AI is extracting vaccines, dates, weight, and more</div></div>)}
         {step==="review"&&extracted&&(<>
           <div style={{background:"#2D7D6F14",border:"1px solid #2D7D6F44",borderRadius:12,padding:14,marginBottom:16,fontSize:13,color:"#2D7D6F"}}>✓ Document analyzed — review and confirm what to save</div>
@@ -544,7 +558,7 @@ const AIScanModal=({dog,userId,onSave,onClose})=>{
   );
 };
 
-const OverviewTab=({dog,state,userId,tier,setModal,onUpgrade,dispatch})=>{
+const OverviewTab=({dog,state,userId,tier,setModal,onUpgrade,onScan,dispatch})=>{
   const vaccines=state.vaccinations.filter(v=>v.dog_id===dog.id);
   const urgent=vaccines.filter(v=>v.next_due&&daysUntil(v.next_due)<=30);
   const al=state.allergies.filter(a=>a.dog_id===dog.id);
@@ -621,20 +635,27 @@ const OverviewTab=({dog,state,userId,tier,setModal,onUpgrade,dispatch})=>{
     {/* Active meds */}
     {meds.length>0&&(<Card><div style={{fontWeight:600,marginBottom:10,fontSize:14,display:"flex",alignItems:"center",gap:8}}><Ic n="pill" s={14} c="#2D7D6F"/> Active Medications</div>{meds.map(m=>(<div key={m.id} style={{fontSize:14,padding:"6px 0",borderBottom:"1px solid #E8DDD044"}}><b>{m.name}</b> · {m.dosage} · {m.frequency}</div>))}</Card>)}
 
-    {/* Action buttons */}
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
-      <Btn full v="secondary" onClick={()=>setModal("editDog")} style={{justifyContent:"center",flexDirection:"column",gap:4,padding:"12px 8px"}}>
-        <Ic n="edit" s={16}/><span style={{fontSize:12}}>Edit</span>
+    {/* Action buttons - 2x2 grid */}
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+      <Btn full v="secondary" onClick={()=>setModal("editDog")} style={{justifyContent:"center",flexDirection:"column",gap:4,padding:"14px 8px"}}>
+        <Ic n="edit" s={18}/><span style={{fontSize:12,fontWeight:600}}>Edit Profile</span>
       </Btn>
       {premium
-        ?<Btn full onClick={()=>exportHTML(dog,state)} style={{justifyContent:"center",flexDirection:"column",gap:4,padding:"12px 8px"}}>
-          <Ic n="download" s={16} c="#FAF6F0"/><span style={{fontSize:12}}>Export</span>
+        ?<Btn full onClick={()=>exportHTML(dog,state)} style={{justifyContent:"center",flexDirection:"column",gap:4,padding:"14px 8px"}}>
+          <Ic n="download" s={18} c="#FAF6F0"/><span style={{fontSize:12,fontWeight:600}}>Export Records</span>
         </Btn>
-        :<Btn full v="secondary" onClick={onUpgrade} style={{justifyContent:"center",flexDirection:"column",gap:4,padding:"12px 8px",opacity:.7}}>
-          <Ic n="lock" s={16}/><span style={{fontSize:12}}>Export</span>
+        :<Btn full v="secondary" onClick={onUpgrade} style={{justifyContent:"center",flexDirection:"column",gap:4,padding:"14px 8px",opacity:.7}}>
+          <Ic n="lock" s={18}/><span style={{fontSize:12,fontWeight:600}}>Export Records</span>
         </Btn>}
-      <Btn full v="secondary" onClick={()=>setModal("share")} style={{justifyContent:"center",flexDirection:"column",gap:4,padding:"12px 8px"}}>
-        <Ic n="share" s={16}/><span style={{fontSize:12}}>Share</span>
+      {premium
+        ?<Btn full onClick={onScan} style={{background:"#1E5C52",justifyContent:"center",flexDirection:"column",gap:4,padding:"14px 8px"}}>
+          <Ic n="camera" s={18} c="#FAF6F0"/><span style={{fontSize:12,fontWeight:600}}>AI Scan Records</span>
+        </Btn>
+        :<Btn full v="secondary" onClick={onUpgrade} style={{justifyContent:"center",flexDirection:"column",gap:4,padding:"14px 8px",opacity:.7}}>
+          <Ic n="lock" s={18}/><span style={{fontSize:12,fontWeight:600}}>AI Scan Records</span>
+        </Btn>}
+      <Btn full v="secondary" onClick={()=>setModal("share")} style={{justifyContent:"center",flexDirection:"column",gap:4,padding:"14px 8px"}}>
+        <Ic n="share" s={18}/><span style={{fontSize:12,fontWeight:600}}>Share</span>
       </Btn>
     </div>
 
@@ -793,12 +814,12 @@ const DogDetail=({dog,state,dispatch,userId,tier,onBack,onUpgrade,userEmail})=>{
           <div style={{color:"#F5C45E",fontSize:12}}>{dog.breed||"Dog"}</div>
         </div>
         {premium
-          ?<button onClick={()=>setShowScan(true)} style={{background:"#2D7D6F22",border:"1px solid #2D7D6F55",borderRadius:10,padding:"7px 11px",color:"#fff",fontWeight:700,fontSize:12,display:"flex",alignItems:"center",gap:5,cursor:"pointer"}}><Ic n="camera" s={14} c="#fff"/>AI Scan</button>
-          :<button onClick={upgrade} style={{background:"#E8A83820",border:"1px solid #E8A83844",borderRadius:10,padding:"7px 11px",color:"#E8A838",fontWeight:700,fontSize:12,display:"flex",alignItems:"center",gap:5,cursor:"pointer"}}><Ic n="crown" s={14} c="#E8A838"/>Upgrade</button>}
+          ?<button onClick={()=>setShowScan(true)} style={{background:"#2D7D6F22",border:"1px solid #2D7D6F55",borderRadius:10,padding:"7px 11px",color:"#fff",fontWeight:700,fontSize:11,display:"flex",alignItems:"center",gap:4,cursor:"pointer"}}><Ic n="camera" s={13} c="#fff"/>Scan</button>
+          :<button onClick={upgrade} style={{background:"#E8A83820",border:"1px solid #E8A83844",borderRadius:10,padding:"7px 11px",color:"#E8A838",fontWeight:700,fontSize:11,display:"flex",alignItems:"center",gap:4,cursor:"pointer"}}><Ic n="crown" s={13} c="#E8A838"/>Upgrade</button>}
       </div>
     </div>
     <div style={{maxWidth:680,margin:"0 auto",padding:"18px 16px"}} className="fade">
-      {tab==="overview"&&<OverviewTab dog={dog} state={state} userId={userId} tier={tier} setModal={setModal} onUpgrade={upgrade} dispatch={dispatch}/>}
+      {tab==="overview"&&<OverviewTab dog={dog} state={state} userId={userId} tier={tier} setModal={setModal} onUpgrade={upgrade} onScan={()=>setShowScan(true)} dispatch={dispatch}/>}
       {tab==="vaccines"&&<VaccinesTab dog={dog} state={state} dispatch={dispatch} userId={userId} tier={tier} onUpgrade={upgrade}/>}
       {tab==="health"&&<HealthTab dog={dog} state={state} dispatch={dispatch} userId={userId} tier={tier} onUpgrade={upgrade}/>}
       {tab==="records"&&<RecordsTab dog={dog} state={state} dispatch={dispatch} userId={userId}/>}
