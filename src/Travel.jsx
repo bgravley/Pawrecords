@@ -117,27 +117,19 @@ const generateChecklist = async (trip, pets) => {
     `${p.name} (${p.breed || 'mixed'}${p.is_service_animal ? ', SERVICE ANIMAL' : ''}${p.is_esa ? ', ESA' : ''})`
   ).join('; ');
 
-  const prompt = `You are a pet travel expert. List ALL official requirements for traveling with pets on this exact route:
+  const prompt = `You are a pet travel expert. List all requirements for traveling with pets: ${trip.origin_city}, ${trip.origin_country} to ${trip.destination_city}, ${trip.destination_country}. Departure: ${trip.departure_date}. Airline: ${trip.airline || 'unspecified'}. Pets: ${petList}.
 
-${trip.origin_city}, ${trip.origin_country} to ${trip.destination_city}, ${trip.destination_country}
-Departure: ${trip.departure_date}. Airline: ${trip.airline || 'unspecified'}. Pets: ${petList}.
+Return ONLY a JSON array starting with [ and ending with ]. No markdown, no backticks, no extra text.
 
-Return ONLY a JSON array, no markdown, no backticks, no extra text.
+Each item must use these exact field names: title, description, category, deadline_days_before, window_start_days, window_end_days, requires_document, source_url, notes.
 
-Each item MUST have these exact fields:
-{
-  "title": "short requirement name",
-  "description": "Step-by-step instructions written so clearly that a first-time pet traveler can follow them. Include: exactly what to do, who to contact (vet, government office, airline), what documents to bring, how long it takes, and what to expect. Be specific.",
-  "category": "one of: health_certificate, vaccination, treatment, documentation, airline, government_form, entry_document, other",
-  "deadline_days_before": null or number of days before departure this must be completed,
-  "window_start_days": null or number of days before departure when this can first be started,
-  "window_end_days": null or number of days before departure by which this must be done,
-  "requires_document": true or false,
-  "source_url": "direct URL to the official form, application page, or government website where they can START this process — not just a homepage",
-  "notes": "any urgent warnings, time-sensitive details, or common mistakes to avoid"
-}
+For description: write clear step-by-step instructions a beginner can follow. Include who to contact, what to bring, and how long it takes.
+For source_url: use the direct URL to the form or application page, not just a homepage.
+For category use only: health_certificate, vaccination, treatment, documentation, airline, government_form, entry_document, other.
 
-Start your response with [ and end with ]`;
+Example of ONE item (return multiple): [{"title":"Health Certificate","description":"Step 1: Schedule a vet appointment within 10 days of departure. Step 2: Bring your pet's vaccination records. Step 3: Ask your vet to complete the USDA-endorsed health certificate form. Step 4: Have the form endorsed by a USDA accredited vet.","category":"health_certificate","deadline_days_before":null,"window_start_days":10,"window_end_days":1,"requires_document":true,"source_url":"https://www.aphis.usda.gov/pet-travel","notes":"Must be issued within 10 days of travel"}]
+
+Now return the full array for this trip:`;
 
   const response = await fetch("/api/ai-travel", {
     method: "POST",
