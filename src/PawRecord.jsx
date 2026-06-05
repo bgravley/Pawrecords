@@ -996,7 +996,7 @@ const OwnerProfileModal=({userId,tier,userEmail,onUpgrade,onClose})=>{
   </Modal>);
 };
 
-const Home=({state,dispatch,userId,tier,userEmail,onSignOut})=>{
+const Home=({state,dispatch,userId,tier,userEmail,onSignOut,isAdmin,onOpenAdmin})=>{
   const[addDog,setAddDog]=useState(false);
   const[selDog,setSelDog]=useState(null);
   const[showUpgrade,setShowUpgrade]=useState(false);
@@ -1020,6 +1020,7 @@ const Home=({state,dispatch,userId,tier,userEmail,onSignOut})=>{
           {!premium&&<button onClick={()=>setShowUpgrade(true)} style={{background:"#E8A83820",border:"1px solid #E8A83844",borderRadius:10,padding:"7px 12px",color:"#E8A838",fontWeight:600,fontSize:12,display:"flex",alignItems:"center",gap:5,cursor:"pointer"}}><Ic n="crown" s={13} c="#E8A838"/>Premium</button>}
           {totalAlerts>0&&<div style={{background:"#E8A83814",border:"1px solid #E8A83844",borderRadius:10,padding:"7px 12px",display:"flex",alignItems:"center",gap:5,color:"#E8A838",fontSize:13}}><Ic n="alert" s={14} c="#E8A838"/>{totalAlerts}</div>}
           <button onClick={()=>setShowProfile(true)} title="My Account" style={{background:"#FFFFFF",border:"1px solid #E8DDD0",borderRadius:10,padding:"7px 10px",color:"#5A4535",cursor:"pointer"}}><Ic n="home" s={16} c="#5A4535"/></button>
+          {isAdmin&&<button onClick={onOpenAdmin} title="Admin Dashboard" style={{background:"#1E5C52",border:"1px solid #2D7D6F44",borderRadius:10,padding:"7px 10px",color:"#FFFFFF",cursor:"pointer",fontSize:11,fontWeight:700}}>⚙ Admin</button>}
           <button onClick={onSignOut} title="Sign out" style={{background:"#FFFFFF",border:"1px solid #E8DDD0",borderRadius:10,padding:"7px 10px",color:"#5A4535",cursor:"pointer"}}><Ic n="logout" s={16} c="#5A4535"/></button>
         </div>
       </div>
@@ -1073,7 +1074,7 @@ const Home=({state,dispatch,userId,tier,userEmail,onSignOut})=>{
   </div>);
 };
 
-export default function YourPetPass({userId,profile,onSignOut}){
+export default function YourPetPass({userId,profile,onSignOut,isAdmin,onOpenAdmin}){
   const[state,dispatch]=useReducer(reducer,null,initState);
   const[ready,setReady]=useState(false);
   const[tier,setTier]=useState("free");
@@ -1097,7 +1098,7 @@ export default function YourPetPass({userId,profile,onSignOut}){
   return(
     <ErrorBoundary>
       <style>{GLOBAL}</style>
-      <Home state={state} dispatch={dispatch} userId={userId} tier={tier} userEmail={userEmail} onSignOut={onSignOut}/>
+      <Home state={state} dispatch={dispatch} userId={userId} tier={tier} userEmail={userEmail} onSignOut={onSignOut} isAdmin={isAdmin} onOpenAdmin={onOpenAdmin}/>
     </ErrorBoundary>
   );
 }
