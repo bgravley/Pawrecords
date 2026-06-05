@@ -1,117 +1,74 @@
-import { useState, useEffect } from 'react'
-import { supabase } from './lib/supabase'
-import Auth from './components/Auth'
-import PawRecord from './PawRecord'
-import TravelModule from './Travel'
+// src/App.jsx
+import { useState, useEffect } from "react";
+import { supabase } from "./lib/supabase";
+import Auth from "./components/Auth.jsx";
+import YourPetPass from "./PawRecord.jsx";
+import Admin from "./Admin.jsx";
+
+// Your admin email — only this account sees the admin dashboard
+const ADMIN_EMAIL = "bgravley@rdmarketingllc.com";
 
 export default function App() {
-  const [session, setSession] = useState(undefined)
-  const [profile, setProfile] = useState(null)
-  const [activeTab, setActiveTab] = useState('pets')
-  const [dogs, setDogs] = useState([])
+  const [session, setSession] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [showAdmin, setShowAdmin] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      if (session) {
-        loadProfile(session.user.id)
-        loadDogs(session.user.id)
-      }
-    })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
-      setSession(session)
-      if (session) {
-        loadProfile(session.user.id)
-        loadDogs(session.user.id)
-      } else {
-        setProfile(null)
-        setDogs([])
-      }
-    })
-    return () => subscription.unsubscribe()
-  }, [])
+      setSession(session);
+      if (session) loadProfile(session.user.id);
+      else setLoading(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      if (session) loadProfile(session.user.id);
+      else { setProfile(null); setLoading(false); }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const loadProfile = async (userId) => {
-    const { data } = await supabase.from('profiles').select('*').eq('id', userId).single()
-    if (data) setProfile(data)
-  }
+    const { data } = await supabase.from("profiles").select("*").eq("id", userId).single();
+    setProfile(data);
+    setLoading(false);
+  };
 
-  const loadDogs = async (userId) => {
-    const { data } = await supabase.from('dogs').select('*').eq('user_id', userId)
-    setDogs(data || [])
-  }
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    setSession(null);
+    setProfile(null);
+    setShowAdmin(false);
+  };
 
-  if (session === undefined) return (
-    <div style={{ minHeight: '100vh', background: '#1E5C52', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ fontFamily: "'Lora', serif", fontSize: 28, color: '#F5C45E', fontStyle: 'italic' }}>
-        🐾 YourPetPass
+  if (loading) return (
+    <div style={{ minHeight: "100vh", background: "#FAF6F0", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ fontFamily: "'Nunito', sans-serif", fontSize: 28, fontWeight: 900, color: "#2D7D6F" }}>
+        🐾 Loading...
       </div>
     </div>
-  )
+  );
 
-  if (!session) return <Auth />
+  if (!session) return <Auth />;
 
-  const userId = session.user.id
-  const tier = profile?.subscription_tier || 'premium'
-  const userEmail = session.user.email || ''
-  const workerUrl = import.meta.env.VITE_AI_WORKER_URL
+  // Admin route - only for admin email
+  const isAdmin = session.user.email === ADMIN_EMAIL || profile?.is_admin === true;
+
+  if (showAdmin && isAdmin) {
+    return <Admin onBack={() => setShowAdmin(false)} />;
+  }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#FAF6F0' }}>
-
-      {/* My Pets tab */}
-      <div style={{ display: activeTab === 'pets' ? 'block' : 'none' }}>
-        <PawRecord
-          userId={userId}
-          profile={profile}
-          tier={tier}
-          userEmail={userEmail}
-          onSignOut={() => supabase.auth.signOut()}
-          onDogsChange={updated => {
-            setDogs(updated)
-            loadDogs(userId)
-          }}
-        />
-      </div>
-
-      {/* Travel tab */}
-      <div style={{ display: activeTab === 'travel' ? 'block' : 'none' }}>
-        <TravelModule
-          userId={userId}
-          dogs={dogs}
-          workerUrl={workerUrl}
-        />
-      </div>
-
-      {/* Bottom tab bar — only show on home screens, not inside pet detail */}
-      <nav style={{
-        position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 50,
-        background: '#FFFFFF', borderTop: '1px solid #E8DDD0',
-        display: 'flex', height: 64,
-        boxShadow: '0 -2px 12px rgba(44,32,23,0.06)',
-        fontFamily: "'Nunito', sans-serif"
-      }}>
-        <button onClick={() => setActiveTab('pets')} style={{
-          flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
-          justifyContent: 'center', gap: 3, background: 'none', border: 'none',
-          color: activeTab === 'pets' ? '#2D7D6F' : '#8B7355',
-          fontSize: 11, fontWeight: activeTab === 'pets' ? 800 : 600,
-          fontFamily: "'Nunito', sans-serif", cursor: 'pointer'
-        }}>
-          <span style={{ fontSize: 22 }}>📋</span>
-          My Pets
-        </button>
-        <button onClick={() => setActiveTab('travel')} style={{
-          flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
-          justifyContent: 'center', gap: 3, background: 'none', border: 'none',
-          color: activeTab === 'travel' ? '#E8A838' : '#8B7355',
-          fontSize: 11, fontWeight: activeTab === 'travel' ? 800 : 600,
-          fontFamily: "'Nunito', sans-serif", cursor: 'pointer'
-        }}>
-          <span style={{ fontSize: 22 }}>🛂</span>
-          Travel
-        </button>
-      </nav>
-    </div>
-  )
+    <>
+      <YourPetPass
+        userId={session.user.id}
+        profile={profile}
+        onSignOut={handleSignOut}
+        isAdmin={isAdmin}
+        onOpenAdmin={() => setShowAdmin(true)}
+      />
+    </>
+  );
 }
