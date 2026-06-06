@@ -132,6 +132,41 @@ const isPremium=tier=>tier==='premium'||tier==='lifetime';
 const petTypeLabel=type=>{if(type==='service_animal')return'Service Animal';if(type==='esa')return'ESA';return null;};
 const petTypeColor=type=>{if(type==='service_animal')return'#2D7D6F';if(type==='esa')return'#E8A838';return null;};
 
+// ── ACTIVITY & ERROR LOGGING ──────────────────────────────
+const logActivity = async (userId, userEmail, action, details = {}) => {
+  try {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    await fetch(`${supabaseUrl}/rest/v1/activity_log`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': supabaseKey,
+        'Authorization': `Bearer ${supabaseKey}`,
+      },
+      body: JSON.stringify({ user_id: userId, user_email: userEmail, action, details })
+    });
+  } catch (e) { /* silent fail */ }
+};
+
+const logError = async (userId, userEmail, context, errorMessage) => {
+  try {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    await fetch(`${supabaseUrl}/rest/v1/error_log`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': supabaseKey,
+        'Authorization': `Bearer ${supabaseKey}`,
+      },
+      body: JSON.stringify({ user_id: userId, user_email: userEmail, context, error_message: errorMessage, reviewed: false })
+    });
+  } catch (e) { /* silent fail */ }
+};
+
+
+
 const exportICS=(dogName,vacName,due)=>{
   const d=new Date(due+"T09:00:00"),p=n=>String(n).padStart(2,"0");
   const ts=`${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}T090000`;
@@ -366,6 +401,7 @@ const DogForm=({dog,userId,onSave,onClose})=>{
         await supabase.from("dogs").update({certification_doc_path:path}).eq("id",result.id);
         result.certification_doc_path=path;
       }
+      await logActivity(userId, null, dog?'pet_updated':'pet_added', {petName:f.name, breed:f.breed});
       onSave(result);
     }
     setSaving(false);
@@ -638,7 +674,7 @@ const AIScanModal=({dog,userId,onSave,onClose})=>{
       if(data.error)throw new Error(data.error);
       setExtracted(data.extracted);
       setStep("review");
-    }catch(err){setError("Could not analyze: "+(err.message||"Unknown error"));setStep("upload");}
+    }catch(err){setError("Could not analyze: "+(err.message||"Unknown error"));setStep("upload");await logError(userId,null,'ai_scan',err.message||'Unknown error');}
   };
   const saveAll=async()=>{
     setSaving(true);
@@ -978,7 +1014,7 @@ const DogDetail=({dog,state,dispatch,userId,tier,onBack,onUpgrade,userEmail})=>{
           {[
             {label:"Edit",icon:"edit",action:()=>setModal("editDog"),always:true},
             {label:"Share",icon:"share",action:()=>setModal("share"),always:true},
-            {label:"Export",icon:"download",action:()=>exportHTML(dog,state),premium:true},
+            {label:"Export",icon:"download",action:()=>{exportHTML(dog,state);logActivity(userId,null,'export_records',{petName:dog.name});},premium:true},
             {label:"AI Scan",icon:"camera",action:()=>setShowScan(true),premium:true},
           ].map(btn=>(
             <button key={btn.label} onClick={btn.always||premium?btn.action:upgrade}
@@ -1209,7 +1245,19 @@ const Home=({state,dispatch,userId,tier,userEmail,onSignOut,isAdmin,onOpenAdmin}
   const[selDog,setSelDog]=useState(null);
   const[showUpgrade,setShowUpgrade]=useState(false);
   const[showProfile,setShowProfile]=useState(false);
+  const[errorCount,setErrorCount]=useState(0);
   const premium=isPremium(tier);
+
+  useEffect(()=>{
+    if(!isAdmin)return;
+    const checkErrors=async()=>{
+      const{count}=await supabase.from("error_log").select("*",{count:"exact",head:true}).eq("reviewed",false);
+      setErrorCount(count||0);
+    };
+    checkErrors();
+    const interval=setInterval(checkErrors,60000); // check every minute
+    return()=>clearInterval(interval);
+  },[isAdmin]);
 
   if(selDog){
     const dog=state.dogs.find(d=>d.id===selDog);
@@ -1228,7 +1276,10 @@ const Home=({state,dispatch,userId,tier,userEmail,onSignOut,isAdmin,onOpenAdmin}
           {!premium&&<button onClick={()=>setShowUpgrade(true)} style={{background:"#E8A83820",border:"1px solid #E8A83844",borderRadius:10,padding:"7px 12px",color:"#E8A838",fontWeight:600,fontSize:12,display:"flex",alignItems:"center",gap:5,cursor:"pointer"}}><Ic n="crown" s={13} c="#E8A838"/>Premium</button>}
           {totalAlerts>0&&<div style={{background:"#E8A83814",border:"1px solid #E8A83844",borderRadius:10,padding:"7px 12px",display:"flex",alignItems:"center",gap:5,color:"#E8A838",fontSize:13}}><Ic n="alert" s={14} c="#E8A838"/>{totalAlerts}</div>}
           <button onClick={()=>setShowProfile(true)} title="My Account" style={{background:"#FFFFFF",border:"1px solid #E8DDD0",borderRadius:10,padding:"7px 10px",color:"#5A4535",cursor:"pointer"}}><Ic n="home" s={16} c="#5A4535"/></button>
-          {isAdmin&&<button onClick={onOpenAdmin} title="Admin Dashboard" style={{background:"#1E5C52",border:"1px solid #2D7D6F44",borderRadius:10,padding:"7px 10px",color:"#FFFFFF",cursor:"pointer",fontSize:11,fontWeight:700}}>⚙ Admin</button>}
+          {isAdmin&&<button onClick={onOpenAdmin} title="Admin Dashboard" style={{position:"relative",background:"#1E5C52",border:"1px solid #2D7D6F44",borderRadius:10,padding:"7px 10px",color:"#FFFFFF",cursor:"pointer",fontSize:11,fontWeight:700}}>
+  ⚙ Admin
+  {errorCount>0&&<span style={{position:"absolute",top:-6,right:-6,background:"#C4714A",color:"#fff",borderRadius:"50%",width:18,height:18,fontSize:10,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700}}>{errorCount}</span>}
+</button>}
           <button onClick={onSignOut} title="Sign out" style={{background:"#FFFFFF",border:"1px solid #E8DDD0",borderRadius:10,padding:"7px 10px",color:"#5A4535",cursor:"pointer"}}><Ic n="logout" s={16} c="#5A4535"/></button>
         </div>
       </div>
