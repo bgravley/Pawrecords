@@ -22,17 +22,22 @@ const Stat = ({ label, value, sub, color }) => (
   </div>
 );
 
-const Tab = ({ id, label, active, onClick }) => (
+const Tab = ({ id, label, active, onClick, alert }) => (
   <button onClick={onClick} style={{
-    padding: "8px 18px", borderRadius: 8, fontWeight: 600, fontSize: 14, border: "none", cursor: "pointer",
-    background: active ? C.accent : "transparent", color: active ? "#fff" : C.sub, transition: "all .15s"
-  }}>{label}</button>
+    position:"relative", padding: "8px 18px", borderRadius: 8, fontWeight: 600, fontSize: 14, border: "none", cursor: "pointer",
+    background: active ? C.accent : "transparent", color: active ? "#fff" : alert ? "#C4714A" : C.sub, transition: "all .15s"
+  }}>
+    {label}
+    {alert && !active && <span style={{position:"absolute",top:4,right:4,width:8,height:8,background:"#C4714A",borderRadius:"50%"}}/>}
+  </button>
 );
 
 export default function Admin({ onBack }) {
   const [tab, setTab] = useState("overview");
   const [users, setUsers] = useState([]);
   const [aiLogs, setAiLogs] = useState([]);
+  const [activityLogs, setActivityLogs] = useState([]);
+  const [errorLogs, setErrorLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editUser, setEditUser] = useState(null);
   const [search, setSearch] = useState("");
@@ -41,12 +46,16 @@ export default function Admin({ onBack }) {
 
   const loadData = async () => {
     setLoading(true);
-    const [{ data: u }, { data: logs }] = await Promise.all([
+    const [{ data: u }, { data: logs }, { data: activity }, { data: errors }] = await Promise.all([
       supabase.from("profiles").select("*").order("created_at", { ascending: false }),
       supabase.from("ai_usage_log").select("*").order("created_at", { ascending: false }).limit(500),
+      supabase.from("activity_log").select("*").order("created_at", { ascending: false }).limit(200),
+      supabase.from("error_log").select("*").order("created_at", { ascending: false }).limit(200),
     ]);
     setUsers(u || []);
     setAiLogs(logs || []);
+    setActivityLogs(activity || []);
+    setErrorLogs(errors || []);
     setLoading(false);
   };
 
@@ -93,7 +102,13 @@ export default function Admin({ onBack }) {
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "24px 20px" }}>
         {/* Tabs */}
         <div style={{ display: "flex", gap: 6, marginBottom: 24, background: C.card, borderRadius: 10, padding: 4, width: "fit-content", border: `1px solid ${C.border}` }}>
-          {[{ id: "overview", label: "Overview" }, { id: "users", label: `Users (${totalUsers})` }, { id: "ai", label: `AI Usage (${aiLogs.length})` }].map(t => (
+          {[
+          { id: "overview", label: "Overview" },
+          { id: "users", label: `Users (${totalUsers})` },
+          { id: "ai", label: `AI Usage (${aiLogs.length})` },
+          { id: "activity", label: `Activity (${activityLogs.length})` },
+          { id: "errors", label: `Errors (${errorLogs.filter(e=>!e.reviewed).length})`, alert: errorLogs.filter(e=>!e.reviewed).length > 0 },
+        ].map(t => (
             <Tab key={t.id} id={t.id} label={t.label} active={tab === t.id} onClick={() => setTab(t.id)} />
           ))}
         </div>
@@ -250,6 +265,75 @@ export default function Admin({ onBack }) {
           </div>
         </>}
       </div>
+
+        {/* ACTIVITY TAB */}
+        {tab === "activity" && (
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 20 }}>
+            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>User Activity Log</div>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+              <thead>
+                <tr style={{ color: C.sub, textAlign: "left" }}>
+                  {["Time", "User", "Action", "Details"].map(h => (
+                    <th key={h} style={{ padding: "8px 10px", borderBottom: `1px solid ${C.border}`, fontWeight: 600 }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {activityLogs.map(log => (
+                  <tr key={log.id} style={{ borderBottom: `1px solid ${C.border}15` }}>
+                    <td style={{ padding: "7px 10px", color: C.sub, whiteSpace: "nowrap" }}>{fmtTime(log.created_at)}</td>
+                    <td style={{ padding: "7px 10px" }}>{log.user_email || "—"}</td>
+                    <td style={{ padding: "7px 10px" }}>
+                      <span style={{ background: "#2D7D6F22", color: "#2D7D6F", borderRadius: 20, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>
+                        {log.action}
+                      </span>
+                    </td>
+                    <td style={{ padding: "7px 10px", color: C.sub, fontSize: 11 }}>
+                      {log.details ? Object.entries(log.details).map(([k,v]) => `${k}: ${v}`).join(" · ") : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* ERRORS TAB */}
+        {tab === "errors" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ fontWeight: 700, fontSize: 16 }}>Error Log</div>
+              <div style={{ fontSize: 13, color: C.sub }}>{errorLogs.filter(e=>!e.reviewed).length} unreviewed</div>
+            </div>
+            {errorLogs.length === 0
+              ? <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 40, textAlign: "center", color: C.sub }}>No errors logged 🎉</div>
+              : errorLogs.map(err => (
+                <div key={err.id} style={{ background: C.card, border: `1px solid ${err.reviewed ? C.border : "#C4714A44"}`, borderRadius: 12, padding: 16 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      {!err.reviewed && <span style={{ background: "#C4714A22", color: "#C4714A", borderRadius: 20, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>NEW</span>}
+                      <span style={{ fontWeight: 600, fontSize: 14 }}>{err.context}</span>
+                    </div>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <span style={{ fontSize: 12, color: C.sub }}>{fmtTime(err.created_at)}</span>
+                      {!err.reviewed && (
+                        <button onClick={async () => {
+                          await supabase.from("error_log").update({ reviewed: true }).eq("id", err.id);
+                          setErrorLogs(p => p.map(e => e.id === err.id ? { ...e, reviewed: true } : e));
+                        }} style={{ background: "#2D7D6F22", color: "#2D7D6F", border: "1px solid #2D7D6F44", borderRadius: 7, padding: "3px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                          Mark Reviewed
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 13, color: C.sub, marginBottom: 4 }}>User: {err.user_email || "unknown"}</div>
+                  <div style={{ background: "#0F1117", borderRadius: 8, padding: 10, fontSize: 12, color: "#FF6B6B", fontFamily: "monospace" }}>
+                    {err.error_message}
+                  </div>
+                </div>
+              ))}
+          </div>
+        )}
 
       {/* Edit User Modal */}
       {editUser && (
