@@ -617,7 +617,7 @@ const ShareModal=({dog,onClose})=>{
 
 const AIScanModal=({dog,userId,onSave,onClose})=>{
   const[step,setStep]=useState("upload");
-  const[imageData,setImageData]=useState(null);
+  const[images,setImages]=useState([]); // array of {dataUrl, label}
   const[extracted,setExtracted]=useState(null);
   const[error,setError]=useState(null);
   const[saving,setSaving]=useState(false);
@@ -625,57 +625,85 @@ const AIScanModal=({dog,userId,onSave,onClose})=>{
   const[include,setInclude]=useState({visit:true,vaccines:true,weight:true,medications:true});
   const fr=useRef();
   const cameraRef=useRef();
-  const onFile=e=>{
-    const file=e.target.files[0];if(!file)return;
-    if(file.type==="application/pdf"){
-      const r=new FileReader();
-      r.onload=async ev=>{
-        try{
-          // Load pdf.js via script tag if not already loaded
-          await new Promise((resolve,reject)=>{
-            if(window.pdfjsLib){resolve();return;}
-            const script=document.createElement("script");
-            script.src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
-            script.onload=()=>{
-              window.pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-              resolve();
-            };
-            script.onerror=()=>reject(new Error("Failed to load PDF library"));
-            document.head.appendChild(script);
-          });
-          const pdfjsLib=window.pdfjsLib;
-          const pdf=await pdfjsLib.getDocument({data:new Uint8Array(ev.target.result)}).promise;
-          const page=await pdf.getPage(1);
-          const scale=2;
-          const viewport=page.getViewport({scale});
-          const canvas=document.createElement("canvas");
-          canvas.width=viewport.width;canvas.height=viewport.height;
-          await page.render({canvasContext:canvas.getContext("2d"),viewport}).promise;
-          setImageData(canvas.toDataURL("image/jpeg",0.92));
-        }catch(err){setError("Could not read PDF: "+err.message);}
-      };
-      r.readAsArrayBuffer(file);
-    } else {
-      const r=new FileReader();r.onload=ev=>setImageData(ev.target.result);r.readAsDataURL(file);
+  const MAX_IMAGES=4;
+
+  const loadPdfAsImage=async(arrayBuffer)=>{
+    await new Promise((resolve,reject)=>{
+      if(window.pdfjsLib){resolve();return;}
+      const script=document.createElement("script");
+      script.src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+      script.onload=()=>{window.pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";resolve();};
+      script.onerror=()=>reject(new Error("Failed to load PDF library"));
+      document.head.appendChild(script);
+    });
+    const pdfjsLib=window.pdfjsLib;
+    const pdf=await pdfjsLib.getDocument({data:new Uint8Array(arrayBuffer)}).promise;
+    const results=[];
+    const pagesToLoad=Math.min(pdf.numPages, MAX_IMAGES - images.length);
+    for(let i=1;i<=pagesToLoad;i++){
+      const page=await pdf.getPage(i);
+      const scale=2;
+      const viewport=page.getViewport({scale});
+      const canvas=document.createElement("canvas");
+      canvas.width=viewport.width;canvas.height=viewport.height;
+      await page.render({canvasContext:canvas.getContext("2d"),viewport}).promise;
+      results.push({dataUrl:canvas.toDataURL("image/jpeg",0.92),label:`Page ${i}`});
     }
+    return results;
   };
+
+  const addFiles=async(fileList)=>{
+    const files=Array.from(fileList);
+    const remaining=MAX_IMAGES-images.length;
+    if(remaining<=0)return;
+    const toProcess=files.slice(0,remaining);
+    const newImages=[];
+    for(const file of toProcess){
+      if(file.type==="application/pdf"){
+        try{
+          const buf=await file.arrayBuffer();
+          const pdfImages=await loadPdfAsImage(buf);
+          newImages.push(...pdfImages);
+        }catch(e){setError("Could not read PDF: "+e.message);}
+      } else {
+        await new Promise(res=>{
+          const r=new FileReader();
+          r.onload=ev=>{newImages.push({dataUrl:ev.target.result,label:file.name.replace(/\.[^.]+$/,"")});res();};
+          r.readAsDataURL(file);
+        });
+      }
+    }
+    setImages(prev=>[...prev,...newImages].slice(0,MAX_IMAGES));
+    setError(null);
+  };
+
+  const removeImage=(idx)=>setImages(prev=>prev.filter((_,i)=>i!==idx));
+
   const analyze=async()=>{
-    if(!imageData)return;setStep("scanning");setError(null);
+    if(images.length===0)return;
+    setStep("scanning");setError(null);
     try{
-      const base64=imageData.split(",")[1];
-      const mediaType=imageData.split(";")[0].split(":")[1];
+      const imagePayload=images.map(img=>({
+        base64:img.dataUrl.split(",")[1],
+        mediaType:img.dataUrl.split(";")[0].split(":")[1]
+      }));
       const res=await fetch("/api/ai-scan",{
         method:"POST",
         headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({imageBase64:base64,mediaType})
+        body:JSON.stringify({images:imagePayload,userId,userEmail:null,petName:dog.name})
       });
       if(!res.ok){const e=await res.json();throw new Error(e.error||"Scan request failed");}
       const data=await res.json();
       if(data.error)throw new Error(data.error);
       setExtracted(data.extracted);
       setStep("review");
-    }catch(err){setError("Could not analyze: "+(err.message||"Unknown error"));setStep("upload");await logError(userId,null,'ai_scan',err.message||'Unknown error');}
+    }catch(err){
+      setError("Could not analyze: "+(err.message||"Unknown error"));
+      setStep("upload");
+      await logError(userId,null,"ai_scan",err.message||"Unknown error");
+    }
   };
+
   const saveAll=async()=>{
     setSaving(true);
     try{
@@ -688,22 +716,77 @@ const AIScanModal=({dog,userId,onSave,onClose})=>{
     }catch(e){setError(e.message);}
     setSaving(false);
   };
+
   const tog=k=>setInclude(p=>({...p,[k]:!p[k]}));
+
   return(
     <div style={{position:"fixed",inset:0,background:"#000000cc",zIndex:600,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={e=>e.target===e.currentTarget&&onClose()}>
       <div style={{background:"#FFFFFF",border:"1px solid #2D7D6F44",borderRadius:20,width:"100%",maxWidth:520,maxHeight:"94vh",overflow:"auto",padding:24}} className="fade">
+
+        {/* Header */}
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
-          <div><div style={{display:"flex",alignItems:"center",gap:10}}><h3 style={{fontFamily:"'Lora',serif",fontSize:22}}>AI Document Scan</h3><span style={{background:"#E8A83820",color:"#E8A838",border:"1px solid #E8A83840",borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:700}}>PREMIUM</span></div><p style={{color:"#5A4535",fontSize:13,marginTop:2}}>Photo any vet record — AI extracts everything</p></div>
+          <div>
+            <div style={{display:"flex",alignItems:"center",gap:10}}>
+              <h3 style={{fontFamily:"'Lora',serif",fontSize:22}}>AI Document Scan</h3>
+              <span style={{background:"#E8A83820",color:"#E8A838",border:"1px solid #E8A83840",borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:700}}>PREMIUM</span>
+            </div>
+            <p style={{color:"#5A4535",fontSize:13,marginTop:2}}>Upload up to 4 pages or photos — AI reads them all at once</p>
+          </div>
           <button onClick={onClose} style={{background:"#FFFFFF",border:"1px solid #E8DDD0",borderRadius:8,padding:"6px 8px",color:"#5A4535"}}><Ic n="x" s={16}/></button>
         </div>
-        {step==="upload"&&<>{error&&<div style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:12,padding:14,marginBottom:16,fontSize:13,color:"#C4714A"}}>{error}</div>}
-          <input ref={fr} type="file" accept="image/*,application/pdf" style={{display:"none"}} onChange={onFile}/>
-          <input ref={cameraRef} type="file" accept="image/*" capture="environment" style={{display:"none"}} onChange={onFile}/>
-          {!imageData?(<div style={{display:"flex",flexDirection:"column",gap:10}}>
-            <div style={{border:"2px dashed #2D7D6F44",borderRadius:16,padding:28,textAlign:"center",background:"#2D7D6F08"}}>
+
+        {/* Upload step */}
+        {step==="upload"&&<>
+          {error&&<div style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:12,padding:14,marginBottom:16,fontSize:13,color:"#C4714A"}}>{error}</div>}
+
+          {/* Hidden inputs */}
+          <input ref={fr} type="file" accept="image/*,application/pdf" multiple style={{display:"none"}}
+            onChange={e=>addFiles(e.target.files)}/>
+          <input ref={cameraRef} type="file" accept="image/*" capture="environment" style={{display:"none"}}
+            onChange={e=>addFiles(e.target.files)}/>
+
+          {/* Image grid */}
+          {images.length>0&&(
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+              {images.map((img,idx)=>(
+                <div key={idx} style={{position:"relative",borderRadius:12,overflow:"hidden",border:"1px solid #E8DDD0",background:"#FFFFFF"}}>
+                  <img src={img.dataUrl} style={{width:"100%",height:120,objectFit:"cover",display:"block"}}/>
+                  <div style={{position:"absolute",top:0,left:0,right:0,background:"rgba(0,0,0,0.45)",padding:"4px 8px",fontSize:11,color:"#fff",fontWeight:600}}>
+                    {img.label||`Page ${idx+1}`}
+                  </div>
+                  <button onClick={()=>removeImage(idx)}
+                    style={{position:"absolute",top:4,right:4,background:"#C4714A",border:"none",borderRadius:"50%",width:22,height:22,color:"#fff",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1}}>
+                    ×
+                  </button>
+                </div>
+              ))}
+              {images.length<MAX_IMAGES&&(
+                <div onClick={()=>fr.current.click()}
+                  style={{height:120,borderRadius:12,border:"2px dashed #2D7D6F66",background:"#2D7D6F08",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:"pointer",gap:6,color:"#2D7D6F"}}>
+                  <Ic n="plus" s={24} c="#2D7D6F"/>
+                  <span style={{fontSize:12,fontWeight:600}}>Add page</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Limit note */}
+          {images.length>0&&(
+            <div style={{background:"#FAF6F0",borderRadius:10,padding:"8px 12px",fontSize:12,color:"#8B7355",marginBottom:14,display:"flex",alignItems:"center",gap:6}}>
+              <span>{images.length}/{MAX_IMAGES} pages added.</span>
+              {images.length===MAX_IMAGES
+                ?<span style={{color:"#C4714A",fontWeight:600}}>Maximum reached — analyze or remove a page to add more.</span>
+                :<span>You can add {MAX_IMAGES-images.length} more.</span>}
+            </div>
+          )}
+
+          {/* Upload buttons — show when no images yet */}
+          {images.length===0&&(
+            <div style={{border:"2px dashed #2D7D6F44",borderRadius:16,padding:28,textAlign:"center",background:"#2D7D6F08",marginBottom:12}}>
               <div style={{fontSize:36,marginBottom:8}}>📄</div>
-              <div style={{fontFamily:"'Lora',serif",fontSize:18,marginBottom:4}}>Scan or Upload a Record</div>
-              <div style={{color:"#5A4535",fontSize:13,marginBottom:16}}>Vet invoices · Vaccine records · Health certificates</div>
+              <div style={{fontFamily:"'Lora',serif",fontSize:18,marginBottom:4}}>Scan or Upload Records</div>
+              <div style={{color:"#5A4535",fontSize:13,marginBottom:4}}>Multi-page invoices, vaccine records, health certificates</div>
+              <div style={{color:"#8B7355",fontSize:12,marginBottom:16}}>Up to 4 photos or pages per scan session</div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
                 <button onClick={()=>cameraRef.current.click()} style={{background:"#2D7D6F",color:"#FAF6F0",borderRadius:10,padding:"10px 6px",fontWeight:600,fontSize:12,border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
                   <Ic n="camera" s={18} c="#FAF6F0"/>Take Photo
@@ -716,25 +799,89 @@ const AIScanModal=({dog,userId,onSave,onClose})=>{
                 </button>
               </div>
             </div>
-          </div>):(<div><img src={imageData} style={{width:"100%",borderRadius:14,border:"1px solid #E8DDD0",maxHeight:280,objectFit:"contain",background:"#FFFFFF",marginBottom:16}}/><div style={{display:"flex",gap:10}}><Btn v="secondary" onClick={()=>setImageData(null)} full>Retake / Change</Btn><Btn onClick={analyze} full><Ic n="syringe" s={15}/> Analyze Document</Btn></div></div>)}</>}
-        {step==="scanning"&&(<div style={{textAlign:"center",padding:"40px 0"}}><div style={{fontSize:48,marginBottom:20,animation:"spin 1.5s linear infinite",display:"inline-block"}}>🔍</div><style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style><div style={{fontFamily:"'Lora',serif",fontSize:22,marginBottom:8}}>Reading Document...</div><div style={{color:"#5A4535",fontSize:14}}>AI is extracting vaccines, dates, weight, and more</div></div>)}
+          )}
+
+          {/* Add more buttons when images already added */}
+          {images.length>0&&images.length<MAX_IMAGES&&(
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:14}}>
+              <button onClick={()=>cameraRef.current.click()} style={{background:"#2D7D6F14",color:"#2D7D6F",borderRadius:10,padding:"8px 6px",fontWeight:600,fontSize:12,border:"1px solid #2D7D6F44",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
+                <Ic n="camera" s={15} c="#2D7D6F"/>Add Photo
+              </button>
+              <button onClick={()=>{fr.current.accept="image/*";fr.current.click();}} style={{background:"#FAF6F0",color:"#5A4535",borderRadius:10,padding:"8px 6px",fontWeight:600,fontSize:12,border:"1px solid #E8DDD0",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
+                <Ic n="camera" s={15}/>Library
+              </button>
+              <button onClick={()=>{fr.current.accept="image/*,application/pdf";fr.current.click();}} style={{background:"#FAF6F0",color:"#5A4535",borderRadius:10,padding:"8px 6px",fontWeight:600,fontSize:12,border:"1px solid #E8DDD0",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
+                <Ic n="doc" s={15}/>File
+              </button>
+            </div>
+          )}
+
+          {/* Analyze button */}
+          {images.length>0&&(
+            <div style={{display:"flex",gap:10}}>
+              <Btn v="secondary" onClick={()=>setImages([])} full>Clear All</Btn>
+              <Btn onClick={analyze} full><Ic n="syringe" s={15}/> Analyze {images.length} Page{images.length>1?"s":""}</Btn>
+            </div>
+          )}
+        </>}
+
+        {/* Scanning */}
+        {step==="scanning"&&(
+          <div style={{textAlign:"center",padding:"40px 0"}}>
+            <div style={{fontSize:48,marginBottom:20,animation:"spin 1.5s linear infinite",display:"inline-block"}}>🔍</div>
+            <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
+            <div style={{fontFamily:"'Lora',serif",fontSize:22,marginBottom:8}}>Reading {images.length} Page{images.length>1?"s":""}...</div>
+            <div style={{color:"#5A4535",fontSize:14}}>AI is extracting vaccines, dates, weight, and more</div>
+          </div>
+        )}
+
+        {/* Review */}
         {step==="review"&&extracted&&(<>
-          <div style={{background:"#2D7D6F14",border:"1px solid #2D7D6F44",borderRadius:12,padding:14,marginBottom:16,fontSize:13,color:"#2D7D6F"}}>✓ Document analyzed — review and confirm what to save</div>
-          {[{key:"visit",label:"Vet Visit",icon:"stethoscope",content:<div style={{background:"#FFFFFF",borderRadius:10,padding:12,fontSize:13,display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>{[["Date",fmt(extracted.visitDate)],["Vet",extracted.vetName||"—"],["Reason",extracted.reason||"—"],["Diagnosis",extracted.diagnosis||"—"]].map(([k,v])=><div key={k}><span style={{color:"#5A4535"}}>{k}: </span>{v}</div>)}</div>},{key:"vaccines",label:`Vaccines (${(extracted.vaccines||[]).filter(v=>v.name).length})`,icon:"syringe",content:(extracted.vaccines||[]).filter(v=>v.name).map((v,i)=><div key={i} style={{background:"#FFFFFF",borderRadius:10,padding:10,fontSize:13,marginBottom:6}}><b>{v.name}</b> · Given {fmt(v.dateGiven)} · Next {fmt(v.nextDue)}</div>)},{key:"weight",label:`Weight: ${extracted.weight} lbs`,icon:"weight",show:!!extracted.weight,content:null},{key:"medications",label:`Medications (${(extracted.medications||[]).filter(m=>m.name).length})`,icon:"pill",content:(extracted.medications||[]).filter(m=>m.name).map((m,i)=><div key={i} style={{background:"#FFFFFF",borderRadius:10,padding:10,fontSize:13,marginBottom:6}}><b>{m.name}</b>{m.dosage?` · ${m.dosage}`:""}</div>)}].filter(item=>item.show!==false).map(item=>(
+          <div style={{background:"#2D7D6F14",border:"1px solid #2D7D6F44",borderRadius:12,padding:14,marginBottom:16,fontSize:13,color:"#2D7D6F"}}>
+            ✓ {images.length} page{images.length>1?"s":""} analyzed — review and confirm what to save
+          </div>
+          {[
+            {key:"visit",label:"Vet Visit",icon:"stethoscope",content:
+              <div style={{background:"#FFFFFF",borderRadius:10,padding:12,fontSize:13,display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+                {[["Date",fmt(extracted.visitDate)],["Vet",extracted.vetName||"—"],["Clinic",extracted.clinicName||"—"],["Reason",extracted.reason||"—"],["Diagnosis",extracted.diagnosis||"—"],["Cost",extracted.cost?`$${extracted.cost}`:"—"]].map(([k,v])=>
+                  <div key={k}><span style={{color:"#5A4535"}}>{k}: </span>{v}</div>)}
+              </div>},
+            {key:"vaccines",label:`Vaccines (${(extracted.vaccines||[]).filter(v=>v.name).length})`,icon:"syringe",
+              content:(extracted.vaccines||[]).filter(v=>v.name).map((v,i)=>
+                <div key={i} style={{background:"#FFFFFF",borderRadius:10,padding:10,fontSize:13,marginBottom:6}}>
+                  <b>{v.name}</b> · Given {fmt(v.dateGiven)} · Next {fmt(v.nextDue)}
+                  {v.lotNumber&&<span style={{color:"#8B7355"}}> · Lot {v.lotNumber}</span>}
+                </div>)},
+            {key:"weight",label:`Weight: ${extracted.weight} lbs`,icon:"weight",show:!!extracted.weight,content:null},
+            {key:"medications",label:`Medications (${(extracted.medications||[]).filter(m=>m.name).length})`,icon:"pill",
+              content:(extracted.medications||[]).filter(m=>m.name).map((m,i)=>
+                <div key={i} style={{background:"#FFFFFF",borderRadius:10,padding:10,fontSize:13,marginBottom:6}}>
+                  <b>{m.name}</b>{m.dosage?` · ${m.dosage}`:""}
+                  {m.frequency&&<span style={{color:"#8B7355"}}> · {m.frequency}</span>}
+                </div>)},
+          ].filter(item=>item.show!==false).map(item=>(
             <div key={item.key} style={{marginBottom:14}}>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
                 <div style={{fontWeight:600,fontSize:14,display:"flex",alignItems:"center",gap:8}}><Ic n={item.icon} s={15} c="#2D7D6F"/> {item.label}</div>
-                <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:13,color:"#5A4535"}}><input type="checkbox" checked={include[item.key]} onChange={()=>tog(item.key)} style={{width:16,height:16,accentColor:"#2D7D6F"}}/>Include</label>
+                <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:13,color:"#5A4535"}}>
+                  <input type="checkbox" checked={include[item.key]} onChange={()=>tog(item.key)} style={{width:16,height:16,accentColor:"#2D7D6F"}}/>Include
+                </label>
               </div>
               {item.content}
             </div>
           ))}
-          {saved?<div style={{textAlign:"center",padding:"16px 0",color:"#2D7D6F",fontWeight:600,fontSize:16}}>✓ All records saved!</div>:<div style={{display:"flex",gap:10}}><Btn v="secondary" onClick={()=>setStep("upload")} full>Rescan</Btn><Btn onClick={saveAll} disabled={saving} full>{saving?"Saving...":"✓ Confirm & Save All"}</Btn></div>}
+          {saved
+            ?<div style={{textAlign:"center",padding:"16px 0",color:"#2D7D6F",fontWeight:600,fontSize:16}}>✓ All records saved!</div>
+            :<div style={{display:"flex",gap:10}}>
+              <Btn v="secondary" onClick={()=>{setStep("upload");setExtracted(null);}} full>Rescan</Btn>
+              <Btn onClick={saveAll} disabled={saving} full>{saving?"Saving...":"✓ Confirm & Save All"}</Btn>
+            </div>}
         </>)}
       </div>
     </div>
   );
 };
+
 
 const OverviewTab=({dog,state,userId,tier,setModal,onUpgrade,onScan,dispatch})=>{
   const vaccines=state.vaccinations.filter(v=>v.dog_id===dog.id);
