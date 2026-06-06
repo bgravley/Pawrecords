@@ -81,6 +81,20 @@ const COUNTRY_CODES=[
 ];
 
 
+const US_STATES=[
+  "Alabama","Alaska","Arizona","Arkansas","California","Colorado","Connecticut","Delaware",
+  "Florida","Georgia","Hawaii","Idaho","Illinois","Indiana","Iowa","Kansas","Kentucky",
+  "Louisiana","Maine","Maryland","Massachusetts","Michigan","Minnesota","Mississippi",
+  "Missouri","Montana","Nebraska","Nevada","New Hampshire","New Jersey","New Mexico",
+  "New York","North Carolina","North Dakota","Ohio","Oklahoma","Oregon","Pennsylvania",
+  "Rhode Island","South Carolina","South Dakota","Tennessee","Texas","Utah","Vermont",
+  "Virginia","Washington","West Virginia","Wisconsin","Wyoming",
+  "District of Columbia","Puerto Rico","Guam","U.S. Virgin Islands","American Samoa",
+  "Northern Mariana Islands","U.S. Armed Forces Americas (AA)",
+  "U.S. Armed Forces Europe (AE)","U.S. Armed Forces Pacific (AP)"
+];
+
+
 const GLOBAL=`
   @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Lora:ital,wght@0,400;0,600;1,400;1,600&display=swap');
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -993,7 +1007,7 @@ const DogDetail=({dog,state,dispatch,userId,tier,onBack,onUpgrade,userEmail})=>{
     <BottomNav tab={tab} setTab={setTab} alerts={urgent}/>
     {modal==="editDog"&&<DogForm dog={dog} userId={userId} onSave={d=>{dispatch({t:"UPD_DOG",d});setModal(null);}} onClose={()=>setModal(null)}/>}
     {modal==="share"&&<ShareModal dog={dog} onClose={()=>setModal(null)}/>}
-    {showScan&&<AIScanModal dog={dog} userId={userId} onSave={()=>{}} onClose={()=>setShowScan(false)}/>}
+    {showScan&&<AIScanModal dog={dog} userId={userId} onSave={async()=>{const[{data:v},{data:m},{data:vis},{data:al}]=await Promise.all([db.getVaccinations(userId),db.getMedications(userId),db.getVisits(userId),db.getAllergies(userId)]);dispatch({t:'LOAD',s:{dogs:state.dogs,vaccinations:v||[],medications:m||[],allergies:al||[],visits:vis||[],weights:state.weights,vets:state.vets,documents:state.documents}});}} onClose={()=>setShowScan(false)}/>}
     {showUpgrade&&<UpgradeModal userId={userId} userEmail={userEmail} onClose={()=>setShowUpgrade(false)}/>}
   </div>);
 };
@@ -1034,19 +1048,20 @@ const BillingSection=({userId,tier,userEmail})=>{
 };
 
 const OwnerProfileModal=({userId,tier,userEmail,onUpgrade,onClose})=>{
-  const[f,setF]=useState({fullName:"",phoneCode:"+1",phone:"",whatsapp:"",whatsappCode:"+1",country:"",city:"",state:"",address:"",instagram:"",facebook:"",twitter:""});
+  const[f,setF]=useState({fullName:"",phoneCode:"+1",phone:"",whatsapp:"",whatsappCode:"+1",country:"",city:"",state:"",zip:"",address:"",instagram:"",facebook:"",twitter:"",photo:""});
   const[contacts,setContacts]=useState([]);
   const[loading,setLoading]=useState(true);
   const[saving,setSaving]=useState(false);
   const[addingContact,setAddingContact]=useState(false);
   const[newContact,setNewContact]=useState({name:"",phoneCode:"+1",phone:"",whatsappCode:"+1",whatsapp:"",relationship:"",email:""});
   const[section,setSection]=useState("profile"); // profile | billing
+  const profPhotoRef=useRef();
   const set=(k,v)=>setF(p=>({...p,[k]:v}));
 
   useEffect(()=>{
     const load=async()=>{
       const{data:prof}=await supabase.from("profiles").select("*").eq("id",userId).single();
-      if(prof)setF({fullName:prof.full_name||"",phoneCode:prof.phone_country_code||"+1",phone:prof.phone||"",whatsapp:prof.whatsapp||"",whatsappCode:prof.whatsapp_country_code||"+1",country:prof.country||"",city:prof.city||"",state:prof.state||"",address:prof.address||"",instagram:prof.instagram||"",facebook:prof.facebook||"",twitter:prof.twitter||""});
+      if(prof)setF({fullName:prof.full_name||"",phoneCode:prof.phone_country_code||"+1",phone:prof.phone||"",whatsapp:prof.whatsapp||"",whatsappCode:prof.whatsapp_country_code||"+1",country:prof.country||"",city:prof.city||"",state:prof.state||"",zip:prof.zip||"",address:prof.address||"",instagram:prof.instagram||"",facebook:prof.facebook||"",twitter:prof.twitter||"",photo:prof.photo_url||""});
       const{data:ec}=await supabase.from("emergency_contacts").select("*").eq("user_id",userId).order("sort_order");
       setContacts(ec||[]);
       setLoading(false);
@@ -1056,7 +1071,15 @@ const OwnerProfileModal=({userId,tier,userEmail,onUpgrade,onClose})=>{
 
   const saveProfile=async()=>{
     setSaving(true);
-    await supabase.from("profiles").update({full_name:f.fullName,phone:f.phone,phone_country_code:f.phoneCode,whatsapp:f.whatsapp,whatsapp_country_code:f.whatsappCode,address:f.address,city:f.city,state:f.state,country:f.country,instagram:f.instagram,facebook:f.facebook,twitter:f.twitter}).eq("id",userId);
+    const profUpdate={full_name:f.fullName,phone:f.phone,phone_country_code:f.phoneCode,whatsapp:f.whatsapp,whatsapp_country_code:f.whatsappCode,address:f.address,city:f.city,state:f.state,zip:f.zip,country:f.country,instagram:f.instagram,facebook:f.facebook,twitter:f.twitter};
+    if(f.photo&&f.photo.startsWith("data:")){
+      const blob=await(await fetch(f.photo)).blob();
+      const path=`${userId}/profile_photo.jpg`;
+      await supabase.storage.from("documents").upload(path,blob,{upsert:true,contentType:"image/jpeg"});
+      const{data:urlData}=supabase.storage.from("documents").getPublicUrl(path);
+      profUpdate.photo_url=urlData.publicUrl;
+    }
+    await supabase.from("profiles").update(profUpdate).eq("id",userId);
     setSaving(false);
   };
 
@@ -1085,6 +1108,16 @@ const OwnerProfileModal=({userId,tier,userEmail,onUpgrade,onClose})=>{
       {/* Basic info */}
       <div>
         <div style={{fontWeight:800,fontSize:12,color:"#5A4535",textTransform:"uppercase",letterSpacing:".08em",marginBottom:12}}>👤 Your Information</div>
+        {/* Profile Photo */}
+        <div style={{display:"flex",justifyContent:"center",marginBottom:8}}>
+          <div style={{position:"relative",cursor:"pointer"}} onClick={()=>profPhotoRef.current.click()}>
+            {f.photo
+              ?<img src={f.photo} style={{width:80,height:80,borderRadius:"50%",objectFit:"cover",border:"3px solid #2D7D6F"}}/>
+              :<div style={{width:80,height:80,borderRadius:"50%",background:"#FFFFFF",border:"2px dashed #E8DDD0",display:"flex",alignItems:"center",justifyContent:"center",color:"#5A4535"}}><Ic n="camera" s={24} c="#5A4535"/></div>}
+            <div style={{position:"absolute",bottom:0,right:0,background:"#2D7D6F",borderRadius:"50%",padding:5}}><Ic n="camera" s={11} c="#FAF6F0"/></div>
+          </div>
+          <input ref={profPhotoRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=ev=>set("photo",ev.target.result);r.readAsDataURL(file);}}/>
+        </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <Field label="Full Name" col="1/-1"><input value={f.fullName} onChange={e=>set("fullName",e.target.value)} placeholder="Jane Smith"/></Field>
           <Field label="Phone Country Code">
@@ -1104,9 +1137,17 @@ const OwnerProfileModal=({userId,tier,userEmail,onUpgrade,onClose})=>{
             <input value={f.whatsapp} onChange={e=>set("whatsapp",e.target.value)} placeholder="Same or different number"/>
           </Field>
           <Field label="Country"><input value={f.country} onChange={e=>set("country",e.target.value)} placeholder="United States"/></Field>
-          <Field label="City"><input value={f.city} onChange={e=>set("city",e.target.value)} placeholder="Miami"/></Field>
-          <Field label="State/Province"><input value={f.state} onChange={e=>set("state",e.target.value)} placeholder="Florida"/></Field>
           <Field label="Address" col="1/-1"><input value={f.address} onChange={e=>set("address",e.target.value)} placeholder="123 Main St"/></Field>
+          <Field label="City"><input value={f.city} onChange={e=>set("city",e.target.value)} placeholder="Miami"/></Field>
+          <Field label="ZIP / Postal Code"><input value={f.zip||""} onChange={e=>set("zip",e.target.value)} placeholder="33101"/></Field>
+          <Field label="State/Province" col="1/-1">
+            {f.country===""||f.country==="United States"||f.country==="USA"||f.country==="US"
+              ?<select value={f.state} onChange={e=>set("state",e.target.value)}>
+                <option value="">Select state...</option>
+                {US_STATES.map(s=><option key={s} value={s}>{s}</option>)}
+              </select>
+              :<input value={f.state} onChange={e=>set("state",e.target.value)} placeholder="State / Province / Region"/>}
+          </Field>
         </div>
       </div>
       {/* Social */}
