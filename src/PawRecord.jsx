@@ -485,12 +485,22 @@ const AIScanModal=({dog,userId,onSave,onClose})=>{
   const onFile=e=>{
     const file=e.target.files[0];if(!file)return;
     if(file.type==="application/pdf"){
-      // Convert PDF first page to image using pdf.js via CDN
       const r=new FileReader();
       r.onload=async ev=>{
         try{
-          const pdfjsLib=await import("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js");
-          pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+          // Load pdf.js via script tag if not already loaded
+          await new Promise((resolve,reject)=>{
+            if(window.pdfjsLib){resolve();return;}
+            const script=document.createElement("script");
+            script.src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+            script.onload=()=>{
+              window.pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+              resolve();
+            };
+            script.onerror=()=>reject(new Error("Failed to load PDF library"));
+            document.head.appendChild(script);
+          });
+          const pdfjsLib=window.pdfjsLib;
           const pdf=await pdfjsLib.getDocument({data:new Uint8Array(ev.target.result)}).promise;
           const page=await pdf.getPage(1);
           const scale=2;
