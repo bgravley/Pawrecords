@@ -13,6 +13,74 @@ const PRICES = {
 // YPPFREE  = 100% off forever (lifetime free)
 // YPP3FREE = 100% off for 3 months;
 
+
+const COUNTRY_CODES=[
+  {code:"+1",name:"USA/Canada",flag:"🇺🇸"},
+  {code:"+44",name:"UK",flag:"🇬🇧"},
+  {code:"+52",name:"Mexico",flag:"🇲🇽"},
+  {code:"+57",name:"Colombia",flag:"🇨🇴"},
+  {code:"+34",name:"Spain",flag:"🇪🇸"},
+  {code:"+33",name:"France",flag:"🇫🇷"},
+  {code:"+49",name:"Germany",flag:"🇩🇪"},
+  {code:"+39",name:"Italy",flag:"🇮🇹"},
+  {code:"+351",name:"Portugal",flag:"🇵🇹"},
+  {code:"+31",name:"Netherlands",flag:"🇳🇱"},
+  {code:"+61",name:"Australia",flag:"🇦🇺"},
+  {code:"+64",name:"New Zealand",flag:"🇳🇿"},
+  {code:"+81",name:"Japan",flag:"🇯🇵"},
+  {code:"+82",name:"South Korea",flag:"🇰🇷"},
+  {code:"+66",name:"Thailand",flag:"🇹🇭"},
+  {code:"+65",name:"Singapore",flag:"🇸🇬"},
+  {code:"+60",name:"Malaysia",flag:"🇲🇾"},
+  {code:"+62",name:"Indonesia",flag:"🇮🇩"},
+  {code:"+91",name:"India",flag:"🇮🇳"},
+  {code:"+971",name:"UAE",flag:"🇦🇪"},
+  {code:"+972",name:"Israel",flag:"🇮🇱"},
+  {code:"+27",name:"South Africa",flag:"🇿🇦"},
+  {code:"+55",name:"Brazil",flag:"🇧🇷"},
+  {code:"+54",name:"Argentina",flag:"🇦🇷"},
+  {code:"+56",name:"Chile",flag:"🇨🇱"},
+  {code:"+51",name:"Peru",flag:"🇵🇪"},
+  {code:"+506",name:"Costa Rica",flag:"🇨🇷"},
+  {code:"+507",name:"Panama",flag:"🇵🇦"},
+  {code:"+502",name:"Guatemala",flag:"🇬🇹"},
+  {code:"+53",name:"Cuba",flag:"🇨🇺"},
+  {code:"+1-787",name:"Puerto Rico",flag:"🇵🇷"},
+  {code:"+45",name:"Denmark",flag:"🇩🇰"},
+  {code:"+46",name:"Sweden",flag:"🇸🇪"},
+  {code:"+47",name:"Norway",flag:"🇳🇴"},
+  {code:"+358",name:"Finland",flag:"🇫🇮"},
+  {code:"+41",name:"Switzerland",flag:"🇨🇭"},
+  {code:"+43",name:"Austria",flag:"🇦🇹"},
+  {code:"+32",name:"Belgium",flag:"🇧🇪"},
+  {code:"+30",name:"Greece",flag:"🇬🇷"},
+  {code:"+48",name:"Poland",flag:"🇵🇱"},
+  {code:"+420",name:"Czech Republic",flag:"🇨🇿"},
+  {code:"+36",name:"Hungary",flag:"🇭🇺"},
+  {code:"+40",name:"Romania",flag:"🇷🇴"},
+  {code:"+380",name:"Ukraine",flag:"🇺🇦"},
+  {code:"+7",name:"Russia",flag:"🇷🇺"},
+  {code:"+86",name:"China",flag:"🇨🇳"},
+  {code:"+852",name:"Hong Kong",flag:"🇭🇰"},
+  {code:"+886",name:"Taiwan",flag:"🇹🇼"},
+  {code:"+63",name:"Philippines",flag:"🇵🇭"},
+  {code:"+84",name:"Vietnam",flag:"🇻🇳"},
+  {code:"+855",name:"Cambodia",flag:"🇰🇭"},
+  {code:"+673",name:"Brunei",flag:"🇧🇳"},
+  {code:"+94",name:"Sri Lanka",flag:"🇱🇰"},
+  {code:"+977",name:"Nepal",flag:"🇳🇵"},
+  {code:"+92",name:"Pakistan",flag:"🇵🇰"},
+  {code:"+880",name:"Bangladesh",flag:"🇧🇩"},
+  {code:"+20",name:"Egypt",flag:"🇪🇬"},
+  {code:"+212",name:"Morocco",flag:"🇲🇦"},
+  {code:"+234",name:"Nigeria",flag:"🇳🇬"},
+  {code:"+254",name:"Kenya",flag:"🇰🇪"},
+  {code:"+255",name:"Tanzania",flag:"🇹🇿"},
+  {code:"+256",name:"Uganda",flag:"🇺🇬"},
+  {code:"+233",name:"Ghana",flag:"🇬🇭"},
+];
+
+
 const GLOBAL=`
   @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Lora:ital,wght@0,400;0,600;1,400;1,600&display=swap');
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -263,7 +331,7 @@ const BottomNav=({tab,setTab,alerts})=>{
 };
 
 const DogForm=({dog,userId,onSave,onClose})=>{
-  const[f,setF]=useState(dog?{name:dog.name,breed:dog.breed||"",dob:dog.dob||"",weight:dog.weight||"",gender:dog.gender||"male",neutered:dog.neutered||false,microchip:dog.microchip||"",color:dog.color||"",emergencyContact:dog.emergency_contact||"",emergencyPhone:dog.emergency_phone||"",notes:dog.notes||"",photo:dog.photo_url||"",petType:dog.pet_type||"pet"}:{name:"",breed:"",dob:"",weight:"",gender:"male",neutered:false,microchip:"",color:"",emergencyContact:"",emergencyPhone:"",notes:"",photo:"",petType:"pet"});
+  const[f,setF]=useState(dog?{name:dog.name,breed:dog.breed||"",dob:dog.dob||"",weight:dog.weight||"",gender:dog.gender||"male",neutered:dog.neutered||false,microchip:dog.microchip||"",color:dog.color||"",emergencyContact:dog.emergency_contact||"",emergencyPhone:dog.emergency_phone||"",notes:dog.notes||"",photo:dog.photo_url||"",petType:dog.pet_type||"pet"}:{name:"",breed:"",dob:"",weight:"",gender:"male",neutered:false,microchip:"",color:"",emergencyContact:"",emergencyPhone:"",emergencyPhoneCode:"+1",emergencyWhatsapp:"",emergencyWhatsappCode:"+1",notes:"",photo:"",petType:"pet"});
   const[saving,setSaving]=useState(false);
   const[certFile,setCertFile]=useState(null);
   const[certUploaded,setCertUploaded]=useState(!!dog?.certification_doc_path);
@@ -273,7 +341,7 @@ const DogForm=({dog,userId,onSave,onClose})=>{
   const onPhoto=e=>{const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=ev=>set("photo",ev.target.result);r.readAsDataURL(file);};
   const save=async()=>{
     if(!f.name)return;setSaving(true);
-    const payload={name:f.name,breed:f.breed,dob:f.dob||null,weight:f.weight||null,gender:f.gender,neutered:f.neutered,microchip:f.microchip,color:f.color,emergency_contact:f.emergencyContact,emergency_phone:f.emergencyPhone,notes:f.notes,pet_type:f.petType};
+    const payload={name:f.name,breed:f.breed,dob:f.dob||null,weight:f.weight||null,gender:f.gender,neutered:f.neutered,microchip:f.microchip,color:f.color,emergency_contact:f.emergencyContact,emergency_phone:f.emergencyPhone,emergency_phone_code:f.emergencyPhoneCode||"+1",emergency_whatsapp:f.emergencyWhatsapp||"",emergency_whatsapp_code:f.emergencyWhatsappCode||"+1",notes:f.notes,pet_type:f.petType};
     let result;
     if(dog){const{data}=await db.updateDog({...payload,id:dog.id});result=data;}
     else{const{data}=await db.addDog(userId,payload);result=data;}
@@ -306,8 +374,33 @@ const DogForm=({dog,userId,onSave,onClose})=>{
         <Field label="Gender"><select value={f.gender} onChange={e=>set("gender",e.target.value)}><option value="male">Male</option><option value="female">Female</option></select></Field>
         <Field label="Neutered/Spayed"><select value={f.neutered?"yes":"no"} onChange={e=>set("neutered",e.target.value==="yes")}><option value="no">No</option><option value="yes">Yes</option></select></Field>
         <Field label="Microchip ID" col="1/-1"><input value={f.microchip} onChange={e=>set("microchip",e.target.value)} placeholder="985..."/></Field>
-        <Field label="Emergency Contact"><input value={f.emergencyContact} onChange={e=>set("emergencyContact",e.target.value)} placeholder="Jane Smith"/></Field>
-        <Field label="Emergency Phone"><input value={f.emergencyPhone} onChange={e=>set("emergencyPhone",e.target.value)} placeholder="+1 555-0100"/></Field>
+        <Field label="Emergency Contact" col="1/-1">
+          <div style={{display:"flex",gap:8,alignItems:"flex-start"}}>
+            <input value={f.emergencyContact} onChange={e=>set("emergencyContact",e.target.value)} placeholder="Jane Smith" style={{flex:1}}/>
+            <button type="button" onClick={async()=>{
+              const{data}=await supabase.from("profiles").select("full_name,phone,phone_country_code,whatsapp").eq("id",userId).single();
+              if(data){set("emergencyContact",data.full_name||"");set("emergencyPhone",data.phone||"");set("emergencyPhoneCode",data.phone_country_code||"+1");set("emergencyWhatsapp",data.whatsapp||"");}
+            }} style={{background:"#2D7D6F14",border:"1px solid #2D7D6F44",borderRadius:10,padding:"10px 12px",color:"#2D7D6F",fontWeight:600,fontSize:12,cursor:"pointer",whiteSpace:"nowrap",flexShrink:0}}>
+              Use My Info
+            </button>
+          </div>
+        </Field>
+        <Field label="Emergency Phone Country Code">
+          <select value={f.emergencyPhoneCode||"+1"} onChange={e=>set("emergencyPhoneCode",e.target.value)}>
+            {COUNTRY_CODES.map(c=><option key={c.code} value={c.code}>{c.flag} {c.name} ({c.code})</option>)}
+          </select>
+        </Field>
+        <Field label="Emergency Phone Number">
+          <input value={f.emergencyPhone} onChange={e=>set("emergencyPhone",e.target.value)} placeholder="555-0100"/>
+        </Field>
+        <Field label="Emergency WhatsApp" col="1/-1">
+          <div style={{display:"flex",gap:8}}>
+            <select value={f.emergencyWhatsappCode||"+1"} onChange={e=>set("emergencyWhatsappCode",e.target.value)} style={{width:"auto",flexShrink:0}}>
+              {COUNTRY_CODES.map(c=><option key={c.code} value={c.code}>{c.flag} {c.code}</option>)}
+            </select>
+            <input value={f.emergencyWhatsapp||""} onChange={e=>set("emergencyWhatsapp",e.target.value)} placeholder="WhatsApp number (if different)"/>
+          </div>
+        </Field>
       </div>
       <div style={{background:"#FAF6F0",borderRadius:12,padding:14,border:"1.5px solid #E8DDD0"}}>
         <div style={{fontWeight:800,fontSize:12,color:"#5A4535",textTransform:"uppercase",letterSpacing:".08em",marginBottom:12}}>🐾 Pet Classification</div>
@@ -673,6 +766,42 @@ const OverviewTab=({dog,state,userId,tier,setModal,onUpgrade,onScan,dispatch})=>
   </div>);
 };
 
+
+const SchedulePanel=({vaccines,all})=>{
+  const[open,setOpen]=useState(false);
+  const missing=all.filter(rv=>!vaccines.find(v=>v.name===rv.name));
+  const recorded=all.filter(rv=>vaccines.find(v=>v.name===rv.name));
+  return(
+    <div style={{borderRadius:14,border:"1px solid #E8DDD0",overflow:"hidden"}}>
+      <button onClick={()=>setOpen(p=>!p)} style={{width:"100%",display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 16px",background:"#FFFFFF",border:"none",cursor:"pointer",textAlign:"left"}}>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <div style={{fontWeight:700,fontSize:14,color:"#2C2017"}}>Recommended Vaccine Schedule</div>
+          {missing.length>0&&<span style={{background:"#E8A83820",color:"#E8A838",border:"1px solid #E8A83844",borderRadius:20,padding:"2px 8px",fontSize:11,fontWeight:700}}>{missing.length} not recorded</span>}
+        </div>
+        <span style={{color:"#8B7355",fontSize:18,transition:"transform .2s",display:"inline-block",transform:open?"rotate(180deg)":"rotate(0deg)"}}>›</span>
+      </button>
+      {open&&(
+        <div style={{background:"#FAF6F0",borderTop:"1px solid #E8DDD0",padding:"4px 0"}}>
+          {all.map(rv=>{
+            const rec=vaccines.find(v=>v.name===rv.name);
+            const isCore=CORE_V.includes(rv);
+            return(
+              <div key={rv.name} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 16px",borderBottom:"1px solid #E8DDD044"}}>
+                <div>
+                  <div style={{fontSize:13,fontWeight:600,color:"#2C2017"}}>{rv.name}</div>
+                  <div style={{fontSize:11,color:"#8B7355",marginTop:2}}>{rv.note}</div>
+                </div>
+                {rec?<Badge label="Recorded ✓" color="#2D7D6F"/>:<Badge label={isCore?"Required":"Optional"} color={isCore?"#E8A838":"#8B7355"}/>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
+
 const VaccinesTab=({dog,state,dispatch,userId,tier,onUpgrade})=>{
   const[modal,setModal]=useState(null);
   const vaccines=state.vaccinations.filter(v=>v.dog_id===dog.id);
@@ -682,7 +811,9 @@ const VaccinesTab=({dog,state,dispatch,userId,tier,onUpgrade})=>{
   return(<div style={{display:"flex",flexDirection:"column",gap:12}}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><h3 style={{fontFamily:"'Lora',serif",fontSize:20}}>Vaccinations</h3><Btn sm onClick={()=>setModal({type:"add"})}><Ic n="plus" s={14}/> Add</Btn></div>
     {vaccines.length===0?<Empty icon="syringe" title="No vaccinations yet" sub="Record your first vaccination to get started." action={<Btn onClick={()=>setModal({type:"add"})}><Ic n="plus" s={14}/> Record Vaccination</Btn>}/>:vaccines.map(v=>{const st=vSt(v.next_due);return(<Card key={v.id}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}><div style={{flex:1}}><div style={{display:"flex",flexWrap:"wrap",alignItems:"center",gap:8,marginBottom:4}}><span style={{fontWeight:600}}>{v.name}</span><Badge label={v.type==="core"?"CORE":"OPTIONAL"} color="#2D7D6F"/></div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:4,fontSize:12,color:"#5A4535",marginTop:4}}><span>Given: {fmt(v.date_given)}</span><span>Vet: {v.vet_name||"—"}</span></div></div><div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:8}}><Badge label={st.label} color={st.c}/><div style={{display:"flex",gap:5}}>{v.next_due&&<button title="Add to Calendar" onClick={()=>exportICS(dog.name,v.name,v.next_due)} style={{background:"#2D7D6F14",border:"1px solid #2D7D6F44",borderRadius:8,padding:"5px 8px",color:"#2D7D6F"}}><Ic n="cal" s={13}/></button>}<button onClick={()=>setModal({type:"edit",v})} style={{background:"#FFFFFF",border:"1px solid #E8DDD0",borderRadius:8,padding:"5px 8px",color:"#5A4535"}}><Ic n="edit" s={13}/></button><button onClick={()=>delVacc(v.id)} style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:8,padding:"5px 8px",color:"#C4714A"}}><Ic n="trash" s={13}/></button></div></div></div></Card>);})}
-    {premium?<Card style={{borderStyle:"dashed",opacity:.8}}><div style={{fontSize:11,fontWeight:700,color:"#5A4535",textTransform:"uppercase",letterSpacing:".06em",marginBottom:10}}>Recommended Schedule</div>{all.map(rv=>{const rec=vaccines.find(v=>v.name===rv.name);const isCore=CORE_V.includes(rv);return(<div key={rv.name} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"1px solid #E8DDD033"}}><div><div style={{fontSize:13,fontWeight:500}}>{rv.name}</div><div style={{fontSize:11,color:"#8B7355",marginTop:2}}>{rv.note}</div></div>{rec?<Badge label="Recorded ✓" color="#2D7D6F"/>:<Badge label={isCore?"Required":"Optional"} color={isCore?"#E8A838":"#8B7355"}/>}</div>);})}</Card>:<PremiumLock onUpgrade={onUpgrade} label="Vaccine Schedule — Premium Feature"/>}
+    {premium
+      ?<SchedulePanel vaccines={vaccines} all={all}/>
+      :<PremiumLock onUpgrade={onUpgrade} label="Vaccine Schedule — Premium Feature"/>}
     {modal?.type==="add"&&<VaccineForm dogId={dog.id} userId={userId} onSave={v=>{dispatch({t:"ADD_VACC",v});setModal(null);}} onClose={()=>setModal(null)}/>}
     {modal?.type==="edit"&&<VaccineForm vacc={modal.v} dogId={dog.id} userId={userId} onSave={v=>{dispatch({t:"UPD_VACC",v});setModal(null);}} onClose={()=>setModal(null)}/>}
   </div>);
@@ -903,19 +1034,19 @@ const BillingSection=({userId,tier,userEmail})=>{
 };
 
 const OwnerProfileModal=({userId,tier,userEmail,onUpgrade,onClose})=>{
-  const[f,setF]=useState({fullName:"",phone:"",country:"",city:"",state:"",address:"",instagram:"",facebook:"",twitter:""});
+  const[f,setF]=useState({fullName:"",phoneCode:"+1",phone:"",whatsapp:"",whatsappCode:"+1",country:"",city:"",state:"",address:"",instagram:"",facebook:"",twitter:""});
   const[contacts,setContacts]=useState([]);
   const[loading,setLoading]=useState(true);
   const[saving,setSaving]=useState(false);
   const[addingContact,setAddingContact]=useState(false);
-  const[newContact,setNewContact]=useState({name:"",phone:"",relationship:"",email:""});
+  const[newContact,setNewContact]=useState({name:"",phoneCode:"+1",phone:"",whatsappCode:"+1",whatsapp:"",relationship:"",email:""});
   const[section,setSection]=useState("profile"); // profile | billing
   const set=(k,v)=>setF(p=>({...p,[k]:v}));
 
   useEffect(()=>{
     const load=async()=>{
       const{data:prof}=await supabase.from("profiles").select("*").eq("id",userId).single();
-      if(prof)setF({fullName:prof.full_name||"",phone:prof.phone||"",country:prof.country||"",city:prof.city||"",state:prof.state||"",address:prof.address||"",instagram:prof.instagram||"",facebook:prof.facebook||"",twitter:prof.twitter||""});
+      if(prof)setF({fullName:prof.full_name||"",phoneCode:prof.phone_country_code||"+1",phone:prof.phone||"",whatsapp:prof.whatsapp||"",whatsappCode:prof.whatsapp_country_code||"+1",country:prof.country||"",city:prof.city||"",state:prof.state||"",address:prof.address||"",instagram:prof.instagram||"",facebook:prof.facebook||"",twitter:prof.twitter||""});
       const{data:ec}=await supabase.from("emergency_contacts").select("*").eq("user_id",userId).order("sort_order");
       setContacts(ec||[]);
       setLoading(false);
@@ -925,14 +1056,14 @@ const OwnerProfileModal=({userId,tier,userEmail,onUpgrade,onClose})=>{
 
   const saveProfile=async()=>{
     setSaving(true);
-    await supabase.from("profiles").update({full_name:f.fullName,phone:f.phone,address:f.address,city:f.city,state:f.state,country:f.country,instagram:f.instagram,facebook:f.facebook,twitter:f.twitter}).eq("id",userId);
+    await supabase.from("profiles").update({full_name:f.fullName,phone:f.phone,phone_country_code:f.phoneCode,whatsapp:f.whatsapp,whatsapp_country_code:f.whatsappCode,address:f.address,city:f.city,state:f.state,country:f.country,instagram:f.instagram,facebook:f.facebook,twitter:f.twitter}).eq("id",userId);
     setSaving(false);
   };
 
   const addContact=async()=>{
     if(!newContact.name||!newContact.phone)return;
     const{data}=await supabase.from("emergency_contacts").insert({user_id:userId,...newContact,sort_order:contacts.length}).select().single();
-    if(data){setContacts(p=>[...p,data]);setNewContact({name:"",phone:"",relationship:"",email:""});setAddingContact(false);}
+    if(data){setContacts(p=>[...p,data]);setNewContact({name:"",phoneCode:"+1",phone:"",whatsappCode:"+1",whatsapp:"",relationship:"",email:""});setAddingContact(false);}
   };
 
   const deleteContact=async(id)=>{
@@ -956,7 +1087,22 @@ const OwnerProfileModal=({userId,tier,userEmail,onUpgrade,onClose})=>{
         <div style={{fontWeight:800,fontSize:12,color:"#5A4535",textTransform:"uppercase",letterSpacing:".08em",marginBottom:12}}>👤 Your Information</div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <Field label="Full Name" col="1/-1"><input value={f.fullName} onChange={e=>set("fullName",e.target.value)} placeholder="Jane Smith"/></Field>
-          <Field label="Phone"><input value={f.phone} onChange={e=>set("phone",e.target.value)} placeholder="+1 555-0100"/></Field>
+          <Field label="Phone Country Code">
+            <select value={f.phoneCode} onChange={e=>set("phoneCode",e.target.value)}>
+              {COUNTRY_CODES.map(c=><option key={c.code} value={c.code}>{c.flag} {c.name} ({c.code})</option>)}
+            </select>
+          </Field>
+          <Field label="Phone Number">
+            <input value={f.phone} onChange={e=>set("phone",e.target.value)} placeholder="555-0100"/>
+          </Field>
+          <Field label="WhatsApp Country Code">
+            <select value={f.whatsappCode} onChange={e=>set("whatsappCode",e.target.value)}>
+              {COUNTRY_CODES.map(c=><option key={c.code} value={c.code}>{c.flag} {c.name} ({c.code})</option>)}
+            </select>
+          </Field>
+          <Field label="WhatsApp Number">
+            <input value={f.whatsapp} onChange={e=>set("whatsapp",e.target.value)} placeholder="Same or different number"/>
+          </Field>
           <Field label="Country"><input value={f.country} onChange={e=>set("country",e.target.value)} placeholder="United States"/></Field>
           <Field label="City"><input value={f.city} onChange={e=>set("city",e.target.value)} placeholder="Miami"/></Field>
           <Field label="State/Province"><input value={f.state} onChange={e=>set("state",e.target.value)} placeholder="Florida"/></Field>
@@ -990,8 +1136,19 @@ const OwnerProfileModal=({userId,tier,userEmail,onUpgrade,onClose})=>{
         {addingContact&&(<div style={{background:"#FAF6F0",border:"1.5px solid #2D7D6F44",borderRadius:12,padding:16,marginTop:8}}>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
             <Field label="Name" col="1/-1"><input value={newContact.name} onChange={e=>setNewContact(p=>({...p,name:e.target.value}))} placeholder="Jane Doe"/></Field>
-            <Field label="Phone"><input value={newContact.phone} onChange={e=>setNewContact(p=>({...p,phone:e.target.value}))} placeholder="+1 555-0100"/></Field>
+            <Field label="Phone Code">
+              <select value={newContact.phoneCode||"+1"} onChange={e=>setNewContact(p=>({...p,phoneCode:e.target.value}))}>
+                {COUNTRY_CODES.map(c=><option key={c.code} value={c.code}>{c.flag} {c.code}</option>)}
+              </select>
+            </Field>
+            <Field label="Phone Number"><input value={newContact.phone} onChange={e=>setNewContact(p=>({...p,phone:e.target.value}))} placeholder="555-0100"/></Field>
             <Field label="Relationship"><input value={newContact.relationship} onChange={e=>setNewContact(p=>({...p,relationship:e.target.value}))} placeholder="Sister, Vet, Friend"/></Field>
+            <Field label="WhatsApp Code">
+              <select value={newContact.whatsappCode||"+1"} onChange={e=>setNewContact(p=>({...p,whatsappCode:e.target.value}))}>
+                {COUNTRY_CODES.map(c=><option key={c.code} value={c.code}>{c.flag} {c.code}</option>)}
+              </select>
+            </Field>
+            <Field label="WhatsApp"><input value={newContact.whatsapp||""} onChange={e=>setNewContact(p=>({...p,whatsapp:e.target.value}))} placeholder="WhatsApp number"/></Field>
             <Field label="Email" col="1/-1"><input value={newContact.email} onChange={e=>setNewContact(p=>({...p,email:e.target.value}))} placeholder="jane@email.com"/></Field>
           </div>
           <div style={{display:"flex",gap:8}}><Btn v="secondary" sm onClick={()=>setAddingContact(false)} full>Cancel</Btn><Btn sm onClick={addContact} full>Save Contact</Btn></div>
