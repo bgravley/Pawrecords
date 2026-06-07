@@ -1,276 +1,288 @@
-import { useState } from 'react'
-import { supabase } from '../lib/supabase'
+// src/components/Auth.jsx
+import { useState } from "react";
+import { supabase } from "../lib/supabase";
+
+const C = {
+  bg: "#1E5C52",
+  card: "#FFFFFF",
+  accent: "#2D7D6F",
+  gold: "#F5C45E",
+  text: "#2C2017",
+  sub: "#5A4535",
+  muted: "#8B7355",
+  border: "#E8DDD0",
+  danger: "#C4714A",
+};
 
 export default function Auth() {
-  const [screen, setScreen] = useState('landing')
-  const [resetEmail, setResetEmail] = useState('')
-  const [isSignUp, setIsSignUp] = useState(false)
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [phone, setPhone] = useState('')
-  const [otp, setOtp] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [message, setMessage] = useState(null)
+  const [mode, setMode] = useState("landing"); // landing | email-signin | email-signup | phone | forgot
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [phone, setPhone] = useState("");
+  const [otp, setOtp] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
 
-  const msg = (type, text) => setMessage({ type, text })
-  const clearMsg = () => setMessage(null)
+  const clearErr = () => setError(null);
 
-  const signInGoogle = async () => {
-    setLoading(true); clearMsg()
+  // Force Google account picker every time by adding prompt=select_account
+  const signInWithGoogle = async () => {
+    setLoading(true);
+    setError(null);
     const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: window.location.origin }
-    })
-    if (error) msg('error', error.message)
-    setLoading(false)
-  }
+      provider: "google",
+      options: {
+        queryParams: {
+          prompt: "select_account", // forces account picker every time
+          access_type: "offline",
+        },
+        redirectTo: window.location.origin,
+      },
+    });
+    if (error) { setError(error.message); setLoading(false); }
+  };
 
-  const handleEmail = async (e) => {
-    e.preventDefault(); setLoading(true); clearMsg()
-    const { error } = isSignUp
-      ? await supabase.auth.signUp({ email, password })
-      : await supabase.auth.signInWithPassword({ email, password })
-    if (error) msg('error', error.message)
-    else if (isSignUp) msg('success', 'Account created! Check your email to confirm, then sign in.')
-    setLoading(false)
-  }
+  const signInWithEmail = async () => {
+    if (!email || !password) return setError("Please enter email and password.");
+    setLoading(true); setError(null);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) setError(error.message);
+    setLoading(false);
+  };
 
-  const sendOTP = async (e) => {
-    e.preventDefault(); setLoading(true); clearMsg()
-    const formatted = phone.startsWith('+') ? phone : `+1${phone.replace(/\D/g,'')}`
-    const { error } = await supabase.auth.signInWithOtp({ phone: formatted })
-    if (error) msg('error', error.message)
-    else { msg('success', `Code sent to ${formatted}`); setScreen('phone_verify') }
-    setLoading(false)
-  }
+  const signUpWithEmail = async () => {
+    if (!email || !password) return setError("Please enter email and password.");
+    if (password.length < 6) return setError("Password must be at least 6 characters.");
+    setLoading(true); setError(null);
+    const { error } = await supabase.auth.signUp({ email, password });
+    if (error) setError(error.message);
+    else setSuccess("Account created! Check your email to confirm, then sign in.");
+    setLoading(false);
+  };
 
-  const handleForgotPassword = async (e) => {
-    e.preventDefault(); setLoading(true); clearMsg()
-    const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-      redirectTo: window.location.origin + '?reset=true'
-    })
-    if (error) msg('error', error.message)
-    else msg('success', 'Password reset email sent! Check your inbox.')
-    setLoading(false)
-  }
+  const sendOtp = async () => {
+    if (!phone) return setError("Please enter your phone number.");
+    setLoading(true); setError(null);
+    const { error } = await supabase.auth.signInWithOtp({ phone });
+    if (error) setError(error.message);
+    else setOtpSent(true);
+    setLoading(false);
+  };
 
-  const verifyOTP = async (e) => {
-    e.preventDefault(); setLoading(true); clearMsg()
-    const formatted = phone.startsWith('+') ? phone : `+1${phone.replace(/\D/g,'')}`
-    const { error } = await supabase.auth.verifyOtp({ phone: formatted, token: otp, type: 'sms' })
-    if (error) msg('error', error.message)
-    setLoading(false)
-  }
+  const verifyOtp = async () => {
+    if (!otp) return setError("Please enter the code.");
+    setLoading(true); setError(null);
+    const { error } = await supabase.auth.verifyOtp({ phone, token: otp, type: "sms" });
+    if (error) setError(error.message);
+    setLoading(false);
+  };
+
+  const resetPassword = async () => {
+    if (!email) return setError("Enter your email address.");
+    setLoading(true); setError(null);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin,
+    });
+    if (error) setError(error.message);
+    else setSuccess("Password reset email sent. Check your inbox.");
+    setLoading(false);
+  };
 
   const inp = {
-    background: '#FAF6F0', border: '1.5px solid #E8DDD0', borderRadius: 10,
-    padding: '12px 16px', color: '#2C2017', fontSize: 15, width: '100%',
-    outline: 'none', fontFamily: 'Nunito, sans-serif', marginBottom: 12, display: 'block'
-  }
+    width: "100%", padding: "13px 16px", borderRadius: 12, fontSize: 15,
+    border: `1.5px solid ${C.border}`, background: "#FAF6F0", color: C.text,
+    outline: "none", fontFamily: "'Nunito', sans-serif", boxSizing: "border-box",
+  };
 
-  const PrimaryBtn = ({ children, onClick, type = 'button', disabled }) => (
-    <button type={type} onClick={onClick} disabled={disabled} style={{
-      width: '100%', background: '#2D7D6F', color: '#fff', border: 'none',
-      borderRadius: 12, padding: '14px 20px', fontSize: 16, fontWeight: 700,
-      cursor: 'pointer', marginBottom: 12, opacity: disabled ? 0.6 : 1,
-      fontFamily: 'Nunito, sans-serif'
-    }}>{children}</button>
-  )
-
-  const AmberBtn = ({ children, onClick }) => (
-    <button type="button" onClick={onClick} style={{
-      width: '100%', background: '#E8A838', color: '#2C2017', border: 'none',
-      borderRadius: 12, padding: '14px 20px', fontSize: 16, fontWeight: 700,
-      cursor: 'pointer', marginBottom: 12, fontFamily: 'Nunito, sans-serif'
-    }}>{children}</button>
-  )
-
-  const SecondaryBtn = ({ children, onClick }) => (
-    <button type="button" onClick={onClick} style={{
-      width: '100%', background: '#fff', color: '#2C2017',
-      border: '1.5px solid #E8DDD0', borderRadius: 12, padding: '14px 20px',
-      fontSize: 16, fontWeight: 600, cursor: 'pointer', marginBottom: 12,
-      fontFamily: 'Nunito, sans-serif'
-    }}>{children}</button>
-  )
-
-  const GoogleBtn = ({ label }) => (
-    <button type="button" onClick={signInGoogle} disabled={loading} style={{
-      width: '100%', background: '#fff', color: '#2C2017',
-      border: '1.5px solid #E8DDD0', borderRadius: 12, padding: '14px 20px',
-      fontSize: 16, fontWeight: 600, cursor: 'pointer', marginBottom: 12,
-      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-      opacity: loading ? 0.6 : 1, fontFamily: 'Nunito, sans-serif'
-    }}>
-      <svg width="20" height="20" viewBox="0 0 48 48">
-        <path fill="#FFC107" d="M43.6 20H24v8h11.3C33.6 33.1 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34.1 6.5 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20c11 0 19.7-8 19.7-20 0-1.3-.1-2.7-.1-4z"/>
-        <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.5 15.1 18.9 12 24 12c3 0 5.8 1.1 7.9 3l5.7-5.7C34.1 6.5 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/>
-        <path fill="#4CAF50" d="M24 44c5.2 0 9.9-1.9 13.5-5l-6.2-5.2C29.3 35.3 26.8 36 24 36c-5.2 0-9.6-2.9-11.3-7l-6.6 5.1C9.6 39.6 16.3 44 24 44z"/>
-        <path fill="#1976D2" d="M43.6 20H24v8h11.3c-.9 2.4-2.5 4.4-4.6 5.8l6.2 5.2C40.9 35.5 44 30.2 44 24c0-1.3-.1-2.7-.4-4z"/>
-      </svg>
-      {label}
-    </button>
-  )
-
-  const BackBtn = ({ to }) => (
-    <button type="button" onClick={() => { setScreen(to); clearMsg(); }}
-      style={{ background: 'none', border: 'none', color: '#8B7355', cursor: 'pointer', marginBottom: 16, fontSize: 22, padding: 0 }}>←</button>
-  )
-
-  const Divider = () => (
-    <div style={{ textAlign: 'center', color: '#8B7355', fontSize: 13, margin: '4px 0 12px' }}>— or —</div>
-  )
+  const btn = (bg, color = "#fff") => ({
+    width: "100%", padding: "14px", borderRadius: 12, fontSize: 15, fontWeight: 700,
+    background: bg, color, border: "none", cursor: "pointer", fontFamily: "'Nunito', sans-serif",
+    opacity: loading ? 0.7 : 1, transition: "opacity .15s",
+  });
 
   return (
-    <div style={{ minHeight: '100vh', background: '#1E5C52', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Lora:ital,wght@0,400;0,600;1,400;1,600&display=swap')`}</style>
-      <div style={{ width: '100%', maxWidth: 400 }}>
+    <div style={{ minHeight: "100vh", background: C.bg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: "'Nunito', sans-serif" }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Lora:ital,wght@0,600;1,400;1,600&display=swap');`}</style>
 
-        {/* Logo */}
-        <div style={{ textAlign: 'center', marginBottom: 36 }}>
-          <div style={{ fontSize: 56, marginBottom: 12 }}>🐾</div>
-          <div style={{ fontFamily: "'Nunito', sans-serif", fontSize: 36, fontWeight: 900, color: '#fff' }}>
-            <span style={{ color: '#fff' }}>Your</span>
-            <span style={{ color: '#F5C45E' }}>Pet</span>
-            <span style={{ color: '#fff' }}>Pass</span>
-          </div>
-          <div style={{ color: '#F5C45E', fontSize: 15, marginTop: 6, fontFamily: "'Lora', serif", fontStyle: 'italic' }}>
-            Your pet's health passport
-          </div>
+      {/* Logo */}
+      <div style={{ textAlign: "center", marginBottom: 28 }}>
+        <div style={{ fontFamily: "'Lora', serif", fontSize: 38, color: "#FFFFFF", marginBottom: 4 }}>
+          🐾 <span style={{ fontWeight: 700 }}>Your</span><span style={{ color: C.gold, fontWeight: 700 }}>Pet</span><span style={{ fontWeight: 700 }}>Pass</span>
         </div>
+        <div style={{ color: C.gold, fontSize: 15, fontStyle: "italic", fontFamily: "'Lora', serif" }}>
+          Your pet's health passport
+        </div>
+      </div>
 
-        {/* Message */}
-        {message && (
-          <div style={{
-            background: message.type === 'error' ? '#fee2e2' : '#d1fae5',
-            border: `1px solid ${message.type === 'error' ? '#C4714A' : '#2D7D6F'}`,
-            borderRadius: 12, padding: '12px 16px', marginBottom: 16,
-            fontSize: 14, color: message.type === 'error' ? '#C4714A' : '#2D7D6F',
-            fontFamily: 'Nunito, sans-serif'
-          }}>
-            {message.text}
+      {/* Card */}
+      <div style={{ background: C.card, borderRadius: 24, padding: 28, width: "100%", maxWidth: 420, boxShadow: "0 8px 40px rgba(0,0,0,0.18)" }}>
+
+        {/* Error / Success */}
+        {error && (
+          <div style={{ background: "#C4714A14", border: "1px solid #C4714A44", borderRadius: 12, padding: 12, marginBottom: 16, fontSize: 13, color: C.danger, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            {error}
+            <button onClick={clearErr} style={{ background: "none", border: "none", color: C.danger, cursor: "pointer", fontSize: 16, lineHeight: 1 }}>×</button>
+          </div>
+        )}
+        {success && (
+          <div style={{ background: "#2D7D6F14", border: "1px solid #2D7D6F44", borderRadius: 12, padding: 12, marginBottom: 16, fontSize: 13, color: C.accent }}>
+            {success}
           </div>
         )}
 
-        <div style={{ background: '#FAF6F0', border: '1px solid #E8DDD0', borderRadius: 20, padding: 28, boxShadow: '0 8px 40px rgba(44,32,23,0.2)' }}>
-
-          {/* LANDING */}
-          {screen === 'landing' && <>
-            <h2 style={{ fontFamily: "'Lora', serif", fontSize: 26, marginBottom: 6, color: '#2C2017', fontStyle: 'italic' }}>Welcome</h2>
-            <p style={{ color: '#8B7355', fontSize: 14, marginBottom: 24, fontFamily: 'Nunito, sans-serif' }}>
-              Free to join. Keep your pet's health records and travel documents organized.
-            </p>
-            <AmberBtn onClick={() => { setIsSignUp(true); setScreen('signup'); clearMsg(); }}>✨ Create Free Account</AmberBtn>
-            <SecondaryBtn onClick={() => { setIsSignUp(false); setScreen('signin'); clearMsg(); }}>Sign In</SecondaryBtn>
-          </>}
-
-          {/* SIGN UP */}
-          {screen === 'signup' && <>
-            <BackBtn to="landing"/>
-            <h2 style={{ fontFamily: "'Lora', serif", fontSize: 24, marginBottom: 6, color: '#2C2017', fontStyle: 'italic' }}>Create Account</h2>
-            <p style={{ color: '#8B7355', fontSize: 14, marginBottom: 20, fontFamily: 'Nunito, sans-serif' }}>Choose how you'd like to sign up</p>
-            <GoogleBtn label="Sign up with Google"/>
-            <Divider/>
-            <SecondaryBtn onClick={() => { setScreen('email'); clearMsg(); }}>✉️ Sign up with Email</SecondaryBtn>
-            <SecondaryBtn onClick={() => { setScreen('phone'); clearMsg(); }}>📱 Sign up with Phone</SecondaryBtn>
-            <div style={{ textAlign: 'center', marginTop: 8 }}>
-              <button type="button" onClick={() => { setIsSignUp(false); setScreen('signin'); clearMsg(); }}
-                style={{ background: 'none', border: 'none', color: '#8B7355', fontSize: 14, cursor: 'pointer', fontFamily: 'Nunito, sans-serif' }}>
-                Already have an account? Sign in
-              </button>
+        {/* LANDING */}
+        {mode === "landing" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ textAlign: "center", marginBottom: 8 }}>
+              <div style={{ fontFamily: "'Lora', serif", fontSize: 24, color: C.text, marginBottom: 4 }}>Welcome</div>
+              <div style={{ fontSize: 14, color: C.muted }}>Sign in or create your account</div>
             </div>
-          </>}
 
-          {/* SIGN IN */}
-          {screen === 'signin' && <>
-            <BackBtn to="landing"/>
-            <h2 style={{ fontFamily: "'Lora', serif", fontSize: 24, marginBottom: 6, color: '#2C2017', fontStyle: 'italic' }}>Welcome Back</h2>
-            <p style={{ color: '#8B7355', fontSize: 14, marginBottom: 20, fontFamily: 'Nunito, sans-serif' }}>Sign in to your account</p>
-            <GoogleBtn label="Sign in with Google"/>
-            <Divider/>
-            <SecondaryBtn onClick={() => { setScreen('email'); clearMsg(); }}>✉️ Sign in with Email</SecondaryBtn>
-            <SecondaryBtn onClick={() => { setScreen('phone'); clearMsg(); }}>📱 Sign in with Phone</SecondaryBtn>
-            <div style={{ textAlign: 'center', marginTop: 8 }}>
-              <button type="button" onClick={() => { setIsSignUp(true); setScreen('signup'); clearMsg(); }}
-                style={{ background: 'none', border: 'none', color: '#8B7355', fontSize: 14, cursor: 'pointer', fontFamily: 'Nunito, sans-serif' }}>
-                Don't have an account? Sign up free
-              </button>
+            {/* Google */}
+            <button onClick={signInWithGoogle} disabled={loading} style={{ ...btn("#FFFFFF", C.text), border: `1.5px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", gap: 12 }}>
+              <svg width="20" height="20" viewBox="0 0 48 48">
+                <path fill="#4285F4" d="M44.5 20H24v8.5h11.8C34.7 33.9 30.1 37 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 5.1 29.6 3 24 3 12.4 3 3 12.4 3 24s9.4 21 21 21c10.5 0 20-7.6 20-21 0-1.4-.1-2.7-.5-4z"/>
+                <path fill="#34A853" d="M6.3 14.7l7 5.1C15 16.1 19.1 13 24 13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 5.1 29.6 3 24 3c-7.6 0-14.2 4.1-17.7 10.7z"/>
+                <path fill="#FBBC05" d="M24 45c5.9 0 10.9-2 14.5-5.4l-6.7-5.5C29.9 35.9 27.1 37 24 37c-6.1 0-11.2-4.1-13-9.6l-7 5.4C7.7 40.6 15.3 45 24 45z"/>
+                <path fill="#EA4335" d="M44.5 20H24v8.5h11.8c-.9 2.6-2.6 4.8-4.9 6.3l6.7 5.5C42 37.1 45 31 45 24c0-1.4-.2-2.7-.5-4z"/>
+              </svg>
+              Continue with Google
+            </button>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "4px 0" }}>
+              <div style={{ flex: 1, height: 1, background: C.border }} />
+              <span style={{ fontSize: 13, color: C.muted }}>or</span>
+              <div style={{ flex: 1, height: 1, background: C.border }} />
             </div>
-          </>}
 
-          {/* EMAIL */}
-          {screen === 'email' && (
-            <form onSubmit={handleEmail}>
-              <BackBtn to={isSignUp ? 'signup' : 'signin'}/>
-              <h2 style={{ fontFamily: "'Lora', serif", fontSize: 22, marginBottom: 20, color: '#2C2017', fontStyle: 'italic' }}>
-                {isSignUp ? 'Create Account' : 'Sign In'}
-              </h2>
-              <input style={inp} type="email" placeholder="Email address" value={email} onChange={e => setEmail(e.target.value)} required/>
-              <input style={inp} type="password" placeholder="Password (min 6 characters)" value={password} onChange={e => setPassword(e.target.value)} required minLength={6}/>
-              <PrimaryBtn type="submit" disabled={loading}>{loading ? '...' : (isSignUp ? 'Create Account' : 'Sign In')}</PrimaryBtn>
-              <button type="button" onClick={() => { setIsSignUp(!isSignUp); clearMsg(); }}
-                style={{ width: '100%', background: 'none', border: 'none', color: '#8B7355', fontSize: 14, cursor: 'pointer', fontFamily: 'Nunito, sans-serif' }}>
-                {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up free"}
+            <button onClick={() => { setMode("email-signin"); clearErr(); }} style={btn(C.accent)}>
+              Sign in with Email
+            </button>
+            <button onClick={() => { setMode("email-signup"); clearErr(); }} style={{ ...btn("transparent", C.accent), border: `1.5px solid ${C.accent}` }}>
+              Create Account with Email
+            </button>
+            <button onClick={() => { setMode("phone"); clearErr(); }} style={{ ...btn("transparent", C.muted), border: `1.5px solid ${C.border}` }}>
+              Sign in with Phone / SMS
+            </button>
+
+            <div style={{ textAlign: "center", marginTop: 8, fontSize: 12, color: C.muted, lineHeight: 1.6 }}>
+              By continuing you agree to our{" "}
+              <a href="/terms" style={{ color: C.accent }}>Terms of Service</a> and{" "}
+              <a href="/privacy" style={{ color: C.accent }}>Privacy Policy</a>.
+            </div>
+
+            <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 16, marginTop: 4 }}>
+              <button onClick={() => { setMode("emergency"); clearErr(); }}
+                style={{ width: "100%", padding: "13px", borderRadius: 12, fontSize: 14, fontWeight: 700, background: "#C4714A14", color: "#C4714A", border: "1px solid #C4714A44", cursor: "pointer", fontFamily: "'Nunito', sans-serif" }}>
+                🚨 Emergency Pet Lookup
               </button>
-              {!isSignUp && (
-                <button type="button" onClick={() => { setResetEmail(email); setScreen('forgot'); clearMsg(); }}
-                  style={{ width: '100%', background: 'none', border: 'none', color: '#2D7D6F', fontSize: 13, cursor: 'pointer', marginTop: 4, fontFamily: 'Nunito, sans-serif' }}>
-                  Forgot your password?
-                </button>
-              )}
-            </form>
-          )}
+              <div style={{ textAlign: "center", fontSize: 11, color: C.muted, marginTop: 6 }}>
+                Found a lost pet? Access their health record here.
+              </div>
+            </div>
+          </div>
+        )}
 
-          {/* FORGOT PASSWORD */}
-          {screen === 'forgot' && (
-            <form onSubmit={handleForgotPassword}>
-              <BackBtn to="email"/>
-              <h2 style={{ fontFamily: "'Lora', serif", fontSize: 22, marginBottom: 8, color: '#2C2017', fontStyle: 'italic' }}>Reset Password</h2>
-              <p style={{ color: '#8B7355', fontSize: 14, marginBottom: 16, fontFamily: 'Nunito, sans-serif' }}>Enter your email and we'll send you a reset link.</p>
-              <input style={inp} type="email" placeholder="Email address" value={resetEmail} onChange={e => setResetEmail(e.target.value)} required/>
-              <PrimaryBtn type="submit" disabled={loading}>{loading ? 'Sending...' : 'Send Reset Link'}</PrimaryBtn>
-              <button type="button" onClick={() => { setScreen('email'); clearMsg(); }}
-                style={{ width: '100%', background: 'none', border: 'none', color: '#8B7355', fontSize: 14, cursor: 'pointer', fontFamily: 'Nunito, sans-serif' }}>
-                Back to sign in
-              </button>
-            </form>
-          )}
+        {/* EMAIL SIGN IN */}
+        {mode === "email-signin" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <button onClick={() => { setMode("landing"); clearErr(); setSuccess(null); }} style={{ background: "none", border: "none", cursor: "pointer", color: C.muted, fontSize: 22, alignSelf: "flex-start", lineHeight: 1 }}>←</button>
+            <div style={{ fontFamily: "'Lora', serif", fontSize: 24, color: C.text, marginBottom: 4 }}>Sign In</div>
+            <input style={inp} type="email" placeholder="Email address" value={email} onChange={e => setEmail(e.target.value)} autoComplete="email"/>
+            <input style={inp} type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password"/>
+            <button onClick={signInWithEmail} disabled={loading} style={btn(C.accent)}>{loading ? "Signing in..." : "Sign In"}</button>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+              <button onClick={() => { setMode("forgot"); clearErr(); }} style={{ background: "none", border: "none", cursor: "pointer", color: C.accent }}>Forgot password?</button>
+              <button onClick={() => { setMode("email-signup"); clearErr(); }} style={{ background: "none", border: "none", cursor: "pointer", color: C.accent }}>Create account</button>
+            </div>
+          </div>
+        )}
 
-          {/* PHONE */}
-          {screen === 'phone' && (
-            <form onSubmit={sendOTP}>
-              <BackBtn to={isSignUp ? 'signup' : 'signin'}/>
-              <h2 style={{ fontFamily: "'Lora', serif", fontSize: 22, marginBottom: 8, color: '#2C2017', fontStyle: 'italic' }}>
-                {isSignUp ? 'Sign Up with Phone' : 'Sign In with Phone'}
-              </h2>
-              <p style={{ color: '#8B7355', fontSize: 14, marginBottom: 16, fontFamily: 'Nunito, sans-serif' }}>We'll send a 6-digit code by SMS.</p>
-              <input style={inp} type="tel" placeholder="Phone number (e.g. 5551234567)" value={phone} onChange={e => setPhone(e.target.value)} required/>
-              <PrimaryBtn type="submit" disabled={loading}>{loading ? 'Sending...' : 'Send Code'}</PrimaryBtn>
-            </form>
-          )}
+        {/* EMAIL SIGN UP */}
+        {mode === "email-signup" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <button onClick={() => { setMode("landing"); clearErr(); setSuccess(null); }} style={{ background: "none", border: "none", cursor: "pointer", color: C.muted, fontSize: 22, alignSelf: "flex-start", lineHeight: 1 }}>←</button>
+            <div style={{ fontFamily: "'Lora', serif", fontSize: 24, color: C.text, marginBottom: 4 }}>Create Account</div>
+            <input style={inp} type="email" placeholder="Email address" value={email} onChange={e => setEmail(e.target.value)} autoComplete="email"/>
+            <input style={inp} type="password" placeholder="Password (min 6 characters)" value={password} onChange={e => setPassword(e.target.value)} autoComplete="new-password"/>
+            {success
+              ? <div style={{ textAlign: "center", fontSize: 14, color: C.accent, padding: "8px 0" }}>{success}</div>
+              : <button onClick={signUpWithEmail} disabled={loading} style={btn(C.accent)}>{loading ? "Creating..." : "Create Account"}</button>}
+            <div style={{ textAlign: "center", fontSize: 13 }}>
+              <button onClick={() => { setMode("email-signin"); clearErr(); }} style={{ background: "none", border: "none", cursor: "pointer", color: C.accent }}>Already have an account? Sign in</button>
+            </div>
+          </div>
+        )}
 
-          {/* PHONE VERIFY */}
-          {screen === 'phone_verify' && (
-            <form onSubmit={verifyOTP}>
-              <BackBtn to="phone"/>
-              <h2 style={{ fontFamily: "'Lora', serif", fontSize: 22, marginBottom: 8, color: '#2C2017', fontStyle: 'italic' }}>Enter Code</h2>
-              <p style={{ color: '#8B7355', fontSize: 14, marginBottom: 16, fontFamily: 'Nunito, sans-serif' }}>6-digit code sent to {phone}</p>
-              <input style={{ ...inp, fontSize: 28, letterSpacing: '0.4em', textAlign: 'center' }}
-                type="text" placeholder="000000" value={otp} onChange={e => setOtp(e.target.value)} maxLength={6} required/>
-              <PrimaryBtn type="submit" disabled={loading}>{loading ? 'Verifying...' : 'Verify & Sign In'}</PrimaryBtn>
-              <button type="button" onClick={sendOTP}
-                style={{ width: '100%', background: 'none', border: 'none', color: '#8B7355', fontSize: 14, cursor: 'pointer', fontFamily: 'Nunito, sans-serif' }}>
-                Resend code
-              </button>
-            </form>
-          )}
+        {/* PHONE */}
+        {mode === "phone" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <button onClick={() => { setMode("landing"); clearErr(); }} style={{ background: "none", border: "none", cursor: "pointer", color: C.muted, fontSize: 22, alignSelf: "flex-start", lineHeight: 1 }}>←</button>
+            <div style={{ fontFamily: "'Lora', serif", fontSize: 24, color: C.text, marginBottom: 4 }}>Phone Sign In</div>
+            {!otpSent ? (<>
+              <input style={inp} type="tel" placeholder="+1 555-0100" value={phone} onChange={e => setPhone(e.target.value)} autoComplete="tel"/>
+              <button onClick={sendOtp} disabled={loading} style={btn(C.accent)}>{loading ? "Sending..." : "Send Code"}</button>
+            </>) : (<>
+              <div style={{ fontSize: 14, color: C.muted }}>Code sent to {phone}</div>
+              <input style={inp} type="text" placeholder="6-digit code" value={otp} onChange={e => setOtp(e.target.value)} maxLength={6} inputMode="numeric"/>
+              <button onClick={verifyOtp} disabled={loading} style={btn(C.accent)}>{loading ? "Verifying..." : "Verify Code"}</button>
+              <button onClick={() => setOtpSent(false)} style={{ background: "none", border: "none", cursor: "pointer", color: C.accent, fontSize: 13 }}>Use different number</button>
+            </>)}
+          </div>
+        )}
 
-        </div>
+        {/* EMERGENCY LOOKUP */}
+        {mode === "emergency" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <button onClick={() => { setMode("landing"); clearErr(); }} style={{ background: "none", border: "none", cursor: "pointer", color: C.muted, fontSize: 22, alignSelf: "flex-start", lineHeight: 1 }}>←</button>
+            <div style={{ textAlign: "center", marginBottom: 4 }}>
+              <div style={{ fontSize: 36, marginBottom: 8 }}>🚨</div>
+              <div style={{ fontFamily: "'Lora', serif", fontSize: 22, color: C.text, marginBottom: 4 }}>Emergency Pet Lookup</div>
+              <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.6 }}>Enter the pet's emergency code from their tag or QR code to access their health record.</div>
+            </div>
+            <input
+              style={{ ...inp, textAlign: "center", letterSpacing: ".05em", fontSize: 16 }}
+              placeholder="Emergency code (e.g. abc123xyz)"
+              value={email}
+              onChange={e => setEmail(e.target.value.trim())}
+              autoCapitalize="none"
+              autoCorrect="off"
+            />
+            {error && <div style={{ background: "#C4714A14", border: "1px solid #C4714A44", borderRadius: 10, padding: 10, fontSize: 13, color: C.danger }}>{error}</div>}
+            <button
+              disabled={!email || loading}
+              onClick={() => {
+                if (!email) return;
+                window.location.href = `/emergency/${email}`;
+              }}
+              style={{ ...btn("#C4714A"), opacity: email ? 1 : 0.5 }}>
+              View Health Record
+            </button>
+            <div style={{ fontSize: 12, color: C.muted, textAlign: "center", lineHeight: 1.6 }}>
+              The emergency code is the last part of the URL on the pet's QR code tag — e.g. <b>yourpetpass.com/emergency/<span style={{color:C.accent}}>abc123xyz</span></b>
+            </div>
+          </div>
+        )}
 
-        <p style={{ textAlign: 'center', color: '#F5C45E', fontSize: 12, marginTop: 20, lineHeight: 1.6, fontFamily: 'Nunito, sans-serif' }}>
-          By continuing you agree to our Terms of Service and Privacy Policy.
-        </p>
+        {/* FORGOT PASSWORD */}
+        {mode === "forgot" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <button onClick={() => { setMode("email-signin"); clearErr(); setSuccess(null); }} style={{ background: "none", border: "none", cursor: "pointer", color: C.muted, fontSize: 22, alignSelf: "flex-start", lineHeight: 1 }}>←</button>
+            <div style={{ fontFamily: "'Lora', serif", fontSize: 24, color: C.text, marginBottom: 4 }}>Reset Password</div>
+            <div style={{ fontSize: 14, color: C.muted }}>Enter your email and we'll send a reset link.</div>
+            <input style={inp} type="email" placeholder="Email address" value={email} onChange={e => setEmail(e.target.value)} autoComplete="email"/>
+            {success
+              ? <div style={{ textAlign: "center", fontSize: 14, color: C.accent, padding: "8px 0" }}>{success}</div>
+              : <button onClick={resetPassword} disabled={loading} style={btn(C.accent)}>{loading ? "Sending..." : "Send Reset Link"}</button>}
+          </div>
+        )}
+      </div>
+
+      <div style={{ marginTop: 20, fontSize: 12, color: "rgba(255,255,255,0.5)", textAlign: "center" }}>
+        YourPetPass · Secure pet health records for travelers
       </div>
     </div>
-  )
+  );
 }
