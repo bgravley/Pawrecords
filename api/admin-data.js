@@ -140,6 +140,59 @@ export default async function handler(req, res) {
       return res.status(200).json({ count });
     }
 
+    // ── Affiliate endpoints ──────────────────────────────────────────────
+    if (type === 'affiliates') {
+      const r = await fetch(
+        `${supabaseUrl}/rest/v1/affiliates?select=*&order=created_at.desc`,
+        { headers }
+      );
+      const data = await r.json();
+      return res.status(200).json({ data });
+    }
+
+    if (type === 'affiliate_commissions') {
+      const r = await fetch(
+        `${supabaseUrl}/rest/v1/affiliate_commissions?select=*&order=created_at.desc&limit=500`,
+        { headers }
+      );
+      const data = await r.json();
+      return res.status(200).json({ data });
+    }
+
+    if (type === 'create_affiliate') {
+      const { userId: targetUserId, referralCode, commissionRate, notes } = req.body;
+      const r = await fetch(
+        `${supabaseUrl}/rest/v1/affiliates`,
+        {
+          method: 'POST',
+          headers: { ...headers, 'Prefer': 'return=representation' },
+          body: JSON.stringify({
+            user_id: targetUserId,
+            referral_code: referralCode,
+            commission_rate: commissionRate || 20,
+            status: 'active',
+            notes: notes || null,
+          }),
+        }
+      );
+      const data = await r.json();
+      return res.status(200).json({ data: Array.isArray(data) ? data[0] : data });
+    }
+
+    if (type === 'update_affiliate') {
+      const { affiliateId, updates } = req.body;
+      const r = await fetch(
+        `${supabaseUrl}/rest/v1/affiliates?id=eq.${affiliateId}`,
+        {
+          method: 'PATCH',
+          headers: { ...headers, 'Prefer': 'return=representation' },
+          body: JSON.stringify(updates),
+        }
+      );
+      const data = await r.json();
+      return res.status(200).json({ data });
+    }
+
     return res.status(400).json({ error: 'Unknown type' });
 
   } catch (err) {
