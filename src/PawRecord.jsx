@@ -379,7 +379,7 @@ const BottomNav=({tab,setTab,alerts})=>{
   );
 };
 
-const DogForm=({dog,userId,onSave,onClose})=>{
+const DogForm=({dog,userId,userEmail,onSave,onClose})=>{
   const[f,setF]=useState(dog?{name:dog.name,breed:dog.breed||"",dob:dog.dob||"",weight:dog.weight||"",gender:dog.gender||"male",neutered:dog.neutered||false,microchip:dog.microchip||"",color:dog.color||"",emergencyContact:dog.emergency_contact||"",emergencyPhone:dog.emergency_phone||"",notes:dog.notes||"",photo:dog.photo_url||"",petType:dog.pet_type||"pet"}:{name:"",breed:"",dob:"",weight:"",gender:"male",neutered:false,microchip:"",color:"",emergencyContact:"",emergencyPhone:"",emergencyPhoneCode:"+1",emergencyWhatsapp:"",emergencyWhatsappCode:"+1",notes:"",photo:"",petType:"pet"});
   const[saving,setSaving]=useState(false);
   const[certFile,setCertFile]=useState(null);
@@ -401,7 +401,7 @@ const DogForm=({dog,userId,onSave,onClose})=>{
         await supabase.from("dogs").update({certification_doc_path:path}).eq("id",result.id);
         result.certification_doc_path=path;
       }
-      await logActivity(userId, null, dog?'pet_updated':'pet_added', {petName:f.name, breed:f.breed});
+      await logActivity(userId, userEmail||null, dog?'pet_updated':'pet_added', {petName:f.name, breed:f.breed});
       onSave(result);
     }
     setSaving(false);
@@ -615,7 +615,7 @@ const ShareModal=({dog,onClose})=>{
   </Modal>);
 };
 
-const AIScanModal=({dog,userId,onSave,onClose})=>{
+const AIScanModal=({dog,userId,userEmail,onSave,onClose})=>{
   const[step,setStep]=useState("upload");
   const[images,setImages]=useState([]); // array of {dataUrl, label}
   const[extracted,setExtracted]=useState(null);
@@ -690,7 +690,7 @@ const AIScanModal=({dog,userId,onSave,onClose})=>{
       const res=await fetch("/api/ai-scan",{
         method:"POST",
         headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({images:imagePayload,userId,userEmail:null,petName:dog.name})
+        body:JSON.stringify({images:imagePayload,userId,userEmail:userEmail||null,petName:dog.name})
       });
       if(!res.ok){const e=await res.json();throw new Error(e.error||"Scan request failed");}
       const data=await res.json();
@@ -1161,7 +1161,7 @@ const DogDetail=({dog,state,dispatch,userId,tier,onBack,onUpgrade,userEmail})=>{
           {[
             {label:"Edit",icon:"edit",action:()=>setModal("editDog"),always:true},
             {label:"Share",icon:"share",action:()=>setModal("share"),always:true},
-            {label:"Export",icon:"download",action:()=>{exportHTML(dog,state);logActivity(userId,null,'export_records',{petName:dog.name});},premium:true},
+            {label:"Export",icon:"download",action:()=>{exportHTML(dog,state);logActivity(userId,userEmail||null,'export_records',{petName:dog.name});},premium:true},
             {label:"AI Scan",icon:"camera",action:()=>setShowScan(true),premium:true},
           ].map(btn=>(
             <button key={btn.label} onClick={btn.always||premium?btn.action:upgrade}
@@ -1188,9 +1188,9 @@ const DogDetail=({dog,state,dispatch,userId,tier,onBack,onUpgrade,userEmail})=>{
       {tab==="more"&&<MoreTab dog={dog} state={state} dispatch={dispatch} userId={userId} tier={tier} onUpgrade={upgrade}/>}
     </div>
     <BottomNav tab={tab} setTab={setTab} alerts={urgent}/>
-    {modal==="editDog"&&<DogForm dog={dog} userId={userId} onSave={d=>{dispatch({t:"UPD_DOG",d});setModal(null);}} onClose={()=>setModal(null)}/>}
+    {modal==="editDog"&&<DogForm dog={dog} userId={userId} userEmail={userEmail} onSave={d=>{dispatch({t:"UPD_DOG",d});setModal(null);}} onClose={()=>setModal(null)}/>}
     {modal==="share"&&<ShareModal dog={dog} onClose={()=>setModal(null)}/>}
-    {showScan&&<AIScanModal dog={dog} userId={userId} onSave={async()=>{const[{data:v},{data:m},{data:vis},{data:al}]=await Promise.all([db.getVaccinations(userId),db.getMedications(userId),db.getVisits(userId),db.getAllergies(userId)]);dispatch({t:'LOAD',s:{dogs:state.dogs,vaccinations:v||[],medications:m||[],allergies:al||[],visits:vis||[],weights:state.weights,vets:state.vets,documents:state.documents}});}} onClose={()=>setShowScan(false)}/>}
+    {showScan&&<AIScanModal dog={dog} userId={userId} userEmail={userEmail} onSave={async()=>{const[{data:v},{data:m},{data:vis},{data:al}]=await Promise.all([db.getVaccinations(userId),db.getMedications(userId),db.getVisits(userId),db.getAllergies(userId)]);dispatch({t:'LOAD',s:{dogs:state.dogs,vaccinations:v||[],medications:m||[],allergies:al||[],visits:vis||[],weights:state.weights,vets:state.vets,documents:state.documents}});}} onClose={()=>setShowScan(false)}/>}
     {showUpgrade&&<UpgradeModal userId={userId} userEmail={userEmail} onClose={()=>setShowUpgrade(false)}/>}
   </div>);
 };
@@ -1479,7 +1479,7 @@ const Home=({state,dispatch,userId,tier,userEmail,onSignOut,isAdmin,onOpenAdmin}
         </div>
       </>)}
     </div>
-    {addDog&&<DogForm userId={userId} onSave={d=>{dispatch({t:"ADD_DOG",d});setAddDog(false);}} onClose={()=>setAddDog(false)}/>}
+    {addDog&&<DogForm userId={userId} userEmail={userEmail} onSave={d=>{dispatch({t:"ADD_DOG",d});setAddDog(false);}} onClose={()=>setAddDog(false)}/>}
     {showUpgrade&&<UpgradeModal userId={userId} userEmail={userEmail} onClose={()=>setShowUpgrade(false)}/>}
     {showProfile&&<OwnerProfileModal userId={userId} tier={tier} userEmail={userEmail} onUpgrade={()=>{setShowProfile(false);setShowUpgrade(true);}} onClose={()=>setShowProfile(false)}/>}
   </div>);
