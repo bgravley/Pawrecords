@@ -50,6 +50,10 @@ export default function Admin({ onBack }) {
   const [aiLogs, setAiLogs] = useState([]);
   const [activityLogs, setActivityLogs] = useState([]);
   const [errorLogs, setErrorLogs] = useState([]);
+  const [affiliates, setAffiliates] = useState([]);
+  const [affiliateCommissions, setAffiliateCommissions] = useState([]);
+  const [showCreateAffiliate, setShowCreateAffiliate] = useState(false);
+  const [newAffiliate, setNewAffiliate] = useState({ userId: '', commissionRate: 20, notes: '' });
   const [loading, setLoading] = useState(true);
   const [editUser, setEditUser] = useState(null);
   const [search, setSearch] = useState("");
@@ -70,16 +74,20 @@ export default function Admin({ onBack }) {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [usersRes, aiRes, actRes, errRes] = await Promise.all([
+      const [usersRes, aiRes, actRes, errRes, affRes, commRes] = await Promise.all([
         adminFetch('users'),
         adminFetch('ai_logs'),
         adminFetch('activity'),
         adminFetch('errors'),
+        adminFetch('affiliates'),
+        adminFetch('affiliate_commissions'),
       ]);
       setUsers(usersRes.data || []);
       setAiLogs(aiRes.data || []);
       setActivityLogs(actRes.data || []);
       setErrorLogs(errRes.data || []);
+      setAffiliates(affRes.data || []);
+      setAffiliateCommissions(commRes.data || []);
     } catch(e) {
       console.error('Admin load error:', e);
     }
@@ -135,6 +143,7 @@ export default function Admin({ onBack }) {
           { id: "ai", label: `AI Usage (${aiLogs.length})` },
           { id: "activity", label: `Activity (${activityLogs.length})` },
           { id: "errors", label: `Errors (${errorLogs.filter(e=>!e.reviewed).length})`, alert: errorLogs.filter(e=>!e.reviewed).length > 0 },
+          { id: "affiliates", label: `Affiliates (${affiliates.length})` },
         ].map(t => (
             <Tab key={t.id} id={t.id} label={t.label} active={tab === t.id} onClick={() => setTab(t.id)} />
           ))}
@@ -429,6 +438,194 @@ export default function Admin({ onBack }) {
           </div>
         </div>
       )}
+
+      {/* AFFILIATES TAB */}
+      {tab === "affiliates" && (() => {
+        const genCode = (email) => {
+          const prefix = (email||'').split('@')[0].slice(0,4).toUpperCase().replace(/[^A-Z0-9]/g,'');
+          const rand = Math.random().toString(36).slice(2,6).toUpperCase();
+          return `${prefix}${rand}`;
+        };
+        const createAffiliate = async () => {
+          if (!newAffiliate.userId) return;
+          const user = users.find(u => u.id === newAffiliate.userId);
+          const code = genCode(user?.email || '');
+          const res = await adminFetch('create_affiliate', {
+            userId: newAffiliate.userId,
+            referralCode: code,
+            commissionRate: parseFloat(newAffiliate.commissionRate) || 20,
+            notes: newAffiliate.notes,
+          });
+          if (res.data) {
+            setAffiliates(p => [res.data, ...p]);
+            setShowCreateAffiliate(false);
+            setNewAffiliate({ userId: '', commissionRate: 20, notes: '' });
+          }
+        };
+        const toggleStatus = async (aff) => {
+          const newStatus = aff.status === 'active' ? 'paused' : 'active';
+          await adminFetch('update_affiliate', { affiliateId: aff.id, updates: { status: newStatus } });
+          setAffiliates(p => p.map(a => a.id === aff.id ? { ...a, status: newStatus } : a));
+        };
+        const totalOwed = affiliateCommissions.filter(c => c.status === 'pending').reduce((s, c) => s + (c.commission_amount_cents || 0), 0);
+        return (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 18 }}>Affiliate Partners</div>
+                <div style={{ fontSize: 13, color: C.sub, marginTop: 2 }}>
+                  Total commissions pending: <span style={{ color: C.warn, fontWeight: 700 }}>${(totalOwed / 100).toFixed(2)}</span>
+                </div>
+              </div>
+              <button onClick={() => setShowCreateAffiliate(true)}
+                style={{ background: C.accent, border: 'none', borderRadius: 8, padding: '8px 16px', color: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+                + Add Affiliate
+              </button>
+            </div>
+
+            {/* Affiliate list */}
+            {affiliates.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 40, color: C.sub }}>No affiliates yet. Add one above.</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {affiliates.map(aff => {
+                  const user = users.find(u => u.id === aff.user_id);
+                  const referred = users.filter(u => u.referral_code_used === aff.referral_code).length;
+                  const owed = affiliateCommissions.filter(c => c.affiliate_id === aff.id && c.status === 'pending').reduce((s, c) => s + (c.commission_amount_cents || 0), 0);
+                  const paid = affiliateCommissions.filter(c => c.affiliate_id === aff.id && c.status === 'paid').reduce((s, c) => s + (c.commission_amount_cents || 0), 0);
+                  const referralUrl = `https://yourpetpass.com?ref=${aff.referral_code}`;
+                  return (
+                    <div key={aff.id} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 18 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+                        <div style={{ flex: 1, minWidth: 200 }}>
+                          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 2 }}>{user?.email || aff.user_id?.slice(0,8)}</div>
+                          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
+                            <span style={{ background: '#2D7D6F22', color: C.accent, borderRadius: 20, padding: '2px 10px', fontSize: 11, fontWeight: 700, fontFamily: 'monospace' }}>
+                              {aff.referral_code}
+                            </span>
+                            <span style={{ background: aff.status === 'active' ? '#10B98122' : '#E8A83822', color: aff.status === 'active' ? C.green : C.warn, borderRadius: 20, padding: '2px 10px', fontSize: 11, fontWeight: 700 }}>
+                              {aff.status.toUpperCase()}
+                            </span>
+                            <span style={{ fontSize: 12, color: C.sub }}>{aff.commission_rate}% commission</span>
+                          </div>
+                          {aff.notes && <div style={{ fontSize: 12, color: C.sub, marginBottom: 8 }}>{aff.notes}</div>}
+                          <div style={{ display: 'flex', gap: 16, fontSize: 13 }}>
+                            <span style={{ color: C.text }}><b>{referred}</b> <span style={{ color: C.sub }}>referred</span></span>
+                            <span style={{ color: C.warn }}><b>${(owed/100).toFixed(2)}</b> <span style={{ color: C.sub }}>owed</span></span>
+                            <span style={{ color: C.green }}><b>${(paid/100).toFixed(2)}</b> <span style={{ color: C.sub }}>paid</span></span>
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
+                          <button onClick={() => { navigator.clipboard.writeText(referralUrl); }}
+                            style={{ background: '#2D7D6F22', color: C.accent, border: `1px solid #2D7D6F44`, borderRadius: 7, padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                            Copy Link
+                          </button>
+                          <button onClick={() => toggleStatus(aff)}
+                            style={{ background: aff.status === 'active' ? '#E8A83822' : '#10B98122', color: aff.status === 'active' ? C.warn : C.green, border: '1px solid transparent', borderRadius: 7, padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                            {aff.status === 'active' ? 'Pause' : 'Activate'}
+                          </button>
+                        </div>
+                      </div>
+                      {/* Referral link */}
+                      <div style={{ marginTop: 10, background: C.bg, borderRadius: 8, padding: '7px 12px', fontSize: 11, color: C.sub, fontFamily: 'monospace', wordBreak: 'break-all' }}>
+                        {referralUrl}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Commission ledger */}
+            {affiliateCommissions.length > 0 && (
+              <div style={{ marginTop: 28 }}>
+                <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 12 }}>Commission Ledger</div>
+                <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, overflow: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                    <thead>
+                      <tr style={{ color: C.sub }}>
+                        {['Date', 'Affiliate', 'Referred User', 'Payment', 'Rate', 'Commission', 'Status'].map(h => (
+                          <th key={h} style={{ padding: '10px 12px', textAlign: 'left', borderBottom: `1px solid ${C.border}`, fontWeight: 600 }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {affiliateCommissions.map(c => {
+                        const aff = affiliates.find(a => a.id === c.affiliate_id);
+                        const affUser = users.find(u => u.id === aff?.user_id);
+                        const refUser = users.find(u => u.id === c.referred_user_id);
+                        const statusColor = c.status === 'paid' ? C.green : c.status === 'pending' ? C.warn : C.sub;
+                        return (
+                          <tr key={c.id} style={{ borderTop: `1px solid ${C.border}20` }}>
+                            <td style={{ padding: '8px 12px', color: C.sub }}>{fmt(c.created_at)}</td>
+                            <td style={{ padding: '8px 12px' }}>{affUser?.email?.split('@')[0] || '—'}</td>
+                            <td style={{ padding: '8px 12px', color: C.sub }}>{refUser?.email?.split('@')[0] || '—'}</td>
+                            <td style={{ padding: '8px 12px' }}>${((c.payment_amount_cents||0)/100).toFixed(2)}</td>
+                            <td style={{ padding: '8px 12px', color: C.sub }}>{c.commission_rate}%</td>
+                            <td style={{ padding: '8px 12px', color: C.warn, fontWeight: 700 }}>${((c.commission_amount_cents||0)/100).toFixed(2)}</td>
+                            <td style={{ padding: '8px 12px' }}>
+                              <span style={{ background: statusColor+'22', color: statusColor, borderRadius: 20, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>
+                                {c.status.toUpperCase()}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Create Affiliate Modal */}
+            {showCreateAffiliate && (
+              <div style={{ position: 'fixed', inset: 0, background: '#000000cc', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+                onClick={e => e.target === e.currentTarget && setShowCreateAffiliate(false)}>
+                <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 16, padding: 28, width: '100%', maxWidth: 440 }}>
+                  <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 20 }}>Add Affiliate</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    <div>
+                      <label style={{ fontSize: 11, color: C.sub, textTransform: 'uppercase', letterSpacing: '.05em', display: 'block', marginBottom: 6 }}>User Account</label>
+                      <select value={newAffiliate.userId} onChange={e => setNewAffiliate(p => ({ ...p, userId: e.target.value }))}
+                        style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '9px 12px', color: C.text, fontSize: 14, width: '100%' }}>
+                        <option value="">— Select a user —</option>
+                        {users.map(u => <option key={u.id} value={u.id}>{u.email}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 11, color: C.sub, textTransform: 'uppercase', letterSpacing: '.05em', display: 'block', marginBottom: 6 }}>Commission Rate (%)</label>
+                      <input type="number" min="1" max="100" value={newAffiliate.commissionRate}
+                        onChange={e => setNewAffiliate(p => ({ ...p, commissionRate: e.target.value }))}
+                        style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '9px 12px', color: C.text, fontSize: 14, width: '100%', outline: 'none' }} />
+                      <div style={{ fontSize: 11, color: C.sub, marginTop: 4 }}>20% is the standard. Go up to 25–30% for high-value influencer deals.</div>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 11, color: C.sub, textTransform: 'uppercase', letterSpacing: '.05em', display: 'block', marginBottom: 6 }}>Notes (optional)</label>
+                      <input value={newAffiliate.notes} onChange={e => setNewAffiliate(p => ({ ...p, notes: e.target.value }))}
+                        placeholder="e.g. Instagram @handle, deal terms"
+                        style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '9px 12px', color: C.text, fontSize: 14, width: '100%', outline: 'none' }} />
+                    </div>
+                    <div style={{ fontSize: 12, color: C.sub, background: C.bg, borderRadius: 8, padding: '10px 12px' }}>
+                      A unique referral code will be auto-generated from the user's email. Their link will be:<br/>
+                      <span style={{ fontFamily: 'monospace', color: C.accent }}>yourpetpass.com?ref=THEIRCODE</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: 10 }}>
+                      <button onClick={() => setShowCreateAffiliate(false)}
+                        style={{ flex: 1, background: 'transparent', border: `1px solid ${C.border}`, borderRadius: 8, padding: 10, color: C.sub, cursor: 'pointer', fontWeight: 600 }}>
+                        Cancel
+                      </button>
+                      <button onClick={createAffiliate}
+                        style={{ flex: 1, background: C.accent, border: 'none', borderRadius: 8, padding: 10, color: '#fff', cursor: 'pointer', fontWeight: 600 }}>
+                        Create Affiliate
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Edit User Modal */}
       {editUser && (
