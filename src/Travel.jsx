@@ -406,11 +406,20 @@ const TripForm = ({ trip, userId, dogs, onSave, onClose }) => {
 };
 
 // ── CHECKLIST ITEM ───────────────────────────────────────
-const ChecklistItem = ({ item, onToggle, onUpload, onDelete }) => {
+const ChecklistItem = ({ item, tripPets, onTogglePet, onToggleAll, onUpload, onDelete }) => {
   const fr = useRef();
-  const days = daysUntil(item.deadline_date || item.window_end_days ? item.deadline_date : null);
-  const isOverdue = days !== null && days < 0 && !item.is_completed;
-  const isUrgent = days !== null && days <= 7 && days >= 0 && !item.is_completed;
+  const [expanded, setExpanded] = useState(false);
+  const days = daysUntil(item.deadline_date || null);
+  const petCompletions = item.pet_completions || {};
+  
+  // If no pets on trip, fall back to single checkbox mode
+  const hasPets = tripPets && tripPets.length > 0;
+  const allDone = hasPets
+    ? tripPets.every(p => petCompletions[p.id] === true)
+    : item.is_completed;
+  const someDone = hasPets && tripPets.some(p => petCompletions[p.id] === true);
+  const isOverdue = days !== null && days < 0 && !allDone;
+  const isUrgent = days !== null && days <= 7 && days >= 0 && !allDone;
 
   const categoryColors = {
     health_certificate: C.accent, vaccination: "#4CAF50", treatment: C.warn,
@@ -423,35 +432,61 @@ const ChecklistItem = ({ item, onToggle, onUpload, onDelete }) => {
     entry_document: "Entry Document", other: "Other",
   };
 
-  const [expanded, setExpanded] = useState(false);
-
-  // Format description into numbered steps on separate lines
   const formatSteps = (text) => {
     if (!text) return null;
     const steps = text.split(/(?=Step \d+:)/);
-    return steps.map((step, i) => step.trim()).filter(Boolean);
+    return steps.map(s => s.trim()).filter(Boolean);
   };
-
   const steps = formatSteps(item.description);
 
   return (
     <div style={{
-      background: item.is_completed ? "#f0fdf4" : C.card,
-      border: `1.5px solid ${isOverdue ? C.danger : isUrgent ? C.warn : item.is_completed ? "#4CAF50" : C.border}`,
+      background: allDone ? "#f0fdf4" : C.card,
+      border: `1.5px solid ${isOverdue ? C.danger : isUrgent ? C.warn : allDone ? "#4CAF50" : someDone ? "#4CAF5066" : C.border}`,
       borderRadius: 14, padding: 16, marginBottom: 10,
     }}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-        <input type="checkbox" checked={item.is_completed} onChange={() => onToggle(item)}
+        {/* Main checkbox — checks/unchecks all pets */}
+        <input type="checkbox" checked={allDone} ref={el => { if(el) el.indeterminate = someDone && !allDone; }}
+          onChange={() => onToggleAll(item, !allDone)}
           style={{ width: 20, height: 20, marginTop: 2, accentColor: C.accent, cursor: "pointer", flexShrink: 0 }} />
         <div style={{ flex: 1 }}>
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginBottom: 6 }}>
-            <span style={{ fontWeight: 700, fontSize: 15, textDecoration: item.is_completed ? "line-through" : "none", color: item.is_completed ? C.muted : C.text }}>
+            <span style={{ fontWeight: 700, fontSize: 15, textDecoration: allDone ? "line-through" : "none", color: allDone ? C.muted : C.text }}>
               {item.title}
             </span>
             <Badge label={categoryLabels[item.category] || item.category} color={categoryColors[item.category] || C.muted} />
             {isOverdue && <Badge label="OVERDUE" color={C.danger} />}
             {isUrgent && !isOverdue && <Badge label={`${days}d left`} color={C.warn} />}
           </div>
+
+          {/* Per-pet checkboxes */}
+          {hasPets && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+              {tripPets.map(pet => {
+                const done = petCompletions[pet.id] === true;
+                return (
+                  <button key={pet.id} onClick={() => onTogglePet(item, pet.id, !done)}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 6,
+                      background: done ? "#4CAF5020" : C.bg,
+                      border: `1.5px solid ${done ? "#4CAF50" : C.border}`,
+                      borderRadius: 20, padding: "5px 12px", cursor: "pointer",
+                      fontSize: 13, fontWeight: 600,
+                      color: done ? "#4CAF50" : C.sub,
+                      transition: "all .15s"
+                    }}>
+                    <span style={{ fontSize: 15 }}>{done ? "✓" : "○"}</span>
+                    {pet.photo_url
+                      ? <img src={pet.photo_url} style={{ width: 20, height: 20, borderRadius: "50%", objectFit: "cover" }} />
+                      : <span style={{ width: 20, height: 20, borderRadius: "50%", background: C.accent + "30", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: C.accent }}>{pet.name[0]}</span>
+                    }
+                    {pet.name}
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           {/* Deadline */}
           {item.deadline_date && (
@@ -463,7 +498,7 @@ const ChecklistItem = ({ item, onToggle, onUpload, onDelete }) => {
           {/* Notes warning */}
           {item.notes && <div style={{ fontSize: 12, color: C.warn, marginBottom: 8, fontWeight: 600 }}>⚠ {item.notes}</div>}
 
-          {/* View Instructions expand/collapse */}
+          {/* View Instructions */}
           {item.description && (
             <div style={{ marginBottom: 8 }}>
               <button onClick={() => setExpanded(e => !e)} style={{
@@ -486,29 +521,23 @@ const ChecklistItem = ({ item, onToggle, onUpload, onDelete }) => {
             </div>
           )}
 
-          {/* Official source button */}
+          {/* Official source */}
           {item.source_url && (
             <div style={{ marginBottom: 8 }}>
               <a href={item.source_url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
                 <span style={{
                   display: "inline-flex", alignItems: "center", gap: 6,
                   background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8,
-                  padding: "6px 12px", fontSize: 12, fontWeight: 700, color: C.accent,
-                  cursor: "pointer"
+                  padding: "6px 12px", fontSize: 12, fontWeight: 700, color: C.accent, cursor: "pointer"
                 }}>
                   🔗 Official Source →
                 </span>
               </a>
-              {item.researched_at && (
-                <span style={{ fontSize: 11, color: C.muted, marginLeft: 8 }}>
-                  Checked {new Date(item.researched_at).toLocaleDateString()}
-                </span>
-              )}
             </div>
           )}
 
-          {/* Upload document */}
-          {item.requires_document && !item.is_completed && (
+          {/* Upload per pet */}
+          {item.requires_document && !allDone && (
             <div>
               <input ref={fr} type="file" accept="image/*,.pdf" style={{ display: "none" }} onChange={e => onUpload(item, e.target.files[0])} />
               <Btn sm v="secondary" onClick={() => fr.current.click()}>📎 Upload Document</Btn>
@@ -522,7 +551,7 @@ const ChecklistItem = ({ item, onToggle, onUpload, onDelete }) => {
   );
 };
 
-// ── TRIP DETAIL ──────────────────────────────────────────
+
 const TripDetail = ({ trip, userId, dogs, onBack, onUpdate }) => {
   const [checklist, setChecklist] = useState([]);
   const [documents, setDocuments] = useState([]);
@@ -586,7 +615,39 @@ const TripDetail = ({ trip, userId, dogs, onBack, onUpdate }) => {
     setGenerating(false);
   };
 
+  const togglePet = async (item, petId, done) => {
+    const current = item.pet_completions || {};
+    const updated = { ...current, [petId]: done };
+    const allDone = tripPets.every(p => updated[p.id] === true);
+    const { data } = await supabase.from('trip_checklist_items')
+      .update({
+        pet_completions: updated,
+        is_completed: allDone,
+        completed_date: allDone ? today() : null
+      })
+      .eq('id', item.id).select().single();
+    if (data) setChecklist(prev => prev.map(x => x.id === item.id ? data : x));
+  };
+
+  const toggleAll = async (item, done) => {
+    const updated = {};
+    tripPets.forEach(p => updated[p.id] = done);
+    const { data } = await supabase.from('trip_checklist_items')
+      .update({
+        pet_completions: updated,
+        is_completed: done,
+        completed_date: done ? today() : null
+      })
+      .eq('id', item.id).select().single();
+    if (data) setChecklist(prev => prev.map(x => x.id === item.id ? data : x));
+  };
+
+  // Legacy single toggle (no pets on trip)
   const toggleItem = async (item) => {
+    if (tripPets.length > 0) {
+      toggleAll(item, !item.is_completed);
+      return;
+    }
     const { data } = await supabase.from('trip_checklist_items')
       .update({ is_completed: !item.is_completed, completed_date: !item.is_completed ? today() : null })
       .eq('id', item.id).select().single();
@@ -745,7 +806,7 @@ ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.i
           )}
 
           {checklist.map(item => (
-            <ChecklistItem key={item.id} item={item} onToggle={toggleItem} onUpload={uploadDoc} onDelete={deleteItem} />
+            <ChecklistItem key={item.id} item={item} tripPets={tripPets} onTogglePet={togglePet} onToggleAll={toggleAll} onUpload={uploadDoc} onDelete={deleteItem} />
           ))}
         </div>
 
