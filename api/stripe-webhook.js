@@ -13,9 +13,8 @@ async function getRawBody(req) {
 }
 
 async function updateUserTier(stripeCustomerId, tier) {
-  // Find profile by stripe_customer_id
   const searchRes = await fetch(
-    `${process.env.SUPABASE_URL}/rest/v1/profiles?stripe_customer_id=eq.${stripeCustomerId}&select=id,email`,
+    `${process.env.SUPABASE_URL}/rest/v1/profiles?stripe_customer_id=eq.${stripeCustomerId}&select=id,email,referral_code_used`,
     {
       headers: {
         'apikey': process.env.SUPABASE_SERVICE_KEY,
@@ -26,7 +25,7 @@ async function updateUserTier(stripeCustomerId, tier) {
   const profiles = await searchRes.json();
   if (!profiles?.length) {
     console.error('No profile found for Stripe customer:', stripeCustomerId);
-    return false;
+    return null;
   }
 
   const profile = profiles[0];
@@ -45,7 +44,55 @@ async function updateUserTier(stripeCustomerId, tier) {
   );
 
   console.log(`Updated ${profile.email} to tier: ${tier}`);
-  return true;
+  return profile; // return full profile so we can use it for commission calc
+}
+
+async function recordCommission({ profile, amountCents, stripeInvoiceId, periodMonth }) {
+  if (!profile?.referral_code_used || amountCents <= 0) return;
+
+  try {
+    // Look up the affiliate by referral code
+    const affRes = await fetch(
+      `${process.env.SUPABASE_URL}/rest/v1/affiliates?referral_code=eq.${profile.referral_code_used}&status=eq.active&select=id,commission_rate`,
+      {
+        headers: {
+          'apikey': process.env.SUPABASE_SERVICE_KEY,
+          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
+        }
+      }
+    );
+    const affiliates = await affRes.json();
+    if (!affiliates?.length) return; // code not found or affiliate inactive
+
+    const affiliate = affiliates[0];
+    const rate = parseFloat(affiliate.commission_rate) || 20;
+    const commissionCents = Math.round(amountCents * (rate / 100));
+
+    await fetch(`${process.env.SUPABASE_URL}/rest/v1/affiliate_commissions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': process.env.SUPABASE_SERVICE_KEY,
+        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
+        'Prefer': 'return=minimal',
+      },
+      body: JSON.stringify({
+        affiliate_id: affiliate.id,
+        referred_user_id: profile.id,
+        stripe_payment_id: stripeInvoiceId,
+        payment_amount_cents: amountCents,
+        commission_rate: rate,
+        commission_amount_cents: commissionCents,
+        status: 'pending',
+        period_month: periodMonth,
+      }),
+    });
+
+    console.log(`Commission recorded: $${(commissionCents/100).toFixed(2)} for affiliate ${affiliate.id}`);
+  } catch (e) {
+    console.error('Commission recording failed:', e.message);
+    // Never let commission errors break the webhook
+  }
 }
 
 export default async function handler(req, res) {
@@ -87,20 +134,32 @@ export default async function handler(req, res) {
         const mode = session.mode;
 
         if (mode === 'payment') {
-          // One-time payment = lifetime
-          await updateUserTier(customerId, 'lifetime');
+          const profile = await updateUserTier(customerId, 'lifetime');
+          // One-time lifetime payment — record commission once
+          await recordCommission({
+            profile,
+            amountCents: session.amount_total || 0,
+            stripeInvoiceId: session.id,
+            periodMonth: new Date().toISOString().slice(0, 7),
+          });
         } else if (mode === 'subscription') {
-          // Subscription = premium
           await updateUserTier(customerId, 'premium');
+          // Commission for subscription is recorded on invoice.payment_succeeded
         }
         break;
       }
 
-      // Subscription renewed
+      // Subscription renewed — this fires for every monthly/annual payment
       case 'invoice.payment_succeeded': {
         const invoice = event.data.object;
         if (invoice.subscription) {
-          await updateUserTier(invoice.customer, 'premium');
+          const profile = await updateUserTier(invoice.customer, 'premium');
+          await recordCommission({
+            profile,
+            amountCents: invoice.amount_paid || 0,
+            stripeInvoiceId: invoice.id,
+            periodMonth: new Date(invoice.period_start * 1000).toISOString().slice(0, 7),
+          });
         }
         break;
       }
