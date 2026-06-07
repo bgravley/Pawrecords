@@ -17,17 +17,49 @@ export default function App() {
   const [showAdmin, setShowAdmin] = useState(false);
   const [showTravel, setShowTravel] = useState(false);
 
+  // Capture referral code from URL (?ref=CODE) and store it
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get('ref');
+    if (ref) {
+      localStorage.setItem('ypref', ref.toUpperCase().trim());
+      // Clean the URL so the code isn't visible after capture
+      const clean = window.location.pathname;
+      window.history.replaceState({}, '', clean);
+    }
+  }, []);
+
+  // Apply a stored referral code to a user's profile (first login only)
+  const applyReferral = async (userId) => {
+    const code = localStorage.getItem('ypref');
+    if (!code) return;
+    try {
+      // Only apply if the profile doesn't already have a referral recorded
+      const { data: prof } = await supabase.from('profiles').select('referral_code_used').eq('id', userId).single();
+      if (prof && !prof.referral_code_used) {
+        await supabase.from('profiles').update({ referral_code_used: code }).eq('id', userId);
+      }
+      localStorage.removeItem('ypref');
+    } catch (e) {
+      console.error('Referral apply error:', e);
+    }
+  };
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      if (session) loadProfile(session.user.id);
-      else setLoading(false);
+      if (session) {
+        applyReferral(session.user.id);
+        loadProfile(session.user.id);
+      } else setLoading(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
-      if (session) loadProfile(session.user.id);
-      else { setProfile(null); setLoading(false); }
+      if (session) {
+        applyReferral(session.user.id);
+        loadProfile(session.user.id);
+      } else { setProfile(null); setLoading(false); }
     });
 
     return () => subscription.unsubscribe();
