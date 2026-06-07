@@ -166,7 +166,7 @@ export default function Admin({ onBack }) {
                 {aiLogs.slice(0, 20).map(log => (
                   <tr key={log.id} style={{ borderBottom: `1px solid ${C.border}20` }}>
                     <td style={{ padding: "8px 12px", color: C.sub }}>{fmtTime(log.created_at)}</td>
-                    <td style={{ padding: "8px 12px" }}>{log.user_email || "—"}</td>
+                    <td style={{ padding: "8px 12px", fontSize: 12 }}>{log.user_email || users.find(u => u.id === log.user_id)?.email || log.user_id?.slice(0,8) || "—"}</td>
                     <td style={{ padding: "8px 12px" }}>
                       <span style={{ background: log.feature === "document_scan" ? "#2D7D6F22" : "#E8A83822", color: log.feature === "document_scan" ? C.accent : C.warn, borderRadius: 20, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>
                         {log.feature === "document_scan" ? "📷 Scan" : "✈️ Travel"}
@@ -283,7 +283,7 @@ export default function Admin({ onBack }) {
                 {aiLogs.map(log => (
                   <tr key={log.id} style={{ borderBottom: `1px solid ${C.border}15` }}>
                     <td style={{ padding: "7px 10px", color: C.sub, whiteSpace: "nowrap" }}>{fmtTime(log.created_at)}</td>
-                    <td style={{ padding: "7px 10px" }}>{log.user_email?.split("@")[0] || "—"}</td>
+                    <td style={{ padding: "7px 10px" }}>{(log.user_email || users.find(u => u.id === log.user_id)?.email || "")?.split("@")[0] || "—"}</td>
                     <td style={{ padding: "7px 10px" }}>{log.feature === "document_scan" ? "📷" : "✈️"}</td>
                     <td style={{ padding: "7px 10px", color: C.sub }}>{log.pet_name || "—"}</td>
                     <td style={{ padding: "7px 10px", color: C.sub }}>{log.trip_destination || "—"}</td>
@@ -315,7 +315,9 @@ export default function Admin({ onBack }) {
                 {activityLogs.map(log => (
                   <tr key={log.id} style={{ borderBottom: `1px solid ${C.border}15` }}>
                     <td style={{ padding: "7px 10px", color: C.sub, whiteSpace: "nowrap" }}>{fmtTime(log.created_at)}</td>
-                    <td style={{ padding: "7px 10px" }}>{log.user_email || "—"}</td>
+                    <td style={{ padding: "7px 10px", fontSize: 12 }}>
+                      {log.user_email || users.find(u => u.id === log.user_id)?.email || log.user_id?.slice(0,8) || "—"}
+                    </td>
                     <td style={{ padding: "7px 10px" }}>
                       <span style={{ background: "#2D7D6F22", color: "#2D7D6F", borderRadius: 20, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>
                         {log.action}
@@ -359,7 +361,7 @@ export default function Admin({ onBack }) {
                       )}
                     </div>
                   </div>
-                  <div style={{ fontSize: 13, color: C.sub, marginBottom: 4 }}>User: {err.user_email || "unknown"}</div>
+                  <div style={{ fontSize: 13, color: C.sub, marginBottom: 4 }}>User: {err.user_email || users.find(u => u.id === err.user_id)?.email || err.user_id?.slice(0,8) || "unknown"}</div>
                   <div style={{ background: "#0F1117", borderRadius: 8, padding: 10, fontSize: 12, color: "#FF6B6B", fontFamily: "monospace" }}>
                     {err.error_message}
                   </div>
