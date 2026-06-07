@@ -447,33 +447,55 @@ const DogForm=({dog,userId,userEmail,onSave,onClose})=>{
   const onPhoto=e=>{const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=ev=>set("photo",ev.target.result);r.readAsDataURL(file);};
   const save=async()=>{
     if(!f.name)return;setSaving(true);
-    const payload={name:f.name,breed:f.breed,dob:f.dob||null,weight:f.weight||null,gender:f.gender,neutered:f.neutered,microchip:f.microchip,color:f.color,emergency_contact:f.emergencyContact,emergency_phone:f.emergencyPhone,emergency_phone_code:f.emergencyPhoneCode||"+1",emergency_whatsapp:f.emergencyWhatsapp||"",emergency_whatsapp_code:f.emergencyWhatsappCode||"+1",notes:f.notes,pet_type:f.petType};
-    let result;
-    if(dog){const{data}=await db.updateDog({...payload,id:dog.id});result=data;}
-    else{const{data}=await db.addDog(userId,payload);result=data;}
-    if(result){
-      // Upload photo if a new one was selected (base64 data URL)
+    try{
+      const payload={
+        name:f.name,breed:f.breed||null,dob:f.dob||null,
+        weight:f.weight?parseFloat(f.weight):null,
+        gender:f.gender,neutered:f.neutered,
+        microchip:f.microchip||null,color:f.color||null,
+        emergency_contact:f.emergencyContact||null,
+        emergency_phone:f.emergencyPhone||null,
+        emergency_phone_code:f.emergencyPhoneCode||"+1",
+        emergency_whatsapp:f.emergencyWhatsapp||null,
+        emergency_whatsapp_code:f.emergencyWhatsappCode||"+1",
+        notes:f.notes||null,
+        pet_type:f.petType||"pet",
+        user_id:userId,
+      };
+      let result;
+      if(dog){
+        const{data,error}=await supabase.from("dogs").update(payload).eq("id",dog.id).select().single();
+        if(error)throw error;
+        result=data;
+      } else {
+        const{data,error}=await supabase.from("dogs").insert(payload).select().single();
+        if(error)throw error;
+        result=data;
+      }
+      // Upload photo
       if(f.photo&&f.photo.startsWith("data:")){
         try{
           const blob=await(await fetch(f.photo)).blob();
           const ext=blob.type.includes("png")?"png":"jpg";
           const path=`${userId}/pets/${result.id}/profile.${ext}`;
-          const{error:upErr}=await supabase.storage.from("documents").upload(path,blob,{upsert:true,contentType:blob.type});
-          if(!upErr){
-            const{data:urlData}=supabase.storage.from("documents").getPublicUrl(path);
-            await supabase.from("dogs").update({photo_url:urlData.publicUrl}).eq("id",result.id);
-            result.photo_url=urlData.publicUrl;
-          }
+          await supabase.storage.from("documents").upload(path,blob,{upsert:true,contentType:blob.type});
+          const{data:urlData}=supabase.storage.from("documents").getPublicUrl(path);
+          await supabase.from("dogs").update({photo_url:urlData.publicUrl}).eq("id",result.id);
+          result.photo_url=urlData.publicUrl;
         }catch(e){console.error("Photo upload failed:",e);}
       }
+      // Upload cert
       if(certFile){
         const path=`${userId}/certs/${result.id}_${certFile.name}`;
         await supabase.storage.from("documents").upload(path,certFile,{upsert:true});
         await supabase.from("dogs").update({certification_doc_path:path}).eq("id",result.id);
         result.certification_doc_path=path;
       }
-      await logActivity(userId, userEmail||null, dog?'pet_updated':'pet_added', {petName:f.name, breed:f.breed});
+      await logActivity(userId,userEmail||null,dog?"pet_updated":"pet_added",{petName:f.name,breed:f.breed});
       onSave(result);
+    }catch(e){
+      console.error("Save pet error:",e);
+      alert("Could not save: "+e.message);
     }
     setSaving(false);
   };
@@ -1662,7 +1684,11 @@ export default function YourPetPass({userId,profile,onSignOut,isAdmin,onOpenAdmi
     const load=async()=>{
       const{data:prof}=await supabase.from("profiles").select("*").eq("id",userId).single();
       if(prof){setTier(prof.subscription_tier||"free");setUserEmail(prof.email||"");}
-      const[{data:dogs},{data:vacc},{data:meds},{data:alrg},{data:visits},{data:weights},{data:vets},{data:docs}]=await Promise.all([db.getDogs(userId),db.getVaccinations(userId),db.getMedications(userId),db.getAllergies(userId),db.getVisits(userId),db.getWeights(userId),db.getSavedVets(userId),db.getDocuments(userId)]);
+      const[{data:dogs},{data:vacc},{data:meds},{data:alrg},{data:visits},{data:weights},{data:vets},{data:docs}]=await Promise.all([
+        supabase.from("dogs").select("*").eq("user_id",userId).order("created_at"),
+        db.getVaccinations(userId),db.getMedications(userId),db.getAllergies(userId),
+        db.getVisits(userId),db.getWeights(userId),db.getSavedVets(userId),db.getDocuments(userId)
+      ]);
       dispatch({t:"LOAD",s:{dogs:dogs||[],vaccinations:vacc||[],medications:meds||[],allergies:alrg||[],visits:visits||[],weights:weights||[],vets:vets||[],documents:docs||[]}});
       setReady(true);
     };
