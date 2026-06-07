@@ -1730,6 +1730,7 @@ const OwnerProfileModal=({userId,tier,userEmail,onUpgrade,onClose})=>{
   const[contacts,setContacts]=useState([]);
   const[loading,setLoading]=useState(true);
   const[saving,setSaving]=useState(false);
+  const[saved,setSaved]=useState(false);
   const[addingContact,setAddingContact]=useState(false);
   const[newContact,setNewContact]=useState({name:"",phoneCode:"+1",phone:"",whatsappCode:"+1",whatsapp:"",relationship:"",email:""});
   const[section,setSection]=useState("profile"); // profile | billing
