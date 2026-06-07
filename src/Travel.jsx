@@ -119,8 +119,9 @@ const generateChecklist = async (trip, pets) => {
 
   const isOriginUSA = trip.origin_country === "United States";
   const isDestUSA = trip.destination_country === "United States";
+  const usaInvolved = isOriginUSA || isDestUSA;
 
-  const prompt = `You are a veterinary travel compliance expert. Generate a COMPLETE and ACCURATE pet travel requirements checklist for this specific route.
+  const prompt = `You are a veterinary travel compliance expert specializing in international pet travel documentation. Generate a COMPLETE, ACCURATE, and ACTIONABLE pet travel checklist for this route.
 
 TRIP DETAILS:
 - Origin: ${trip.origin_city}, ${trip.origin_country}
@@ -129,36 +130,77 @@ TRIP DETAILS:
 - Airline: ${trip.airline || "not specified"}
 - Pets: ${petList}
 
-CRITICAL RULES:
+===== CRITICAL RULE: USA INVOLVEMENT =====
+${usaInvolved ? `
+⚠️ THE UNITED STATES IS INVOLVED IN THIS TRIP. THE FOLLOWING USA REQUIREMENTS MUST BE INCLUDED AS SEPARATE CHECKLIST ITEMS — NO EXCEPTIONS:
 
-1. DIRECTION MATTERS: Export = ORIGIN country rules. Import = DESTINATION country rules. Never mix.
-   - If ORIGIN is Colombia: include ICA (Instituto Colombiano Agropecuario) export health certificate
-   - If DESTINATION is Colombia: include Colombian IMPORT requirements (ICA import permit, health cert from origin country endorsed by origin country authority, rabies cert, parasite treatment)
-   - If ORIGIN is USA: include USDA APHIS Form 7001 health certificate endorsed by USDA APHIS office
-   - If DESTINATION is USA: include full USA re-entry process (see rule 2)
+IMPORTANT TIMING WARNING: ALL USA documentation must be completed BEFORE the pet leaves the United States. If the pet has already left the USA, it is too late — they will face 28-day quarantine or a titer test (blood test to prove rabies immunity) upon return, which costs $300-500 and requires waiting weeks for results.
 
-2. USA RE-ENTRY — MANDATORY separate items when destination is USA:
-   a) "USDA-Accredited Vet Exam & Health Certificate" — vet must be USDA-accredited, completes APHIS Form 7001. Must be done within 10 days of travel.
-   b) "USDA APHIS State Office Endorsement" — the completed Form 7001 must be mailed or hand-delivered to the USDA APHIS Veterinary Services office in the state where the exam occurred, for an official endorsement stamp. Takes 1-3 business days. Must happen BEFORE departure. Source: https://www.aphis.usda.gov/pet-travel
-   c) "CDC Dog Import Online Form" — all dogs entering USA since 2024 require a CDC Dog Import Form submitted online at least 2-5 business days before arrival. Source: https://www.cdc.gov/importation/dogs
-   d) "Valid US Rabies Vaccination" — must have been vaccinated in the USA by a licensed US vet, with a certificate showing vet license number. Source: https://www.cdc.gov/importation/dogs
+MANDATORY USA CHECKLIST ITEMS TO INCLUDE:
 
-3. COLOMBIA ENTRY requirements when destination is Colombia:
-   - ICA import permit (apply online at ica.gov.co before travel)
-   - Health certificate issued by licensed vet in origin country, endorsed by origin country agricultural authority
-   - Current rabies vaccination certificate
-   - Deworming and parasite treatment certificate within 15 days of travel
-   Source: https://www.ica.gov.co
+1. "USDA-Accredited Veterinarian Health Exam" (deadline: 10 days before departure from USA)
+   - The examining vet MUST be USDA-accredited (not just any licensed vet)
+   - Find USDA-accredited vets at: https://www.aphis.usda.gov/pet-travel
+   - Vet completes APHIS Form 7001 (health certificate)
+   - This exam must happen within 10 days of the departure date FROM the USA
+   - Cost: $75-200 depending on vet
 
-4. Always include airline-specific requirements: cabin/cargo policy, carrier size limits, booking lead time, breed restrictions, fees. Source: airline pet policy page.
+2. "USDA APHIS State Office Endorsement — MUST BE DONE BEFORE LEAVING USA" (deadline: 5-7 days before USA departure)
+   - After the vet signs Form 7001, the owner must send or hand-deliver the original signed form to their state's USDA APHIS Veterinary Services office for an official government endorsement stamp
+   - This CANNOT be done from abroad — it must happen before the pet leaves the USA
+   - Processing takes 1-3 business days by mail, same-day if hand-delivered
+   - Find your state USDA office: https://www.aphis.usda.gov/pet-travel
+   - Cost: $38 federal fee plus any state fees
+   - ⚠️ WARNING: Skipping this step means the pet will be quarantined for 28 days or required to complete a titer test upon return to the USA
 
-5. Descriptions must be numbered steps a first-time traveler can follow. Include who to contact, what to bring, how long it takes, approximate cost.
+3. "CDC Dog Import Online Form" (deadline: 2-5 business days before USA arrival)
+   - Required for ALL dogs entering the USA since 2024
+   - Submit online at: https://www.cdc.gov/importation/dogs
+   - Must be submitted before arrival — cannot be done at the border
 
-6. deadline_days_before: days before departure to complete. window_start_days/window_end_days: validity window for the document.
+4. "Valid US-Issued Rabies Vaccination Certificate" 
+   - Dog must have been vaccinated against rabies IN THE UNITED STATES by a licensed US veterinarian
+   - Certificate must show: vet name, vet license number, vaccine brand, lot number, date given, expiration date
+   - If the rabies vaccine was given abroad, it may NOT be accepted by US Customs — get a US vet to administer or re-administer before departure
+   - Source: https://www.cdc.gov/importation/dogs
+` : "No USA-specific documentation required for this route."}
 
-Return ONLY a JSON array. No markdown, no backticks, no explanation.
-Each item must have: title, description, category, deadline_days_before, window_start_days, window_end_days, requires_document, source_url, notes.
-Valid categories: health_certificate, vaccination, treatment, documentation, airline, government_form, entry_document, other.
+===== DIRECTION-SPECIFIC REQUIREMENTS =====
+
+EXPORT from ${trip.origin_country} (rules for LEAVING the origin country):
+${isOriginUSA ? "- USDA APHIS Form 7001 health certificate (see USA requirements above)" : ""}
+${trip.origin_country === "Colombia" ? "- ICA (Instituto Colombiano Agropecuario) export health certificate — apply at ica.gov.co" : ""}
+- Any other export requirements specific to ${trip.origin_country}
+
+IMPORT into ${trip.destination_country} (rules for ENTERING the destination country):
+${isDestUSA ? "- See USA requirements above (CDC form, endorsed health cert, rabies cert)" : ""}
+${trip.destination_country === "Colombia" ? `- ICA import permit — apply online at https://www.ica.gov.co before travel
+- Health certificate issued by licensed vet in ${trip.origin_country}, endorsed by ${trip.origin_country} agricultural authority
+- Current rabies vaccination certificate (valid, not expired)
+- Internal and external parasite treatment certificate dated within 15 days of travel` : ""}
+- Any other import requirements specific to ${trip.destination_country}
+
+===== AIRLINE REQUIREMENTS =====
+Always include a checklist item for ${trip.airline || "the airline"} with:
+- Cabin vs cargo policy for pets
+- Carrier/crate size and weight limits
+- Whether breed restrictions apply (especially brachycephalic/snub-nosed breeds)
+- How far in advance to book pet travel
+- Pet fees
+- Source: the airline's official pet policy page
+
+===== OUTPUT FORMAT =====
+Return ONLY a valid JSON array. No markdown, no backticks, no explanation text before or after.
+Each item must have these exact fields:
+- title: string (clear, specific title)
+- description: string (step-by-step numbered instructions, include contacts, costs, timing)
+- category: one of: health_certificate, vaccination, treatment, documentation, airline, government_form, entry_document, other
+- deadline_days_before: number (days before USA departure date that this must be completed)
+- window_start_days: number (how many days before travel the document becomes valid)
+- window_end_days: number (0 means must be valid on travel day)
+- requires_document: boolean
+- source_url: string (official government or airline URL — never a blog or third party)
+- notes: string (warnings, tips, common mistakes)
 
 [`;
 
