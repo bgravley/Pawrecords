@@ -1463,9 +1463,38 @@ const MoreTab=({dog,state,dispatch,userId,tier,onUpgrade})=>{
   </div>);
 
   if(section==="docs")return(<div style={{display:"flex",flexDirection:"column",gap:12}}>
-    <div style={{display:"flex",alignItems:"center",gap:10}}>{backBtn}<h3 style={{fontFamily:"'Lora',serif",fontSize:20,flex:1}}>Documents</h3>{premium&&<Btn sm onClick={()=>setModal("addDoc")}><Ic n="plus" s={14}/> Upload</Btn>}</div>
-    {premium?<>{docs.length===0?<Empty icon="doc" title="No documents" sub="Upload photos or scans of vet records." action={<Btn onClick={()=>setModal("addDoc")}><Ic n="camera" s={14}/> Upload</Btn>}/>:docs.map(d=>(<Card key={d.id}><div style={{display:"flex",gap:12,alignItems:"flex-start"}}><div style={{width:56,height:56,borderRadius:10,background:"#FFFFFF",border:"1px solid #E8DDD0",display:"flex",alignItems:"center",justifyContent:"center",color:"#8B7355",flexShrink:0}}><Ic n="doc" s={22} c="#8B7355"/></div><div style={{flex:1}}><div style={{fontWeight:600}}>{d.name}</div><div style={{fontSize:12,color:"#5A4535",marginTop:2}}>{fmt(d.doc_date)}</div></div><button onClick={async()=>{await db.deleteDocument(d.id,d.file_path);dispatch({t:"DEL_DOC",id:d.id});}} style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:8,padding:"5px 8px",color:"#C4714A"}}><Ic n="trash" s={13}/></button></div></Card>))}</>:<PremiumLock onUpgrade={onUpgrade} label="Document Storage — Premium Feature"/>}
+    <div style={{display:"flex",alignItems:"center",gap:10}}>
+      {backBtn}
+      <h3 style={{fontFamily:"'Lora',serif",fontSize:20,flex:1}}>Documents</h3>
+    </div>
+    {/* AI Scan CTA */}
+    {premium&&(<div style={{background:"#2D7D6F14",border:"1px solid #2D7D6F44",borderRadius:14,padding:16,display:"flex",alignItems:"center",gap:12}}>
+      <div style={{flex:1}}>
+        <div style={{fontWeight:700,fontSize:14,color:"#2D7D6F",marginBottom:2}}>Scan Vet Documents with AI</div>
+        <div style={{fontSize:12,color:"#5A4535"}}>Upload any vet record, vaccine doc, or service animal cert — AI extracts and saves everything automatically.</div>
+      </div>
+      <Btn sm onClick={onScan} style={{flexShrink:0}}><Ic n="camera" s={14}/> AI Scan</Btn>
+    </div>)}
+    {!premium&&<PremiumLock onUpgrade={onUpgrade} label="Document Storage — Premium Feature"/>}
+    {premium&&(<>
+      {docs.length===0
+        ?<Empty icon="doc" title="No documents yet" sub="Use AI Scan above to scan and save any vet document." action={<Btn onClick={onScan}><Ic n="camera" s={14}/> Start Scanning</Btn>}/>
+        :docs.map(d=>(<Card key={d.id}><div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
+          <div style={{width:56,height:56,borderRadius:10,background:"#FFFFFF",border:"1px solid #E8DDD0",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+            <Ic n="doc" s={22} c="#8B7355"/>
+          </div>
+          <div style={{flex:1}}>
+            <div style={{fontWeight:600}}>{d.name}</div>
+            <div style={{fontSize:12,color:"#5A4535",marginTop:2}}>{fmt(d.doc_date)}</div>
+            {d.doc_type&&<div style={{fontSize:11,color:"#2D7D6F",fontWeight:600,marginTop:3}}>{d.doc_type}</div>}
+          </div>
+          <button onClick={async()=>{await db.deleteDocument(d.id,d.file_path);dispatch({t:"DEL_DOC",id:d.id});}} style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:8,padding:"5px 8px",color:"#C4714A"}}>
+            <Ic n="trash" s={13}/>
+          </button>
+        </div></Card>))}
+    </>)}
   </div>);
+
 
   if(section==="qr"){
     if(!premium)return(<div style={{display:"flex",flexDirection:"column",gap:12}}><div style={{display:"flex",alignItems:"center",gap:10}}>{backBtn}<h3 style={{fontFamily:"'Lora',serif",fontSize:20}}>QR Health Card</h3></div><PremiumLock onUpgrade={onUpgrade} label="QR Health Card — Premium Feature"/></div>);
@@ -1668,15 +1697,20 @@ const OwnerProfileModal=({userId,tier,userEmail,onUpgrade,onClose})=>{
 
   const saveProfile=async()=>{
     setSaving(true);
-    const profUpdate={full_name:f.fullName,phone:f.phone,phone_country_code:f.phoneCode,whatsapp:f.whatsapp,whatsapp_country_code:f.whatsappCode,address:f.address,city:f.city,state:f.state,zip:f.zip,country:f.country,instagram:f.instagram,facebook:f.facebook,twitter:f.twitter};
-    if(f.photo&&f.photo.startsWith("data:")){
-      const blob=await(await fetch(f.photo)).blob();
-      const path=`${userId}/profile_photo.jpg`;
-      await supabase.storage.from("documents").upload(path,blob,{upsert:true,contentType:"image/jpeg"});
-      const{data:urlData}=supabase.storage.from("documents").getPublicUrl(path);
-      profUpdate.photo_url=urlData.publicUrl;
-    }
-    await supabase.from("profiles").update(profUpdate).eq("id",userId);
+    try{
+      const profUpdate={full_name:f.fullName,phone:f.phone,phone_country_code:f.phoneCode,whatsapp:f.whatsapp,whatsapp_country_code:f.whatsappCode,address:f.address,city:f.city,state:f.state,zip:f.zip,country:f.country,instagram:f.instagram,facebook:f.facebook,twitter:f.twitter};
+      if(f.photo&&f.photo.startsWith("data:")){
+        const blob=await(await fetch(f.photo)).blob();
+        const path=`${userId}/profile_photo.jpg`;
+        await supabase.storage.from("documents").upload(path,blob,{upsert:true,contentType:"image/jpeg"});
+        const{data:urlData}=supabase.storage.from("documents").getPublicUrl(path);
+        profUpdate.photo_url=urlData.publicUrl;
+      }
+      const{error}=await supabase.from("profiles").update(profUpdate).eq("id",userId);
+      if(error)throw error;
+      setSaved(true);
+      setTimeout(()=>setSaved(false),3000);
+    }catch(e){alert("Could not save profile: "+e.message);}
     setSaving(false);
   };
 
@@ -1801,7 +1835,7 @@ const OwnerProfileModal=({userId,tier,userEmail,onUpgrade,onClose})=>{
   </Modal>);
 };
 
-const Home=({state,dispatch,userId,tier,userEmail,onSignOut,isAdmin,onOpenAdmin})=>{
+const Home=({state,dispatch,userId,tier,userEmail,onSignOut,isAdmin,onOpenAdmin,onOpenTravel})=>{
   const[addDog,setAddDog]=useState(false);
   const[selDog,setSelDog]=useState(null);
   const[showUpgrade,setShowUpgrade]=useState(false);
@@ -1843,6 +1877,7 @@ const Home=({state,dispatch,userId,tier,userEmail,onSignOut,isAdmin,onOpenAdmin}
         <div style={{display:"flex",alignItems:"center",gap:8}}>
           {!premium&&<button onClick={()=>setShowUpgrade(true)} style={{background:"#E8A83820",border:"1px solid #E8A83844",borderRadius:10,padding:"7px 12px",color:"#E8A838",fontWeight:600,fontSize:12,display:"flex",alignItems:"center",gap:5,cursor:"pointer"}}><Ic n="crown" s={13} c="#E8A838"/>Premium</button>}
           {totalAlerts>0&&<div style={{background:"#E8A83814",border:"1px solid #E8A83844",borderRadius:10,padding:"7px 12px",display:"flex",alignItems:"center",gap:5,color:"#E8A838",fontSize:13}}><Ic n="alert" s={14} c="#E8A838"/>{totalAlerts}</div>}
+          <button onClick={onOpenTravel} title="Travel" style={{background:"#FFFFFF",border:"1px solid #E8DDD0",borderRadius:10,padding:"7px 10px",color:"#5A4535",cursor:"pointer"}}><Ic n="map" s={16} c="#5A4535"/></button>
           <button onClick={()=>setShowProfile(true)} title="My Account" style={{background:"#FFFFFF",border:"1px solid #E8DDD0",borderRadius:10,padding:"7px 10px",color:"#5A4535",cursor:"pointer"}}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5A4535" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
@@ -1903,10 +1938,22 @@ const Home=({state,dispatch,userId,tier,userEmail,onSignOut,isAdmin,onOpenAdmin}
     {addDog&&<DogForm userId={userId} userEmail={userEmail} onSave={d=>{dispatch({t:"ADD_DOG",d});setAddDog(false);}} onClose={()=>setAddDog(false)}/>}
     {showUpgrade&&<UpgradeModal userId={userId} userEmail={userEmail} onClose={()=>setShowUpgrade(false)}/>}
     {showProfile&&<OwnerProfileModal userId={userId} tier={tier} userEmail={userEmail} onUpgrade={()=>{setShowProfile(false);setShowUpgrade(true);}} onClose={()=>setShowProfile(false)}/>}
+    {/* Bottom nav */}
+    <div style={{position:"fixed",bottom:0,left:0,right:0,background:"#FFFFFF",borderTop:"1px solid #E8DDD0",display:"flex",zIndex:200,paddingBottom:"env(safe-area-inset-bottom)"}}>
+      <button style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"10px 0",background:"none",border:"none",cursor:"pointer",color:"#2D7D6F"}}>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2D7D6F" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        <span style={{fontSize:10,fontWeight:700,letterSpacing:".04em"}}>MY PETS</span>
+      </button>
+      <button onClick={onOpenTravel} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"10px 0",background:"none",border:"none",cursor:"pointer",color:"#8B7355"}}>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8B7355" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20"/></svg>
+        <span style={{fontSize:10,fontWeight:700,letterSpacing:".04em"}}>TRAVEL</span>
+      </button>
+    </div>
+    <div style={{height:72}}/>
   </div>);
 };
 
-export default function YourPetPass({userId,profile,onSignOut,isAdmin,onOpenAdmin}){
+export default function YourPetPass({userId,profile,onSignOut,isAdmin,onOpenAdmin,onOpenTravel}){
   const[state,dispatch]=useReducer(reducer,null,initState);
   const[ready,setReady]=useState(false);
   const[tier,setTier]=useState("free");
@@ -1934,7 +1981,7 @@ export default function YourPetPass({userId,profile,onSignOut,isAdmin,onOpenAdmi
   return(
     <ErrorBoundary>
       <style>{GLOBAL}</style>
-      <Home state={state} dispatch={dispatch} userId={userId} tier={tier} userEmail={userEmail} onSignOut={onSignOut} isAdmin={isAdmin} onOpenAdmin={onOpenAdmin}/>
+      <Home state={state} dispatch={dispatch} userId={userId} tier={tier} userEmail={userEmail} onSignOut={onSignOut} isAdmin={isAdmin} onOpenAdmin={onOpenAdmin} onOpenTravel={onOpenTravel}/>
     </ErrorBoundary>
   );
 }
