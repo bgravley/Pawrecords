@@ -708,14 +708,14 @@ const ShareModal=({dog,onClose})=>{
   </Modal>);
 };
 
-const AIScanModal=({dog,userId,userEmail,onSave,onClose})=>{
+const AIScanModal=({dog,userId,userEmail,dispatch,onSave,onClose})=>{
   const[step,setStep]=useState("upload");
-  const[images,setImages]=useState([]); // array of {dataUrl, label}
+  const[images,setImages]=useState([]);
   const[extracted,setExtracted]=useState(null);
   const[error,setError]=useState(null);
   const[saving,setSaving]=useState(false);
   const[saved,setSaved]=useState(false);
-  const[include,setInclude]=useState({visit:true,vaccines:true,weight:true,medications:true});
+  const[include,setInclude]=useState({visit:true,vaccines:true,weight:true,medications:true,allergies:true,classification:true});
   const fr=useRef();
   const cameraRef=useRef();
   const MAX_IMAGES=4;
@@ -732,7 +732,7 @@ const AIScanModal=({dog,userId,userEmail,onSave,onClose})=>{
     const pdfjsLib=window.pdfjsLib;
     const pdf=await pdfjsLib.getDocument({data:new Uint8Array(arrayBuffer)}).promise;
     const results=[];
-    const pagesToLoad=Math.min(pdf.numPages, MAX_IMAGES - images.length);
+    const pagesToLoad=Math.min(pdf.numPages,MAX_IMAGES-images.length);
     for(let i=1;i<=pagesToLoad;i++){
       const page=await pdf.getPage(i);
       const scale=2;
@@ -753,17 +753,10 @@ const AIScanModal=({dog,userId,userEmail,onSave,onClose})=>{
     const newImages=[];
     for(const file of toProcess){
       if(file.type==="application/pdf"){
-        try{
-          const buf=await file.arrayBuffer();
-          const pdfImages=await loadPdfAsImage(buf);
-          newImages.push(...pdfImages);
-        }catch(e){setError("Could not read PDF: "+e.message);}
+        try{const buf=await file.arrayBuffer();const pdfImages=await loadPdfAsImage(buf);newImages.push(...pdfImages);}
+        catch(e){setError("Could not read PDF: "+e.message);}
       } else {
-        await new Promise(res=>{
-          const r=new FileReader();
-          r.onload=ev=>{newImages.push({dataUrl:ev.target.result,label:file.name.replace(/\.[^.]+$/,"")});res();};
-          r.readAsDataURL(file);
-        });
+        await new Promise(res=>{const r=new FileReader();r.onload=ev=>{newImages.push({dataUrl:ev.target.result,label:file.name.replace(/\.[^.]+$/,"")});res();};r.readAsDataURL(file);});
       }
     }
     setImages(prev=>[...prev,...newImages].slice(0,MAX_IMAGES));
@@ -776,15 +769,8 @@ const AIScanModal=({dog,userId,userEmail,onSave,onClose})=>{
     if(images.length===0)return;
     setStep("scanning");setError(null);
     try{
-      const imagePayload=images.map(img=>({
-        base64:img.dataUrl.split(",")[1],
-        mediaType:img.dataUrl.split(";")[0].split(":")[1]
-      }));
-      const res=await fetch("/api/ai-scan",{
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({images:imagePayload,userId,userEmail:userEmail||null,petName:dog.name})
-      });
+      const imagePayload=images.map(img=>({base64:img.dataUrl.split(",")[1],mediaType:img.dataUrl.split(";")[0].split(":")[1]}));
+      const res=await fetch("/api/ai-scan",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({images:imagePayload,userId,userEmail:userEmail||null,petName:dog.name})});
       if(!res.ok){const e=await res.json();throw new Error(e.error||"Scan request failed");}
       const data=await res.json();
       if(data.error)throw new Error(data.error);
@@ -793,28 +779,89 @@ const AIScanModal=({dog,userId,userEmail,onSave,onClose})=>{
     }catch(err){
       setError("Could not analyze: "+(err.message||"Unknown error"));
       setStep("upload");
-      await logError(userId,null,"ai_scan",err.message||"Unknown error");
+      await logError(userId,userEmail||null,"ai_scan",err.message||"Unknown error");
     }
   };
 
   const saveAll=async()=>{
     setSaving(true);
     try{
-      if(include.visit&&(extracted.reason||extracted.visitDate))await db.addVisit(userId,{dogId:dog.id,date:extracted.visitDate||today(),vetName:extracted.vetName||"",clinic:extracted.clinicName||"",reason:extracted.reason||"Vet visit (scanned)",diagnosis:extracted.diagnosis||"",treatment:extracted.treatment||"",cost:extracted.cost||null,notes:extracted.notes||""});
-      if(include.vaccines)for(const v of(extracted.vaccines||[]).filter(v=>v.name)){const dur=([...CORE_V,...OPT_V].find(x=>x.name===v.name)?.dur)||12;const given=v.dateGiven||extracted.visitDate||today();await db.addVaccination(userId,{dogId:dog.id,name:v.name,type:v.type||"optional",dateGiven:given,nextDue:v.nextDue||addM(given,dur),lotNumber:v.lotNumber||"",vetName:extracted.vetName||"",notes:"",durationMonths:dur});}
-      if(include.weight&&extracted.weight){
-        await db.addWeight(userId,{dogId:dog.id,date:extracted.visitDate||today(),weight:parseFloat(extracted.weight),notes:"From AI scan"});
-        await supabase.from("dogs").update({weight:parseFloat(extracted.weight)}).eq("id",dog.id);
-        dispatch({t:"UPD_DOG",d:{...dog,weight:parseFloat(extracted.weight)}});
+      const dt=extracted.documentType;
+
+      // VET VISIT or HEALTH CERT — save visit, vaccines, weight, medications, allergies
+      if(dt==="vet_visit"||dt==="health_certificate"||dt==="vaccine_record"||dt==="unknown"){
+        const vv=extracted.vetVisit||extracted.healthCertificate||{};
+        const vaccines=vv.vaccines||extracted.healthCertificate?.vaccines||[];
+        const medications=vv.medications||[];
+        const allergies=vv.allergies||[];
+        const visitDate=vv.visitDate||today();
+        const weight=vv.weight||extracted.healthCertificate?.weight||null;
+
+        if(include.visit&&(vv.reason||vv.visitDate||vv.diagnosis)){
+          await db.addVisit(userId,{dogId:dog.id,date:visitDate,vetName:vv.vetName||"",clinic:vv.clinicName||"",reason:vv.reason||"Vet visit (scanned)",diagnosis:vv.diagnosis||"",treatment:vv.treatment||"",cost:vv.cost||null,notes:vv.notes||""});
+        }
+        if(include.vaccines){
+          for(const v of vaccines.filter(v=>v.name)){
+            const dur=([...CORE_V,...OPT_V].find(x=>x.name===v.name)?.dur)||12;
+            const given=v.dateGiven||visitDate;
+            await db.addVaccination(userId,{dogId:dog.id,name:v.name,type:v.type||"optional",dateGiven:given,nextDue:v.nextDue||addM(given,dur),lotNumber:v.lotNumber||"",vetName:vv.vetName||"",notes:"",durationMonths:dur});
+          }
+        }
+        if(include.weight&&weight){
+          await db.addWeight(userId,{dogId:dog.id,date:visitDate,weight:parseFloat(weight),notes:"From AI scan"});
+          await supabase.from("dogs").update({weight:parseFloat(weight)}).eq("id",dog.id);
+          dispatch&&dispatch({t:"UPD_DOG",d:{...dog,weight:parseFloat(weight)}});
+        }
+        if(include.medications){
+          for(const m of medications.filter(m=>m.name)){
+            await db.addMedication(userId,{dogId:dog.id,name:m.name,dosage:m.dosage||"",frequency:m.frequency||"",reason:m.reason||"",startDate:visitDate,endDate:null,prescribingVet:vv.vetName||"",notes:"",active:true});
+          }
+        }
+        if(include.allergies){
+          for(const a of allergies.filter(a=>a.allergen)){
+            await db.addAllergy(userId,{dogId:dog.id,allergen:a.allergen,reaction:a.reaction||"",severity:a.severity||"mild",dateDiscovered:visitDate,notes:"From AI scan"});
+          }
+        }
       }
-      if(include.medications)for(const m of(extracted.medications||[]).filter(m=>m.name))await db.addMedication(userId,{dogId:dog.id,name:m.name,dosage:m.dosage||"",frequency:m.frequency||"",reason:m.reason||"",startDate:extracted.visitDate||today(),endDate:null,prescribingVet:extracted.vetName||"",notes:"",active:true});
+
+      // SERVICE ANIMAL CERT
+      if(dt==="service_animal_cert"&&include.classification){
+        const sa=extracted.serviceAnimal||{};
+        await supabase.from("dogs").update({pet_type:"service_animal"}).eq("id",dog.id);
+        if(sa.weight){
+          await supabase.from("dogs").update({weight:parseFloat(sa.weight)}).eq("id",dog.id);
+        }
+      }
+
+      // ESA LETTER
+      if(dt==="esa_letter"&&include.classification){
+        await supabase.from("dogs").update({pet_type:"esa"}).eq("id",dog.id);
+      }
+
       setSaved(true);
-      setTimeout(()=>{onSave();onClose();},1200);
+      setTimeout(()=>{onSave();onClose();},1400);
     }catch(e){setError(e.message);}
     setSaving(false);
   };
 
   const tog=k=>setInclude(p=>({...p,[k]:!p[k]}));
+  const dt=extracted?.documentType;
+  const isClassification=dt==="service_animal_cert"||dt==="esa_letter";
+  const isVetDoc=dt==="vet_visit"||dt==="health_certificate"||dt==="vaccine_record"||dt==="unknown";
+
+  // Doc type display
+  const docTypeLabel={
+    vet_visit:"🏥 Vet Visit Record",
+    service_animal_cert:"🦺 Service Animal Certificate",
+    esa_letter:"💙 ESA Letter",
+    health_certificate:"✈️ Health Certificate",
+    vaccine_record:"💉 Vaccine Record",
+    unknown:"📄 Document",
+  };
+  const docTypeColor={
+    vet_visit:"#2D7D6F",service_animal_cert:"#2D7D6F",esa_letter:"#E8A838",
+    health_certificate:"#2D7D6F",vaccine_record:"#2D7D6F",unknown:"#8B7355",
+  };
 
   return(
     <div style={{position:"fixed",inset:0,background:"#000000cc",zIndex:600,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={e=>e.target===e.currentTarget&&onClose()}>
@@ -827,7 +874,7 @@ const AIScanModal=({dog,userId,userEmail,onSave,onClose})=>{
               <h3 style={{fontFamily:"'Lora',serif",fontSize:22}}>AI Document Scan</h3>
               <span style={{background:"#E8A83820",color:"#E8A838",border:"1px solid #E8A83840",borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:700}}>PREMIUM</span>
             </div>
-            <p style={{color:"#5A4535",fontSize:13,marginTop:2}}>Upload up to 4 pages or photos — AI reads them all at once</p>
+            <p style={{color:"#5A4535",fontSize:13,marginTop:2}}>Vet records · Service animal certs · ESA letters · Health certs</p>
           </div>
           <button onClick={onClose} style={{background:"#FFFFFF",border:"1px solid #E8DDD0",borderRadius:8,padding:"6px 8px",color:"#5A4535"}}><Ic n="x" s={16}/></button>
         </div>
@@ -835,55 +882,38 @@ const AIScanModal=({dog,userId,userEmail,onSave,onClose})=>{
         {/* Upload step */}
         {step==="upload"&&<>
           {error&&<div style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:12,padding:14,marginBottom:16,fontSize:13,color:"#C4714A"}}>{error}</div>}
+          <input ref={fr} type="file" accept="image/*,application/pdf" multiple style={{display:"none"}} onChange={e=>addFiles(e.target.files)}/>
+          <input ref={cameraRef} type="file" accept="image/*" capture="environment" style={{display:"none"}} onChange={e=>addFiles(e.target.files)}/>
 
-          {/* Hidden inputs */}
-          <input ref={fr} type="file" accept="image/*,application/pdf" multiple style={{display:"none"}}
-            onChange={e=>addFiles(e.target.files)}/>
-          <input ref={cameraRef} type="file" accept="image/*" capture="environment" style={{display:"none"}}
-            onChange={e=>addFiles(e.target.files)}/>
-
-          {/* Image grid */}
           {images.length>0&&(
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
               {images.map((img,idx)=>(
                 <div key={idx} style={{position:"relative",borderRadius:12,overflow:"hidden",border:"1px solid #E8DDD0",background:"#FFFFFF"}}>
                   <img src={img.dataUrl} style={{width:"100%",height:120,objectFit:"cover",display:"block"}}/>
-                  <div style={{position:"absolute",top:0,left:0,right:0,background:"rgba(0,0,0,0.45)",padding:"4px 8px",fontSize:11,color:"#fff",fontWeight:600}}>
-                    {img.label||`Page ${idx+1}`}
-                  </div>
-                  <button onClick={()=>removeImage(idx)}
-                    style={{position:"absolute",top:4,right:4,background:"#C4714A",border:"none",borderRadius:"50%",width:22,height:22,color:"#fff",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1}}>
-                    ×
-                  </button>
+                  <div style={{position:"absolute",top:0,left:0,right:0,background:"rgba(0,0,0,0.45)",padding:"4px 8px",fontSize:11,color:"#fff",fontWeight:600}}>{img.label||`Page ${idx+1}`}</div>
+                  <button onClick={()=>removeImage(idx)} style={{position:"absolute",top:4,right:4,background:"#C4714A",border:"none",borderRadius:"50%",width:22,height:22,color:"#fff",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
                 </div>
               ))}
               {images.length<MAX_IMAGES&&(
-                <div onClick={()=>fr.current.click()}
-                  style={{height:120,borderRadius:12,border:"2px dashed #2D7D6F66",background:"#2D7D6F08",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:"pointer",gap:6,color:"#2D7D6F"}}>
-                  <Ic n="plus" s={24} c="#2D7D6F"/>
-                  <span style={{fontSize:12,fontWeight:600}}>Add page</span>
+                <div onClick={()=>fr.current.click()} style={{height:120,borderRadius:12,border:"2px dashed #2D7D6F66",background:"#2D7D6F08",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",cursor:"pointer",gap:6,color:"#2D7D6F"}}>
+                  <Ic n="plus" s={24} c="#2D7D6F"/><span style={{fontSize:12,fontWeight:600}}>Add page</span>
                 </div>
               )}
             </div>
           )}
 
-          {/* Limit note */}
           {images.length>0&&(
-            <div style={{background:"#FAF6F0",borderRadius:10,padding:"8px 12px",fontSize:12,color:"#8B7355",marginBottom:14,display:"flex",alignItems:"center",gap:6}}>
-              <span>{images.length}/{MAX_IMAGES} pages added.</span>
-              {images.length===MAX_IMAGES
-                ?<span style={{color:"#C4714A",fontWeight:600}}>Maximum reached — analyze or remove a page to add more.</span>
-                :<span>You can add {MAX_IMAGES-images.length} more.</span>}
+            <div style={{background:"#FAF6F0",borderRadius:10,padding:"8px 12px",fontSize:12,color:"#8B7355",marginBottom:14}}>
+              {images.length}/{MAX_IMAGES} pages.{images.length===MAX_IMAGES?<span style={{color:"#C4714A",fontWeight:600}}> Maximum reached.</span>:<span> Add {MAX_IMAGES-images.length} more.</span>}
             </div>
           )}
 
-          {/* Upload buttons — show when no images yet */}
           {images.length===0&&(
             <div style={{border:"2px dashed #2D7D6F44",borderRadius:16,padding:28,textAlign:"center",background:"#2D7D6F08",marginBottom:12}}>
               <div style={{fontSize:36,marginBottom:8}}>📄</div>
-              <div style={{fontFamily:"'Lora',serif",fontSize:18,marginBottom:4}}>Scan or Upload Records</div>
-              <div style={{color:"#5A4535",fontSize:13,marginBottom:4}}>Multi-page invoices, vaccine records, health certificates</div>
-              <div style={{color:"#8B7355",fontSize:12,marginBottom:16}}>Up to 4 photos or pages per scan session</div>
+              <div style={{fontFamily:"'Lora',serif",fontSize:18,marginBottom:4}}>Scan Any Pet Document</div>
+              <div style={{color:"#5A4535",fontSize:13,marginBottom:4}}>Vet visits · Vaccines · Service animal certs · ESA letters · Health certs</div>
+              <div style={{color:"#8B7355",fontSize:12,marginBottom:16}}>AI identifies the document type and saves to the right place automatically</div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
                 <button onClick={()=>cameraRef.current.click()} style={{background:"#2D7D6F",color:"#FAF6F0",borderRadius:10,padding:"10px 6px",fontWeight:600,fontSize:12,border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
                   <Ic n="camera" s={18} c="#FAF6F0"/>Take Photo
@@ -898,22 +928,14 @@ const AIScanModal=({dog,userId,userEmail,onSave,onClose})=>{
             </div>
           )}
 
-          {/* Add more buttons when images already added */}
           {images.length>0&&images.length<MAX_IMAGES&&(
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:14}}>
-              <button onClick={()=>cameraRef.current.click()} style={{background:"#2D7D6F14",color:"#2D7D6F",borderRadius:10,padding:"8px 6px",fontWeight:600,fontSize:12,border:"1px solid #2D7D6F44",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
-                <Ic n="camera" s={15} c="#2D7D6F"/>Add Photo
-              </button>
-              <button onClick={()=>{fr.current.accept="image/*";fr.current.click();}} style={{background:"#FAF6F0",color:"#5A4535",borderRadius:10,padding:"8px 6px",fontWeight:600,fontSize:12,border:"1px solid #E8DDD0",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
-                <Ic n="camera" s={15}/>Library
-              </button>
-              <button onClick={()=>{fr.current.accept="image/*,application/pdf";fr.current.click();}} style={{background:"#FAF6F0",color:"#5A4535",borderRadius:10,padding:"8px 6px",fontWeight:600,fontSize:12,border:"1px solid #E8DDD0",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
-                <Ic n="doc" s={15}/>File
-              </button>
+              <button onClick={()=>cameraRef.current.click()} style={{background:"#2D7D6F14",color:"#2D7D6F",borderRadius:10,padding:"8px 6px",fontWeight:600,fontSize:12,border:"1px solid #2D7D6F44",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3}}><Ic n="camera" s={15} c="#2D7D6F"/>Add Photo</button>
+              <button onClick={()=>{fr.current.accept="image/*";fr.current.click();}} style={{background:"#FAF6F0",color:"#5A4535",borderRadius:10,padding:"8px 6px",fontWeight:600,fontSize:12,border:"1px solid #E8DDD0",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3}}><Ic n="camera" s={15}/>Library</button>
+              <button onClick={()=>{fr.current.accept="image/*,application/pdf";fr.current.click();}} style={{background:"#FAF6F0",color:"#5A4535",borderRadius:10,padding:"8px 6px",fontWeight:600,fontSize:12,border:"1px solid #E8DDD0",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3}}><Ic n="doc" s={15}/>File</button>
             </div>
           )}
 
-          {/* Analyze button */}
           {images.length>0&&(
             <div style={{display:"flex",gap:10}}>
               <Btn v="secondary" onClick={()=>setImages([])} full>Clear All</Btn>
@@ -927,223 +949,101 @@ const AIScanModal=({dog,userId,userEmail,onSave,onClose})=>{
           <div style={{textAlign:"center",padding:"40px 0"}}>
             <div style={{fontSize:48,marginBottom:20,animation:"spin 1.5s linear infinite",display:"inline-block"}}>🔍</div>
             <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
-            <div style={{fontFamily:"'Lora',serif",fontSize:22,marginBottom:8}}>Reading {images.length} Page{images.length>1?"s":""}...</div>
-            <div style={{color:"#5A4535",fontSize:14}}>AI is extracting vaccines, dates, weight, and more</div>
+            <div style={{fontFamily:"'Lora',serif",fontSize:22,marginBottom:8}}>Reading Document...</div>
+            <div style={{color:"#5A4535",fontSize:14}}>AI is identifying document type and extracting all data</div>
           </div>
         )}
 
         {/* Review */}
         {step==="review"&&extracted&&(<>
-          <div style={{background:"#2D7D6F14",border:"1px solid #2D7D6F44",borderRadius:12,padding:14,marginBottom:16,fontSize:13,color:"#2D7D6F"}}>
-            ✓ {images.length} page{images.length>1?"s":""} analyzed — review and confirm what to save
+          {/* Document type banner */}
+          <div style={{background:(docTypeColor[dt]||"#8B7355")+"15",border:`1px solid ${(docTypeColor[dt]||"#8B7355")}44`,borderRadius:12,padding:"10px 14px",marginBottom:16,display:"flex",alignItems:"center",gap:10}}>
+            <div style={{flex:1}}>
+              <div style={{fontWeight:700,color:docTypeColor[dt]||"#8B7355",fontSize:14}}>{docTypeLabel[dt]||"Document"}</div>
+              {extracted.documentSummary&&<div style={{fontSize:12,color:"#5A4535",marginTop:2}}>{extracted.documentSummary}</div>}
+            </div>
+            <span style={{fontSize:12,color:"#2D7D6F",fontWeight:600}}>✓ Identified</span>
           </div>
-          {[
+
+          {/* SERVICE ANIMAL CERT review */}
+          {dt==="service_animal_cert"&&extracted.serviceAnimal&&(<>
+            <div style={{marginBottom:14}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                <div style={{fontWeight:600,fontSize:14,display:"flex",alignItems:"center",gap:8}}>🦺 Classification Update</div>
+                <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:13,color:"#5A4535"}}><input type="checkbox" checked={include.classification} onChange={()=>tog("classification")} style={{width:16,height:16,accentColor:"#2D7D6F"}}/>Include</label>
+              </div>
+              <div style={{background:"#2D7D6F14",borderRadius:10,padding:12,fontSize:13}}>
+                <div style={{fontWeight:700,color:"#2D7D6F",marginBottom:6}}>Will update {dog.name} to: Service Animal</div>
+                {extracted.serviceAnimal.certificationNumber&&<div><span style={{color:"#5A4535"}}>Cert #: </span>{extracted.serviceAnimal.certificationNumber}</div>}
+                {extracted.serviceAnimal.issuingOrganization&&<div><span style={{color:"#5A4535"}}>Issued by: </span>{extracted.serviceAnimal.issuingOrganization}</div>}
+                {extracted.serviceAnimal.expirationDate&&<div><span style={{color:"#5A4535"}}>Expires: </span>{fmt(extracted.serviceAnimal.expirationDate)}</div>}
+                {extracted.serviceAnimal.tasksPerformed?.length>0&&<div style={{marginTop:6}}><span style={{color:"#5A4535"}}>Tasks: </span>{extracted.serviceAnimal.tasksPerformed.join(" · ")}</div>}
+              </div>
+            </div>
+          </>)}
+
+          {/* ESA LETTER review */}
+          {dt==="esa_letter"&&extracted.esaLetter&&(<>
+            <div style={{marginBottom:14}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                <div style={{fontWeight:600,fontSize:14}}>💙 Classification Update</div>
+                <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:13,color:"#5A4535"}}><input type="checkbox" checked={include.classification} onChange={()=>tog("classification")} style={{width:16,height:16,accentColor:"#E8A838"}}/>Include</label>
+              </div>
+              <div style={{background:"#E8A83814",borderRadius:10,padding:12,fontSize:13}}>
+                <div style={{fontWeight:700,color:"#E8A838",marginBottom:6}}>Will update {dog.name} to: Emotional Support Animal</div>
+                {extracted.esaLetter.therapistName&&<div><span style={{color:"#5A4535"}}>Therapist: </span>{extracted.esaLetter.therapistName}</div>}
+                {extracted.esaLetter.therapistLicense&&<div><span style={{color:"#5A4535"}}>License: </span>{extracted.esaLetter.therapistLicense}</div>}
+                {extracted.esaLetter.expirationDate&&<div><span style={{color:"#5A4535"}}>Expires: </span>{fmt(extracted.esaLetter.expirationDate)}</div>}
+              </div>
+            </div>
+          </>)}
+
+          {/* VET VISIT / HEALTH CERT review */}
+          {isVetDoc&&extracted.vetVisit&&[
             {key:"visit",label:"Vet Visit",icon:"stethoscope",content:
               <div style={{background:"#FFFFFF",borderRadius:10,padding:12,fontSize:13,display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
-                {[["Date",fmt(extracted.visitDate)],["Vet",extracted.vetName||"—"],["Clinic",extracted.clinicName||"—"],["Reason",extracted.reason||"—"],["Diagnosis",extracted.diagnosis||"—"],["Cost",extracted.cost?`$${extracted.cost}`:"—"]].map(([k,v])=>
+                {[["Date",fmt(extracted.vetVisit.visitDate)],["Vet",extracted.vetVisit.vetName||"—"],["Clinic",extracted.vetVisit.clinicName||"—"],["Reason",extracted.vetVisit.reason||"—"],["Diagnosis",extracted.vetVisit.diagnosis||"—"],["Cost",extracted.vetVisit.cost?`$${extracted.vetVisit.cost}`:"—"]].map(([k,v])=>
                   <div key={k}><span style={{color:"#5A4535"}}>{k}: </span>{v}</div>)}
               </div>},
-            {key:"vaccines",label:`Vaccines (${(extracted.vaccines||[]).filter(v=>v.name).length})`,icon:"syringe",
-              content:(extracted.vaccines||[]).filter(v=>v.name).map((v,i)=>
+            {key:"vaccines",label:`Vaccines (${(extracted.vetVisit.vaccines||[]).filter(v=>v.name).length})`,icon:"syringe",
+              content:(extracted.vetVisit.vaccines||[]).filter(v=>v.name).map((v,i)=>
                 <div key={i} style={{background:"#FFFFFF",borderRadius:10,padding:10,fontSize:13,marginBottom:6}}>
-                  <b>{v.name}</b> · Given {fmt(v.dateGiven)} · Next {fmt(v.nextDue)}
-                  {v.lotNumber&&<span style={{color:"#8B7355"}}> · Lot {v.lotNumber}</span>}
+                  <b>{v.name}</b> · Given {fmt(v.dateGiven)} · Next {fmt(v.nextDue)}{v.lotNumber?<span style={{color:"#8B7355"}}> · Lot {v.lotNumber}</span>:null}
                 </div>)},
-            {key:"weight",label:`Weight: ${extracted.weight} lbs`,icon:"weight",show:!!extracted.weight,content:null},
-            {key:"medications",label:`Medications (${(extracted.medications||[]).filter(m=>m.name).length})`,icon:"pill",
-              content:(extracted.medications||[]).filter(m=>m.name).map((m,i)=>
+            {key:"weight",label:`Weight: ${extracted.vetVisit.weight} lbs`,icon:"weight",show:!!extracted.vetVisit.weight,content:null},
+            {key:"medications",label:`Medications (${(extracted.vetVisit.medications||[]).filter(m=>m.name).length})`,icon:"pill",
+              content:(extracted.vetVisit.medications||[]).filter(m=>m.name).map((m,i)=>
                 <div key={i} style={{background:"#FFFFFF",borderRadius:10,padding:10,fontSize:13,marginBottom:6}}>
                   <b>{m.name}</b>{m.dosage?` · ${m.dosage}`:""}
                   {m.frequency&&<span style={{color:"#8B7355"}}> · {m.frequency}</span>}
+                </div>)},
+            {key:"allergies",label:`Allergies (${(extracted.vetVisit.allergies||[]).filter(a=>a.allergen).length})`,icon:"alert",
+              show:(extracted.vetVisit.allergies||[]).filter(a=>a.allergen).length>0,
+              content:(extracted.vetVisit.allergies||[]).filter(a=>a.allergen).map((a,i)=>
+                <div key={i} style={{background:"#FFFFFF",borderRadius:10,padding:10,fontSize:13,marginBottom:6,display:"flex",justifyContent:"space-between"}}>
+                  <span><b>{a.allergen}</b>{a.reaction?` — ${a.reaction}`:""}</span>
+                  <span style={{color:a.severity==="severe"?"#C4714A":a.severity==="moderate"?"#E8A838":"#2D7D6F",fontWeight:600,fontSize:11}}>{(a.severity||"mild").toUpperCase()}</span>
                 </div>)},
           ].filter(item=>item.show!==false).map(item=>(
             <div key={item.key} style={{marginBottom:14}}>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
                 <div style={{fontWeight:600,fontSize:14,display:"flex",alignItems:"center",gap:8}}><Ic n={item.icon} s={15} c="#2D7D6F"/> {item.label}</div>
-                <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:13,color:"#5A4535"}}>
-                  <input type="checkbox" checked={include[item.key]} onChange={()=>tog(item.key)} style={{width:16,height:16,accentColor:"#2D7D6F"}}/>Include
-                </label>
+                <label style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:13,color:"#5A4535"}}><input type="checkbox" checked={include[item.key]} onChange={()=>tog(item.key)} style={{width:16,height:16,accentColor:"#2D7D6F"}}/>Include</label>
               </div>
               {item.content}
             </div>
           ))}
+
           {saved
-            ?<div style={{textAlign:"center",padding:"16px 0",color:"#2D7D6F",fontWeight:600,fontSize:16}}>✓ All records saved!</div>
+            ?<div style={{textAlign:"center",padding:"16px 0",color:"#2D7D6F",fontWeight:600,fontSize:16}}>✓ Saved successfully!</div>
             :<div style={{display:"flex",gap:10}}>
               <Btn v="secondary" onClick={()=>{setStep("upload");setExtracted(null);}} full>Rescan</Btn>
-              <Btn onClick={saveAll} disabled={saving} full>{saving?"Saving...":"✓ Confirm & Save All"}</Btn>
+              <Btn onClick={saveAll} disabled={saving} full>{saving?"Saving...":"✓ Confirm & Save"}</Btn>
             </div>}
         </>)}
       </div>
     </div>
   );
-};
-
-
-const OverviewTab=({dog,state,userId,tier,setModal,onUpgrade,onScan,dispatch})=>{
-  const vaccines=state.vaccinations.filter(v=>v.dog_id===dog.id);
-  const urgent=vaccines.filter(v=>v.next_due&&daysUntil(v.next_due)<=30);
-  const al=state.allergies.filter(a=>a.dog_id===dog.id);
-  const meds=state.medications.filter(m=>m.dog_id===dog.id&&m.active);
-  const sev=s=>({mild:"#2D7D6F",moderate:"#E8A838",severe:"#C4714A"}[s]||"#E8A838");
-  const premium=isPremium(tier);
-  const ptLabel=petTypeLabel(dog.pet_type);
-  const ptColor=petTypeColor(dog.pet_type);
-  const ptFull=dog.pet_type==='service_animal'?'Service Animal':dog.pet_type==='esa'?'Emotional Support Animal':null;
-
-  const ProfileRow=({label,value})=>value?(
-    <div style={{display:"flex",flexDirection:"column",gap:3,padding:"10px 0",borderBottom:"1px solid #F0E8DC"}}>
-      <div style={{fontSize:11,fontWeight:700,color:"#8B7355",textTransform:"uppercase",letterSpacing:".06em"}}>{label}</div>
-      <div style={{fontWeight:500,fontSize:15,color:"#2C2017"}}>{value}</div>
-    </div>
-  ):null;
-
-  return(<div style={{display:"flex",flexDirection:"column",gap:14}}>
-
-
-
-    {/* SA/ESA Banner */}
-    {ptFull&&ptColor&&(<Card style={{border:`2px solid ${ptColor}55`,background:ptColor+"0D",padding:16}}>
-      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
-        <span style={{fontSize:22}}>{dog.pet_type==="service_animal"?"🦺":"💙"}</span>
-        <div style={{flex:1}}>
-          <div style={{fontWeight:800,color:ptColor,fontSize:16}}>{ptFull}</div>
-          <div style={{fontSize:12,color:"#8B7355",marginTop:2}}>{dog.pet_type==="service_animal"?"Trained to perform specific tasks for a person with a disability":"Provides emotional support — different airline and housing rules apply"}</div>
-        </div>
-      </div>
-      <div style={{background:"#FFFFFF",borderRadius:10,padding:"10px 14px",fontSize:13,color:"#5A4535",lineHeight:1.6}}>
-        {dog.pet_type==="service_animal"
-          ?"✈️ Service animals have special travel rights. Airlines must allow them in cabin. Housing providers must make reasonable accommodations. Carry your documentation at all times."
-          :"✈️ ESAs have different rules than service animals. Airlines may require advance notice and documentation. Housing rules vary. Always check with airline and property before travel."}
-      </div>
-      <div style={{marginTop:10,display:"flex",alignItems:"center",gap:8,fontSize:13,fontWeight:600,color:dog.certification_doc_path?"#2D7D6F":"#8B7355"}}>
-        {dog.certification_doc_path?"📋 Documentation uploaded ✓":"📋 No documentation uploaded — add via Edit Profile"}
-      </div>
-    </Card>)}
-
-    {/* Urgent vaccines */}
-    {urgent.length>0&&(<Card style={{border:"1px solid #E8A83844",background:"#E8A83814"}}><div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10,color:"#E8A838",fontWeight:600,fontSize:14}}><Ic n="alert" s={15} c="#E8A838"/> Attention Needed</div>{urgent.map(v=>{const st=vSt(v.next_due);return(<div key={v.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:"1px solid #E8DDD044"}}><span style={{fontSize:14}}>{v.name}</span><Badge label={st.label} color={st.c}/></div>);})}</Card>)}
-
-    {/* Full Profile */}
-    <Card>
-      <div style={{fontWeight:800,fontSize:12,color:"#5A4535",textTransform:"uppercase",letterSpacing:".08em",marginBottom:4}}>🐾 Pet Profile</div>
-      <ProfileRow label="Name" value={dog.name}/>
-      <ProfileRow label="Breed" value={dog.breed}/>
-      <ProfileRow label="Date of Birth" value={fmt(dog.dob)}/>
-      <ProfileRow label="Age" value={dog.dob?`${Math.floor((Date.now()-new Date(dog.dob+"T12:00:00"))/(365.25*86400000))} years old`:null}/>
-      <ProfileRow label="Weight" value={dog.weight?`${dog.weight} lbs`:null}/>
-      <ProfileRow label="Color" value={dog.color}/>
-      <ProfileRow label="Gender" value={dog.gender?(dog.gender.charAt(0).toUpperCase()+dog.gender.slice(1))+(dog.neutered?" · Neutered/Spayed":""):null}/>
-      <ProfileRow label="Microchip ID" value={dog.microchip}/>
-      <ProfileRow label="Classification" value={ptFull||"Regular Pet"}/>
-      {(dog.emergency_contact||dog.emergency_phone)&&(
-        <div style={{display:"flex",flexDirection:"column",gap:3,padding:"10px 0",borderBottom:"1px solid #F0E8DC"}}>
-          <div style={{fontSize:11,fontWeight:700,color:"#8B7355",textTransform:"uppercase",letterSpacing:".06em"}}>Emergency Contact</div>
-          <div style={{fontWeight:500,fontSize:15,color:"#2C2017",display:"flex",alignItems:"center",gap:8}}>
-            <Ic n="phone" s={14} c="#E8A838"/>
-            {dog.emergency_contact}{dog.emergency_phone?` · ${dog.emergency_phone}`:""}
-          </div>
-        </div>
-      )}
-      {dog.notes&&<ProfileRow label="Notes" value={dog.notes}/>}
-    </Card>
-
-    {/* Allergies */}
-    {al.length>0&&(<Card style={{border:"1px solid #C4714A44"}}><div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10,color:"#C4714A",fontWeight:600,fontSize:14}}><Ic n="alert" s={15} c="#C4714A"/> Known Allergies</div>{al.map(a=>(<div key={a.id} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid #E8DDD044",fontSize:14}}><span><b>{a.allergen}</b> — {a.reaction}</span><Badge label={a.severity} color={sev(a.severity)}/></div>))}</Card>)}
-
-    {/* Active meds */}
-    {meds.length>0&&(<Card><div style={{fontWeight:600,marginBottom:10,fontSize:14,display:"flex",alignItems:"center",gap:8}}><Ic n="pill" s={14} c="#2D7D6F"/> Active Medications</div>{meds.map(m=>(<div key={m.id} style={{fontSize:14,padding:"6px 0",borderBottom:"1px solid #E8DDD044"}}><b>{m.name}</b> · {m.dosage} · {m.frequency}</div>))}</Card>)}
-
-
-
-    {!premium&&<div style={{background:"#E8A83810",border:"1px solid #E8A83833",borderRadius:12,padding:12,textAlign:"center",fontSize:13,color:"#E8A838",cursor:"pointer"}} onClick={onUpgrade}><Ic n="crown" s={14} c="#E8A838"/> Upgrade to Premium for AI scanning, exports &amp; more</div>}
-  </div>);
-};
-
-
-const SchedulePanel=({vaccines,all})=>{
-  const[open,setOpen]=useState(false);
-  const missing=all.filter(rv=>!vaccines.find(v=>v.name===rv.name));
-  const recorded=all.filter(rv=>vaccines.find(v=>v.name===rv.name));
-  return(
-    <div style={{borderRadius:14,border:"1px solid #E8DDD0",overflow:"hidden"}}>
-      <button onClick={()=>setOpen(p=>!p)} style={{width:"100%",display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 16px",background:"#FFFFFF",border:"none",cursor:"pointer",textAlign:"left"}}>
-        <div style={{display:"flex",alignItems:"center",gap:10}}>
-          <div style={{fontWeight:700,fontSize:14,color:"#2C2017"}}>Recommended Vaccine Schedule</div>
-          {missing.length>0&&<span style={{background:"#E8A83820",color:"#E8A838",border:"1px solid #E8A83844",borderRadius:20,padding:"2px 8px",fontSize:11,fontWeight:700}}>{missing.length} not recorded</span>}
-        </div>
-        <span style={{color:"#8B7355",fontSize:18,transition:"transform .2s",display:"inline-block",transform:open?"rotate(180deg)":"rotate(0deg)"}}>›</span>
-      </button>
-      {open&&(
-        <div style={{background:"#FAF6F0",borderTop:"1px solid #E8DDD0",padding:"4px 0"}}>
-          {all.map(rv=>{
-            const rec=vaccines.find(v=>v.name===rv.name);
-            const isCore=CORE_V.includes(rv);
-            return(
-              <div key={rv.name} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 16px",borderBottom:"1px solid #E8DDD044"}}>
-                <div>
-                  <div style={{fontSize:13,fontWeight:600,color:"#2C2017"}}>{rv.name}</div>
-                  <div style={{fontSize:11,color:"#8B7355",marginTop:2}}>{rv.note}</div>
-                </div>
-                {rec?<Badge label="Recorded ✓" color="#2D7D6F"/>:<Badge label={isCore?"Required":"Optional"} color={isCore?"#E8A838":"#8B7355"}/>}
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-};
-
-
-const VaccinesTab=({dog,state,dispatch,userId,tier,onUpgrade})=>{
-  const[modal,setModal]=useState(null);
-  const vaccines=state.vaccinations.filter(v=>v.dog_id===dog.id);
-  const all=[...CORE_V,...OPT_V];
-  const premium=isPremium(tier);
-  const delVacc=async(id)=>{await db.deleteVaccination(id);dispatch({t:"DEL_VACC",id});};
-  return(<div style={{display:"flex",flexDirection:"column",gap:12}}>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><h3 style={{fontFamily:"'Lora',serif",fontSize:20}}>Vaccinations</h3><Btn sm onClick={()=>setModal({type:"add"})}><Ic n="plus" s={14}/> Add</Btn></div>
-    {vaccines.length===0?<Empty icon="syringe" title="No vaccinations yet" sub="Record your first vaccination to get started." action={<Btn onClick={()=>setModal({type:"add"})}><Ic n="plus" s={14}/> Record Vaccination</Btn>}/>:vaccines.map(v=>{const st=vSt(v.next_due);return(<Card key={v.id}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}><div style={{flex:1}}><div style={{display:"flex",flexWrap:"wrap",alignItems:"center",gap:8,marginBottom:4}}><span style={{fontWeight:600}}>{v.name}</span><Badge label={v.type==="core"?"CORE":"OPTIONAL"} color="#2D7D6F"/></div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:4,fontSize:12,color:"#5A4535",marginTop:4}}><span>Given: {fmt(v.date_given)}</span><span>Vet: {v.vet_name||"—"}</span></div></div><div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:8}}><Badge label={st.label} color={st.c}/><div style={{display:"flex",gap:5}}>{v.next_due&&<button title="Add to Calendar" onClick={()=>exportICS(dog.name,v.name,v.next_due)} style={{background:"#2D7D6F14",border:"1px solid #2D7D6F44",borderRadius:8,padding:"5px 8px",color:"#2D7D6F"}}><Ic n="cal" s={13}/></button>}<button onClick={()=>setModal({type:"edit",v})} style={{background:"#FFFFFF",border:"1px solid #E8DDD0",borderRadius:8,padding:"5px 8px",color:"#5A4535"}}><Ic n="edit" s={13}/></button><button onClick={()=>delVacc(v.id)} style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:8,padding:"5px 8px",color:"#C4714A"}}><Ic n="trash" s={13}/></button></div></div></div></Card>);})}
-    {premium
-      ?<SchedulePanel vaccines={vaccines} all={all}/>
-      :<PremiumLock onUpgrade={onUpgrade} label="Vaccine Schedule — Premium Feature"/>}
-    {modal?.type==="add"&&<VaccineForm dogId={dog.id} userId={userId} onSave={v=>{dispatch({t:"ADD_VACC",v});setModal(null);}} onClose={()=>setModal(null)}/>}
-    {modal?.type==="edit"&&<VaccineForm vacc={modal.v} dogId={dog.id} userId={userId} onSave={v=>{dispatch({t:"UPD_VACC",v});setModal(null);}} onClose={()=>setModal(null)}/>}
-  </div>);
-};
-
-const HealthTab=({dog,state,dispatch,userId,tier,onUpgrade})=>{
-  const[modal,setModal]=useState(null);
-  const meds=state.medications.filter(m=>m.dog_id===dog.id);
-  const al=state.allergies.filter(a=>a.dog_id===dog.id);
-  const sev=s=>({mild:"#2D7D6F",moderate:"#E8A838",severe:"#C4714A"}[s]||"#E8A838");
-  const delMed=async(id)=>{await db.deleteMedication(id);dispatch({t:"DEL_MED",id});};
-  const delAlrg=async(id)=>{await db.deleteAllergy(id);dispatch({t:"DEL_ALRG",id});};
-  return(<div style={{display:"flex",flexDirection:"column",gap:14}}>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><h3 style={{fontFamily:"'Lora',serif",fontSize:20}}>Health</h3><div style={{display:"flex",gap:8}}><Btn sm v="secondary" onClick={()=>setModal({type:"addAlrg"})}><Ic n="alert" s={13}/> Allergy</Btn><Btn sm onClick={()=>setModal({type:"addMed"})}><Ic n="pill" s={13}/> Med</Btn></div></div>
-    <div style={{fontSize:11,fontWeight:700,color:"#C4714A",textTransform:"uppercase",letterSpacing:".06em"}}>⚠ Allergies</div>
-    {al.length===0?<Card style={{borderStyle:"dashed"}}><div style={{color:"#5A4535",fontSize:14,textAlign:"center",padding:"12px 0"}}>No allergies recorded. <span style={{color:"#2D7D6F",cursor:"pointer"}} onClick={()=>setModal({type:"addAlrg"})}>Add one</span></div></Card>:al.map(a=>(<Card key={a.id} style={{border:`1px solid ${sev(a.severity)}44`}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div><div style={{fontWeight:600,display:"flex",alignItems:"center",gap:8,marginBottom:4}}>{a.allergen} <Badge label={a.severity.toUpperCase()} color={sev(a.severity)}/></div><div style={{fontSize:13,color:"#5A4535"}}>Reaction: {a.reaction}</div></div><div style={{display:"flex",gap:5}}><button onClick={()=>setModal({type:"editAlrg",a})} style={{background:"#FFFFFF",border:"1px solid #E8DDD0",borderRadius:8,padding:"5px 8px",color:"#5A4535"}}><Ic n="edit" s={13}/></button><button onClick={()=>delAlrg(a.id)} style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:8,padding:"5px 8px",color:"#C4714A"}}><Ic n="trash" s={13}/></button></div></div></Card>))}
-    <div style={{fontSize:11,fontWeight:700,color:"#2D7D6F",textTransform:"uppercase",letterSpacing:".06em"}}>Medications</div>
-    {meds.filter(m=>m.active).map(m=>(<Card key={m.id} style={{borderColor:"#2D7D6F44"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div><div style={{fontWeight:600,marginBottom:4}}>{m.name} <span style={{background:"#2D7D6F14",color:"#2D7D6F",fontSize:11,padding:"2px 8px",borderRadius:20}}>ACTIVE</span></div><div style={{fontSize:13,color:"#5A4535"}}>{m.dosage} · {m.frequency}</div></div><div style={{display:"flex",gap:5}}><button onClick={()=>setModal({type:"editMed",m})} style={{background:"#FFFFFF",border:"1px solid #E8DDD0",borderRadius:8,padding:"5px 8px",color:"#5A4535"}}><Ic n="edit" s={13}/></button><button onClick={()=>delMed(m.id)} style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:8,padding:"5px 8px",color:"#C4714A"}}><Ic n="trash" s={13}/></button></div></div></Card>))}
-    {meds.length===0&&<Empty icon="pill" title="No medications" sub="Add current or past medications." action={<Btn onClick={()=>setModal({type:"addMed"})}><Ic n="plus" s={14}/> Add Medication</Btn>}/>}
-    {modal?.type==="addMed"&&<MedForm dogId={dog.id} userId={userId} onSave={m=>{dispatch({t:"ADD_MED",m});setModal(null);}} onClose={()=>setModal(null)}/>}
-    {modal?.type==="editMed"&&<MedForm med={modal.m} dogId={dog.id} userId={userId} onSave={m=>{dispatch({t:"UPD_MED",m});setModal(null);}} onClose={()=>setModal(null)}/>}
-    {modal?.type==="addAlrg"&&<AllergyForm dogId={dog.id} userId={userId} onSave={x=>{dispatch({t:"ADD_ALRG",x});setModal(null);}} onClose={()=>setModal(null)}/>}
-    {modal?.type==="editAlrg"&&<AllergyForm allergy={modal.a} dogId={dog.id} userId={userId} onSave={x=>{dispatch({t:"UPD_ALRG",x});setModal(null);}} onClose={()=>setModal(null)}/>}
-  </div>);
-};
-
-const RecordsTab=({dog,state,dispatch,userId})=>{
-  const[modal,setModal]=useState(null);
-  const visits=state.visits.filter(v=>v.dog_id===dog.id).sort((a,b)=>b.visit_date.localeCompare(a.visit_date));
-  const delVisit=async(id)=>{await db.deleteVisit(id);dispatch({t:"DEL_VISIT",id});};
-  return(<div style={{display:"flex",flexDirection:"column",gap:12}}>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><h3 style={{fontFamily:"'Lora',serif",fontSize:20}}>Vet Visits</h3><Btn sm onClick={()=>setModal({type:"add"})}><Ic n="plus" s={14}/> Log Visit</Btn></div>
-    {visits.length===0?<Empty icon="stethoscope" title="No visits logged" sub="Track every vet visit for a complete history." action={<Btn onClick={()=>setModal({type:"add"})}><Ic n="plus" s={14}/> Log Visit</Btn>}/>:visits.map(v=>(<Card key={v.id}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div style={{flex:1}}><div style={{fontWeight:600}}>{v.reason}</div><div style={{fontSize:12,color:"#5A4535",marginTop:2}}>{fmt(v.visit_date)}{v.vet_name?` · ${v.vet_name}`:""}{v.clinic?` @ ${v.clinic}`:""}</div>{v.diagnosis&&<div style={{fontSize:13,marginTop:6}}><span style={{color:"#8B7355"}}>Dx: </span>{v.diagnosis}</div>}{v.treatment&&<div style={{fontSize:13}}><span style={{color:"#8B7355"}}>Tx: </span>{v.treatment}</div>}{v.cost&&<div style={{fontSize:13,color:"#2D7D6F",marginTop:4}}>${v.cost}</div>}</div><div style={{display:"flex",gap:5,marginLeft:10}}><button onClick={()=>setModal({type:"edit",v})} style={{background:"#FFFFFF",border:"1px solid #E8DDD0",borderRadius:8,padding:"5px 8px",color:"#5A4535"}}><Ic n="edit" s={13}/></button><button onClick={()=>delVisit(v.id)} style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:8,padding:"5px 8px",color:"#C4714A"}}><Ic n="trash" s={13}/></button></div></div></Card>))}
-    {modal?.type==="add"&&<VisitForm dogId={dog.id} userId={userId} onSave={v=>{dispatch({t:"ADD_VISIT",v});setModal(null);}} onClose={()=>setModal(null)}/>}
-    {modal?.type==="edit"&&<VisitForm visit={modal.v} dogId={dog.id} userId={userId} onSave={v=>{dispatch({t:"UPD_VISIT",v});setModal(null);}} onClose={()=>setModal(null)}/>}
-  </div>);
 };
 
 
@@ -1389,7 +1289,7 @@ const DogDetail=({dog,state,dispatch,userId,tier,onBack,onUpgrade,userEmail})=>{
     {modal==="editDog"&&<DogForm dog={dog} userId={userId} userEmail={userEmail} onSave={d=>{dispatch({t:"UPD_DOG",d});setModal(null);}} onClose={()=>setModal(null)}/>}
     {showDelete&&<DeletePetModal dog={dog} onConfirm={handleDeletePet} onClose={()=>setShowDelete(false)}/>}
     {modal==="share"&&<ShareModal dog={dog} onClose={()=>setModal(null)}/>}
-    {showScan&&<AIScanModal dog={dog} userId={userId} userEmail={userEmail} onSave={async()=>{const[{data:v},{data:m},{data:vis},{data:al}]=await Promise.all([db.getVaccinations(userId),db.getMedications(userId),db.getVisits(userId),db.getAllergies(userId)]);dispatch({t:'LOAD',s:{dogs:state.dogs,vaccinations:v||[],medications:m||[],allergies:al||[],visits:vis||[],weights:state.weights,vets:state.vets,documents:state.documents}});}} onClose={()=>setShowScan(false)}/>}
+    {showScan&&<AIScanModal dog={dog} userId={userId} userEmail={userEmail} dispatch={dispatch} onSave={async()=>{const[{data:v},{data:m},{data:vis},{data:al}]=await Promise.all([db.getVaccinations(userId),db.getMedications(userId),db.getVisits(userId),db.getAllergies(userId)]);dispatch({t:'LOAD',s:{dogs:state.dogs,vaccinations:v||[],medications:m||[],allergies:al||[],visits:vis||[],weights:state.weights,vets:state.vets,documents:state.documents}});}} onClose={()=>setShowScan(false)}/>}
     {showUpgrade&&<UpgradeModal userId={userId} userEmail={userEmail} onClose={()=>setShowUpgrade(false)}/>}
   </div>);
 };
