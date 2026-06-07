@@ -1448,6 +1448,36 @@ const RecordsTab=({dog,state,dispatch,userId})=>{
 };
 
 
+const VetForm=({userId,onSave,onClose})=>{
+  const[vf,setVf]=useState({name:"",clinic:"",phone:"",email:"",address:""});
+  const[saving,setSaving]=useState(false);
+  const set=(k,v)=>setVf(p=>({...p,[k]:v}));
+  const inp={width:"100%",padding:"10px 14px",borderRadius:10,border:"1.5px solid #E8DDD0",fontSize:14,background:"#FAF6F0",color:"#2C2017",outline:"none",fontFamily:"'Nunito',sans-serif",boxSizing:"border-box"};
+  const save=async()=>{
+    if(!vf.name)return;
+    setSaving(true);
+    const{data}=await db.addSavedVet(userId,vf);
+    if(data)onSave(data);
+    setSaving(false);
+  };
+  return(
+    <Modal title="Save Vet Contact" onClose={onClose}>
+      <div style={{display:"flex",flexDirection:"column",gap:12}}>
+        <Field label="Vet Name *"><input style={inp} value={vf.name} onChange={e=>set("name",e.target.value)} placeholder="Dr. Johnson"/></Field>
+        <Field label="Clinic"><input style={inp} value={vf.clinic} onChange={e=>set("clinic",e.target.value)} placeholder="City Animal Hospital"/></Field>
+        <Field label="Phone"><input style={inp} value={vf.phone} onChange={e=>set("phone",e.target.value)} placeholder="(305) 555-0100"/></Field>
+        <Field label="Email"><input style={inp} value={vf.email} onChange={e=>set("email",e.target.value)} placeholder="vet@clinic.com"/></Field>
+        <Field label="Address"><input style={inp} value={vf.address} onChange={e=>set("address",e.target.value)} placeholder="123 Main St, Miami, FL"/></Field>
+        <div style={{display:"flex",gap:10}}>
+          <Btn v="secondary" onClick={onClose} full>Cancel</Btn>
+          <Btn onClick={save} disabled={saving||!vf.name} full>{saving?"Saving...":"Save Vet"}</Btn>
+        </div>
+      </div>
+    </Modal>
+  );
+};
+
+
 const MoreTab=({dog,state,dispatch,userId,tier,onUpgrade})=>{
   const[section,setSection]=useState(null);
   const[modal,setModal]=useState(null);
@@ -1479,7 +1509,7 @@ const MoreTab=({dog,state,dispatch,userId,tier,onUpgrade})=>{
     <div style={{display:"flex",alignItems:"center",gap:10}}>{backBtn}<h3 style={{fontFamily:"'Lora',serif",fontSize:20,flex:1}}>Saved Vets</h3><Btn sm onClick={()=>setModal({type:"addVet"})}><Ic n="plus" s={14}/> Add</Btn></div>
     <Btn full v="secondary" onClick={()=>window.open("https://www.google.com/maps/search/veterinarian+near+me","_blank")}><Ic n="map" s={15}/> Find Nearby Vets</Btn>
     {vets.map(v=>(<Card key={v.id}><div style={{display:"flex",justifyContent:"space-between"}}><div><div style={{fontWeight:600}}>{v.name}</div>{v.clinic&&<div style={{fontSize:13,color:"#5A4535"}}>{v.clinic}</div>}{v.phone&&<a href={`tel:${v.phone}`} style={{fontSize:13,color:"#2D7D6F",display:"flex",alignItems:"center",gap:4,marginTop:4,textDecoration:"none"}}><Ic n="phone" s={12} c="#2D7D6F"/>{v.phone}</a>}</div><button onClick={async()=>{await db.deleteSavedVet(v.id);dispatch({t:"DEL_VET",id:v.id});}} style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:8,padding:"5px 8px",color:"#C4714A"}}><Ic n="trash" s={13}/></button></div></Card>))}
-    {modal?.type==="addVet"&&<Modal title="Save Vet Contact" onClose={()=>setModal(null)}>{(()=>{const[vf,setVf]=useState({name:"",clinic:"",phone:""});return <div style={{display:"flex",flexDirection:"column",gap:12}}><Field label="Vet Name"><input value={vf.name} onChange={e=>setVf(p=>({...p,name:e.target.value}))} placeholder="Dr. Johnson"/></Field><Field label="Clinic"><input value={vf.clinic} onChange={e=>setVf(p=>({...p,clinic:e.target.value}))}/></Field><Field label="Phone"><input value={vf.phone} onChange={e=>setVf(p=>({...p,phone:e.target.value}))}/></Field><div style={{display:"flex",gap:10}}><Btn v="secondary" onClick={()=>setModal(null)} full>Cancel</Btn><Btn onClick={async()=>{if(!vf.name)return;const{data}=await db.addSavedVet(userId,vf);if(data)dispatch({t:"ADD_VET",v:data});setModal(null);}} full>Save</Btn></div></div>;})()}</Modal>}
+    {{modal?.type==="addVet"&&<VetForm userId={userId} onSave={v=>{dispatch({t:"ADD_VET",v});setModal(null);}} onClose={()=>setModal(null)}/>}
   </div>);
 
   if(section==="docs")return(<div style={{display:"flex",flexDirection:"column",gap:12}}>
@@ -1665,18 +1695,14 @@ const DogDetail=({dog,state,dispatch,userId,tier,onBack,onUpgrade,userEmail})=>{
 };
 
 const BillingSection=({userId,tier,userEmail})=>{
-  const[portalLoading,setPortalLoading]=useState(false);
+  
   const tierLabel=tier==='lifetime'?'Lifetime Premium':tier==='premium'?'Premium':'Free';
   const tierColor=tier==='lifetime'?'#E8A838':tier==='premium'?'#2D7D6F':'#8B7355';
 
-  const openPortal=async()=>{
-    setPortalLoading(true);
-    try{
-      const{data,error}=await supabase.functions.invoke("create-portal",{body:{userId,userEmail}});
-      if(error||data.error)throw new Error(error?.message||data.error);
-      window.location.href=data.url;
-    }catch(e){alert("Could not open billing portal: "+e.message);}
-    setPortalLoading(false);
+  const openPortal=()=>{
+    // Opens Stripe customer portal - requires stripe-webhook setup
+    const stripePortalUrl="https://billing.stripe.com/p/login/test_yourportalid";
+    window.open(stripePortalUrl,"_blank");
   };
 
   return(
@@ -1693,7 +1719,7 @@ const BillingSection=({userId,tier,userEmail})=>{
       </div>
       {tier==='free'
         ?<div style={{fontSize:13,color:"#5A4535"}}>You're on the free plan. Upgrade to unlock AI scanning, travel tools, exports, and more.</div>
-        :tier!=='lifetime'&&<Btn full v="secondary" onClick={openPortal} disabled={portalLoading} style={{justifyContent:"center"}}>{portalLoading?"Opening...":"Manage Subscription / Cancel"}</Btn>}
+        :tier!=='lifetime'&&<Btn full v="secondary" onClick={openPortal} style={{justifyContent:"center"}}>"Manage Subscription / Cancel"</Btn>}
       {tier==='lifetime'&&<div style={{fontSize:13,color:"#2D7D6F",fontWeight:600,textAlign:"center",padding:"8px 0"}}>✓ Lifetime access — no subscription needed</div>}
     </div>
   );
