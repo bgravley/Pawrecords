@@ -1398,11 +1398,16 @@ const Home=({state,dispatch,userId,tier,userEmail,onSignOut,isAdmin,onOpenAdmin}
   useEffect(()=>{
     if(!isAdmin)return;
     const checkErrors=async()=>{
-      const{count}=await supabase.from("error_log").select("*",{count:"exact",head:true}).eq("reviewed",false);
-      setErrorCount(count||0);
+      try{
+        const{data:{session}}=await supabase.auth.getSession();
+        const token=session?.access_token;
+        const res=await fetch('/api/admin-data',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},body:JSON.stringify({type:'error_count'})});
+        const d=await res.json();
+        setErrorCount(d.count||0);
+      }catch(e){console.error('Error count check failed:',e);}
     };
     checkErrors();
-    const interval=setInterval(checkErrors,60000); // check every minute
+    const interval=setInterval(checkErrors,60000);
     return()=>clearInterval(interval);
   },[isAdmin]);
 
