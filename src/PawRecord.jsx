@@ -1053,6 +1053,80 @@ const RecordsTab=({dog,state,dispatch,userId})=>{
   </div>);
 };
 
+
+const QRSection=({dog,state,backBtn})=>{
+  const[token,setToken]=useState(dog.emergency_token||null);
+  const[generating,setGenerating]=useState(false);
+  const[copied,setCopied]=useState(false);
+
+  const generateToken=async()=>{
+    setGenerating(true);
+    const newToken=Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2);
+    await supabase.from("dogs").update({emergency_token:newToken}).eq("id",dog.id);
+    setToken(newToken);
+    setGenerating(false);
+  };
+
+  const emergencyUrl=token?`https://yourpetpass.com/emergency/${token}`:"";
+  const qrUrl=token?`https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(emergencyUrl)}`:"";
+
+  const copyLink=()=>{
+    navigator.clipboard.writeText(emergencyUrl);
+    setCopied(true);
+    setTimeout(()=>setCopied(false),2000);
+  };
+
+  return(
+    <div style={{display:"flex",flexDirection:"column",gap:14}}>
+      <div style={{display:"flex",alignItems:"center",gap:10}}>
+        {backBtn}
+        <h3 style={{fontFamily:"'Lora',serif",fontSize:20}}>QR Health Card</h3>
+      </div>
+
+      <Card>
+        <div style={{fontSize:14,color:"#5A4535",lineHeight:1.7,marginBottom:16}}>
+          This QR code links to <b>{dog.name}'s full health record</b> — no login required.
+          Anyone who scans it (a vet, border agent, dog sitter) sees the complete record instantly in their browser.
+        </div>
+
+        {!token?(
+          <div style={{textAlign:"center",padding:"20px 0"}}>
+            <div style={{fontSize:40,marginBottom:12}}>🔲</div>
+            <div style={{fontFamily:"'Lora',serif",fontSize:18,marginBottom:8}}>No QR code yet</div>
+            <div style={{color:"#8B7355",fontSize:13,marginBottom:20}}>Generate a unique emergency link for {dog.name}</div>
+            <Btn onClick={generateToken} disabled={generating} style={{margin:"0 auto",justifyContent:"center"}}>
+              {generating?"Generating...":"Generate QR Code"}
+            </Btn>
+          </div>
+        ):(
+          <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:16}}>
+            <img src={qrUrl} style={{borderRadius:12,border:"2px solid #E8DDD0",background:"#fff",padding:10,width:240,height:240}}/>
+            <div style={{width:"100%",background:"#FAF6F0",borderRadius:10,padding:"10px 14px",display:"flex",alignItems:"center",gap:8}}>
+              <span style={{fontSize:12,color:"#5A4535",flex:1,wordBreak:"break-all"}}>{emergencyUrl}</span>
+              <button onClick={copyLink} style={{background:"#2D7D6F",color:"#fff",border:"none",borderRadius:8,padding:"6px 12px",fontSize:12,fontWeight:600,cursor:"pointer",flexShrink:0}}>
+                {copied?"Copied!":"Copy"}
+              </button>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,width:"100%"}}>
+              <Btn v="secondary" sm full onClick={()=>window.open(emergencyUrl,"_blank")} style={{justifyContent:"center"}}>
+                Preview Page
+              </Btn>
+              <Btn v="secondary" sm full onClick={generateToken} style={{justifyContent:"center",color:"#C4714A"}}>
+                Regenerate
+              </Btn>
+            </div>
+            <div style={{fontSize:12,color:"#8B7355",textAlign:"center",lineHeight:1.6}}>
+              💡 Print this QR code and attach it to {dog.name}'s collar tag or carrier.
+              Tap "Regenerate" to invalidate the old link if needed.
+            </div>
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+};
+
+
 const MoreTab=({dog,state,dispatch,userId,tier,onUpgrade})=>{
   const[section,setSection]=useState(null);
   const[modal,setModal]=useState(null);
@@ -1088,12 +1162,7 @@ const MoreTab=({dog,state,dispatch,userId,tier,onUpgrade})=>{
 
   if(section==="qr"){
     if(!premium)return(<div style={{display:"flex",flexDirection:"column",gap:12}}><div style={{display:"flex",alignItems:"center",gap:10}}>{backBtn}<h3 style={{fontFamily:"'Lora',serif",fontSize:20}}>QR Health Card</h3></div><PremiumLock onUpgrade={onUpgrade} label="QR Health Card — Premium Feature"/></div>);
-    const mds=state.medications.filter(m=>m.dog_id===dog.id&&m.active).map(m=>m.name).join(", ");
-    const als=state.allergies.filter(a=>a.dog_id===dog.id).map(a=>a.allergen).join(", ");
-    const ptLabel=petTypeLabel(dog.pet_type);
-    const payload=JSON.stringify({name:dog.name,breed:dog.breed,classification:ptLabel||(dog.pet_type==="esa"?"Emotional Support Animal":"Pet"),microchip:dog.microchip||"N/A",allergies:als||"None",medications:mds||"None",emergency:`${dog.emergency_contact||""} ${dog.emergency_phone||""}`.trim()||"N/A"});
-    const qrUrl=`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(payload)}`;
-    return(<div style={{display:"flex",flexDirection:"column",gap:12}}><div style={{display:"flex",alignItems:"center",gap:10}}>{backBtn}<h3 style={{fontFamily:"'Lora',serif",fontSize:20}}>QR Health Card</h3></div><Card><p style={{color:"#5A4535",fontSize:13,marginBottom:16}}>Any vet can scan this to see {dog.name}'s key info{ptLabel?`, including their ${ptLabel} status`:""}.`}</p><div style={{display:"flex",justifyContent:"center"}}><img src={qrUrl} style={{borderRadius:12,border:"2px solid #E8DDD0",background:"#fff",padding:8}}/></div></Card></div>);
+    return <QRSection dog={dog} state={state} backBtn={backBtn}/>;
   }
 
   const tiles=[{id:"weight",icon:"weight",label:"Weight History",desc:"Track & chart weight over time",color:"#2D7D6F",locked:!premium},{id:"vets",icon:"map",label:"Saved Vets",desc:"Contacts + find vets nearby",color:"#2D7D6F",locked:false},{id:"docs",icon:"doc",label:"Documents",desc:"Upload vet records & certificates",color:"#E8A838",locked:!premium},{id:"qr",icon:"qr",label:"QR Health Card",desc:"Scannable card for any vet",color:"#5A4535",locked:!premium}];
