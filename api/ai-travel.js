@@ -1,10 +1,13 @@
-// Log AI usage to Supabase
+// api/ai-travel.js
+// Travel checklist generator with accurate usage logging
+
 async function logUsage({ userId, userEmail, feature, model, inputTokens, outputTokens, destination, success, error }) {
   try {
-    const costPer1kInput = 0.00015;  // gpt-4o-mini input
-    const costPer1kOutput = 0.0006;  // gpt-4o-mini output
+    // gpt-4o-mini pricing (as of 2025)
+    const costPer1kInput = 0.000150;
+    const costPer1kOutput = 0.000600;
     const estimatedCost = (inputTokens / 1000 * costPer1kInput) + (outputTokens / 1000 * costPer1kOutput);
-    await fetch(`${process.env.SUPABASE_URL}/rest/v1/ai_usage_log`, {
+    const res = await fetch(`${process.env.SUPABASE_URL}/rest/v1/ai_usage_log`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -14,19 +17,20 @@ async function logUsage({ userId, userEmail, feature, model, inputTokens, output
       body: JSON.stringify({
         user_id: userId || null,
         user_email: userEmail || null,
-        feature,
+        feature: 'travel_checklist',
         model,
         input_tokens: inputTokens,
         output_tokens: outputTokens,
         total_tokens: inputTokens + outputTokens,
         estimated_cost_usd: estimatedCost,
-        trip_destination: destination || null,
+        pet_name: destination || null,
         success,
         error_message: error || null,
       })
     });
+    if (!res.ok) console.error('Log usage failed:', await res.text());
   } catch (e) {
-    console.error('Failed to log usage:', e.message);
+    console.error('Failed to log travel usage:', e.message);
   }
 }
 
@@ -38,14 +42,21 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).end();
 
-  try {
-    const { messages } = req.body;
+  const { messages, userId, userEmail, destination } = req.body;
 
+  if (!messages || !Array.isArray(messages)) {
+    return res.status(400).json({ error: 'messages array required' });
+  }
+
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) return res.status(500).json({ error: 'OpenAI API key not configured' });
+
+  try {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+        'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         model: 'gpt-4o-mini',
@@ -56,28 +67,25 @@ export default async function handler(req, res) {
     });
 
     const data = await response.json();
+    const usage = data.usage || {};
 
-    // Log the raw content so we can see what OpenAI returned
-    const rawContent = data.choices?.[0]?.message?.content || '';
-    console.log('OpenAI raw response:', rawContent.slice(0, 500));
-
-    // Try to parse and validate it's a valid JSON array
-    const start = rawContent.indexOf('[');
-    const end = rawContent.lastIndexOf(']') + 1;
-    if (start === -1 || end === 0) {
-      console.error('No JSON array found in response:', rawContent.slice(0, 300));
-    } else {
-      try {
-        const parsed = JSON.parse(rawContent.slice(start, end));
-        console.log('Parsed items count:', parsed.length);
-      } catch (e) {
-        console.error('JSON parse error:', e.message, 'Content:', rawContent.slice(start, start + 200));
-      }
+    if (!response.ok) {
+      await logUsage({ userId, userEmail, model: 'gpt-4o-mini', inputTokens: 0, outputTokens: 0, destination, success: false, error: data.error?.message });
+      return res.status(500).json({ error: data.error?.message || 'OpenAI request failed' });
     }
 
+    await logUsage({
+      userId, userEmail, model: 'gpt-4o-mini',
+      inputTokens: usage.prompt_tokens || 0,
+      outputTokens: usage.completion_tokens || 0,
+      destination, success: true,
+    });
+
     return res.status(200).json(data);
+
   } catch (err) {
-    console.error('Handler error:', err.message);
+    console.error('Travel handler error:', err.message);
+    await logUsage({ userId, userEmail, model: 'gpt-4o-mini', inputTokens: 0, outputTokens: 0, destination, success: false, error: err.message });
     return res.status(500).json({ error: err.message });
   }
 }
