@@ -699,7 +699,8 @@ ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.i
 };
 
 // ── TRAVEL DASHBOARD ─────────────────────────────────────
-export default function TravelModule({ userId, dogs }) {
+export default function Travel({ userId, onBack }) {
+  const [dogs, setDogs] = useState([]);
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showNew, setShowNew] = useState(false);
@@ -707,7 +708,12 @@ export default function TravelModule({ userId, dogs }) {
   const [selectedTrip, setSelectedTrip] = useState(null);
   const [filter, setFilter] = useState("upcoming");
 
-  useEffect(() => { loadTrips(); }, [userId]);
+  useEffect(() => { loadTrips(); loadDogs(); }, [userId]);
+
+  const loadDogs = async () => {
+    const { data } = await supabase.from("dogs").select("*").eq("user_id", userId).order("name");
+    setDogs(data || []);
+  };
 
   const loadTrips = async () => {
     setLoading(true);
