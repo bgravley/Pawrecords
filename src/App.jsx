@@ -5,6 +5,7 @@ import Auth from "./components/Auth.jsx";
 import YourPetPass from "./PawRecord.jsx";
 import Admin from "./Admin.jsx";
 import Emergency from "./Emergency.jsx";
+import Travel from "./Travel.jsx";
 
 // Your admin email — only this account sees the admin dashboard
 const ADMIN_EMAIL = "bgravley@rdmarketingllc.com";
@@ -14,6 +15,7 @@ export default function App() {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showAdmin, setShowAdmin] = useState(false);
+  const [showTravel, setShowTravel] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -42,6 +44,7 @@ export default function App() {
     setSession(null);
     setProfile(null);
     setShowAdmin(false);
+    setShowTravel(false);
   };
 
   // Check for emergency route - no login needed
@@ -68,6 +71,10 @@ export default function App() {
     return <Admin onBack={() => setShowAdmin(false)} />;
   }
 
+  if (showTravel) {
+    return <Travel userId={session.user.id} onBack={() => setShowTravel(false)} />;
+  }
+
   return (
     <>
       <YourPetPass
@@ -76,6 +83,7 @@ export default function App() {
         onSignOut={handleSignOut}
         isAdmin={isAdmin}
         onOpenAdmin={() => setShowAdmin(true)}
+        onOpenTravel={() => setShowTravel(true)}
       />
     </>
   );
