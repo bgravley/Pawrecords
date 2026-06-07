@@ -1120,6 +1120,107 @@ const QRSection=({dog,state,backBtn})=>{
 };
 
 
+const OverviewTab=({dog,state,userId,tier,setModal,onUpgrade,onScan,dispatch})=>{
+  const vaccines=state.vaccinations.filter(v=>v.dog_id===dog.id);
+  const urgent=vaccines.filter(v=>v.next_due&&daysUntil(v.next_due)<=30);
+  const al=state.allergies.filter(a=>a.dog_id===dog.id);
+  const meds=state.medications.filter(m=>m.dog_id===dog.id&&m.active);
+  const sev=s=>({mild:"#2D7D6F",moderate:"#E8A838",severe:"#C4714A"}[s]||"#E8A838");
+  const premium=isPremium(tier);
+  const ptLabel=petTypeLabel(dog.pet_type);
+  const ptColor=petTypeColor(dog.pet_type);
+  const ptFull=dog.pet_type==="service_animal"?"Service Animal":dog.pet_type==="esa"?"Emotional Support Animal":null;
+  const ProfileRow=({label,value})=>value?(<div style={{display:"flex",flexDirection:"column",gap:3,padding:"10px 0",borderBottom:"1px solid #F0E8DC"}}><div style={{fontSize:11,fontWeight:700,color:"#8B7355",textTransform:"uppercase",letterSpacing:".06em"}}>{label}</div><div style={{fontWeight:500,fontSize:15,color:"#2C2017"}}>{value}</div></div>):null;
+  const age=dog.dob?Math.floor((Date.now()-new Date(dog.dob+"T12:00:00"))/(365.25*86400000)):null;
+  return(<div style={{display:"flex",flexDirection:"column",gap:14}}>
+    {ptFull&&ptColor&&(<Card style={{border:`2px solid ${ptColor}55`,background:ptColor+"0D",padding:16}}>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+        <span style={{fontSize:22}}>{dog.pet_type==="service_animal"?"🦺":"💙"}</span>
+        <div style={{flex:1}}><div style={{fontWeight:800,color:ptColor,fontSize:16}}>{ptFull}</div><div style={{fontSize:12,color:"#8B7355",marginTop:2}}>{dog.pet_type==="service_animal"?"Trained to perform specific tasks for a person with a disability":"Provides emotional support — different airline and housing rules apply"}</div></div>
+      </div>
+      <div style={{background:"#FFFFFF",borderRadius:10,padding:"10px 14px",fontSize:13,color:"#5A4535",lineHeight:1.6}}>{dog.pet_type==="service_animal"?"✈️ Service animals have special travel rights. Airlines must allow them in cabin. Carry documentation at all times.":"✈️ ESAs have different rules than service animals. Always check with airline and property before travel."}</div>
+      <div style={{marginTop:10,fontSize:13,fontWeight:600,color:dog.certification_doc_path?"#2D7D6F":"#8B7355"}}>{dog.certification_doc_path?"📋 Documentation uploaded ✓":"📋 No documentation — add via Edit Profile"}</div>
+    </Card>)}
+    {urgent.length>0&&(<Card style={{border:"1px solid #E8A83844",background:"#E8A83814"}}><div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10,color:"#E8A838",fontWeight:600,fontSize:14}}><Ic n="alert" s={15} c="#E8A838"/> Attention Needed</div>{urgent.map(v=>{const st=vSt(v.next_due);return(<div key={v.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:"1px solid #E8DDD044"}}><span style={{fontSize:14}}>{v.name}</span><Badge label={st.label} color={st.c}/></div>);})}</Card>)}
+    <Card>
+      <div style={{fontWeight:800,fontSize:12,color:"#5A4535",textTransform:"uppercase",letterSpacing:".08em",marginBottom:4}}>🐾 Pet Profile</div>
+      <ProfileRow label="Name" value={dog.name}/>
+      <ProfileRow label="Breed" value={dog.breed}/>
+      <ProfileRow label="Date of Birth" value={fmt(dog.dob)}/>
+      <ProfileRow label="Age" value={age!==null?`${age} years old`:null}/>
+      <ProfileRow label="Weight" value={dog.weight?`${dog.weight} lbs`:null}/>
+      <ProfileRow label="Color" value={dog.color}/>
+      <ProfileRow label="Gender" value={dog.gender?(dog.gender.charAt(0).toUpperCase()+dog.gender.slice(1))+(dog.neutered?" · Neutered/Spayed":""):null}/>
+      <ProfileRow label="Microchip" value={dog.microchip}/>
+      <ProfileRow label="Classification" value={ptFull||"Regular Pet"}/>
+      {(dog.emergency_contact||dog.emergency_phone)&&(<div style={{display:"flex",flexDirection:"column",gap:3,padding:"10px 0",borderBottom:"1px solid #F0E8DC"}}><div style={{fontSize:11,fontWeight:700,color:"#8B7355",textTransform:"uppercase",letterSpacing:".06em"}}>Emergency Contact</div><div style={{fontWeight:500,fontSize:15,color:"#2C2017",display:"flex",alignItems:"center",gap:8}}><Ic n="phone" s={14} c="#E8A838"/>{dog.emergency_contact}{dog.emergency_phone?` · ${dog.emergency_phone_code||""} ${dog.emergency_phone}`:""}</div></div>)}
+      {dog.notes&&<ProfileRow label="Notes" value={dog.notes}/>}
+    </Card>
+    {al.length>0&&(<Card style={{border:"1px solid #C4714A44"}}><div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10,color:"#C4714A",fontWeight:600,fontSize:14}}><Ic n="alert" s={15} c="#C4714A"/> Known Allergies</div>{al.map(a=>(<div key={a.id} style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderBottom:"1px solid #E8DDD044",fontSize:14}}><span><b>{a.allergen}</b> — {a.reaction}</span><Badge label={a.severity} color={sev(a.severity)}/></div>))}</Card>)}
+    {meds.length>0&&(<Card><div style={{fontWeight:600,marginBottom:10,fontSize:14,display:"flex",alignItems:"center",gap:8}}><Ic n="pill" s={14} c="#2D7D6F"/> Active Medications</div>{meds.map(m=>(<div key={m.id} style={{fontSize:14,padding:"6px 0",borderBottom:"1px solid #E8DDD044"}}><b>{m.name}</b> · {m.dosage} · {m.frequency}</div>))}</Card>)}
+  </div>);
+};
+
+const SchedulePanel=({vaccines,all})=>{
+  const[open,setOpen]=useState(false);
+  const missing=all.filter(rv=>!vaccines.find(v=>v.name===rv.name));
+  return(<div style={{borderRadius:14,border:"1px solid #E8DDD0",overflow:"hidden"}}>
+    <button onClick={()=>setOpen(p=>!p)} style={{width:"100%",display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 16px",background:"#FFFFFF",border:"none",cursor:"pointer",textAlign:"left"}}>
+      <div style={{display:"flex",alignItems:"center",gap:10}}><div style={{fontWeight:700,fontSize:14,color:"#2C2017"}}>Recommended Vaccine Schedule</div>{missing.length>0&&<span style={{background:"#E8A83820",color:"#E8A838",border:"1px solid #E8A83844",borderRadius:20,padding:"2px 8px",fontSize:11,fontWeight:700}}>{missing.length} not recorded</span>}</div>
+      <span style={{color:"#8B7355",fontSize:18,transition:"transform .2s",display:"inline-block",transform:open?"rotate(180deg)":"rotate(0deg)"}}>›</span>
+    </button>
+    {open&&(<div style={{background:"#FAF6F0",borderTop:"1px solid #E8DDD0",padding:"4px 0"}}>{all.map(rv=>{const rec=vaccines.find(v=>v.name===rv.name);const isCore=CORE_V.includes(rv);return(<div key={rv.name} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 16px",borderBottom:"1px solid #E8DDD044"}}><div><div style={{fontSize:13,fontWeight:600,color:"#2C2017"}}>{rv.name}</div><div style={{fontSize:11,color:"#8B7355",marginTop:2}}>{rv.note}</div></div>{rec?<Badge label="Recorded ✓" color="#2D7D6F"/>:<Badge label={isCore?"Required":"Optional"} color={isCore?"#E8A838":"#8B7355"}/>}</div>);})}</div>)}
+  </div>);
+};
+
+const VaccinesTab=({dog,state,dispatch,userId,tier,onUpgrade})=>{
+  const[modal,setModal]=useState(null);
+  const vaccines=state.vaccinations.filter(v=>v.dog_id===dog.id);
+  const all=[...CORE_V,...OPT_V];
+  const premium=isPremium(tier);
+  const delVacc=async(id)=>{await db.deleteVaccination(id);dispatch({t:"DEL_VACC",id});};
+  return(<div style={{display:"flex",flexDirection:"column",gap:12}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><h3 style={{fontFamily:"'Lora',serif",fontSize:20}}>Vaccinations</h3><Btn sm onClick={()=>setModal({type:"add"})}><Ic n="plus" s={14}/> Add</Btn></div>
+    {vaccines.length===0?<Empty icon="syringe" title="No vaccinations yet" sub="Record your first vaccination to get started." action={<Btn onClick={()=>setModal({type:"add"})}><Ic n="plus" s={14}/> Record Vaccination</Btn>}/>:vaccines.map(v=>{const st=vSt(v.next_due);return(<Card key={v.id}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}><div style={{flex:1}}><div style={{display:"flex",flexWrap:"wrap",alignItems:"center",gap:8,marginBottom:4}}><span style={{fontWeight:600}}>{v.name}</span><Badge label={v.type==="core"?"CORE":"OPTIONAL"} color="#2D7D6F"/></div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:4,fontSize:12,color:"#5A4535",marginTop:4}}><span>Given: {fmt(v.date_given)}</span><span>Vet: {v.vet_name||"—"}</span></div></div><div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:8}}><Badge label={st.label} color={st.c}/><div style={{display:"flex",gap:5}}>{v.next_due&&<button title="Add to Calendar" onClick={()=>exportICS(dog.name,v.name,v.next_due)} style={{background:"#2D7D6F14",border:"1px solid #2D7D6F44",borderRadius:8,padding:"5px 8px",color:"#2D7D6F"}}><Ic n="cal" s={13}/></button>}<button onClick={()=>setModal({type:"edit",v})} style={{background:"#FFFFFF",border:"1px solid #E8DDD0",borderRadius:8,padding:"5px 8px",color:"#5A4535"}}><Ic n="edit" s={13}/></button><button onClick={()=>delVacc(v.id)} style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:8,padding:"5px 8px",color:"#C4714A"}}><Ic n="trash" s={13}/></button></div></div></div></Card>);})}
+    {premium?<SchedulePanel vaccines={vaccines} all={all}/>:<PremiumLock onUpgrade={onUpgrade} label="Vaccine Schedule — Premium Feature"/>}
+    {modal?.type==="add"&&<VaccineForm dogId={dog.id} userId={userId} onSave={v=>{dispatch({t:"ADD_VACC",v});setModal(null);}} onClose={()=>setModal(null)}/>}
+    {modal?.type==="edit"&&<VaccineForm vacc={modal.v} dogId={dog.id} userId={userId} onSave={v=>{dispatch({t:"UPD_VACC",v});setModal(null);}} onClose={()=>setModal(null)}/>}
+  </div>);
+};
+
+const HealthTab=({dog,state,dispatch,userId,tier,onUpgrade})=>{
+  const[modal,setModal]=useState(null);
+  const meds=state.medications.filter(m=>m.dog_id===dog.id);
+  const al=state.allergies.filter(a=>a.dog_id===dog.id);
+  const sev=s=>({mild:"#2D7D6F",moderate:"#E8A838",severe:"#C4714A"}[s]||"#E8A838");
+  const delMed=async(id)=>{await db.deleteMedication(id);dispatch({t:"DEL_MED",id});};
+  const delAlrg=async(id)=>{await db.deleteAllergy(id);dispatch({t:"DEL_ALRG",id});};
+  return(<div style={{display:"flex",flexDirection:"column",gap:14}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><h3 style={{fontFamily:"'Lora',serif",fontSize:20}}>Health</h3><div style={{display:"flex",gap:8}}><Btn sm v="secondary" onClick={()=>setModal({type:"addAlrg"})}><Ic n="alert" s={13}/> Allergy</Btn><Btn sm onClick={()=>setModal({type:"addMed"})}><Ic n="pill" s={13}/> Med</Btn></div></div>
+    <div style={{fontSize:11,fontWeight:700,color:"#C4714A",textTransform:"uppercase",letterSpacing:".06em"}}>⚠ Allergies</div>
+    {al.length===0?<Card style={{borderStyle:"dashed"}}><div style={{color:"#5A4535",fontSize:14,textAlign:"center",padding:"12px 0"}}>No allergies recorded. <span style={{color:"#2D7D6F",cursor:"pointer"}} onClick={()=>setModal({type:"addAlrg"})}>Add one</span></div></Card>:al.map(a=>(<Card key={a.id} style={{border:`1px solid ${sev(a.severity)}44`}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div><div style={{fontWeight:600,display:"flex",alignItems:"center",gap:8,marginBottom:4}}>{a.allergen} <Badge label={a.severity.toUpperCase()} color={sev(a.severity)}/></div><div style={{fontSize:13,color:"#5A4535"}}>Reaction: {a.reaction}</div></div><div style={{display:"flex",gap:5}}><button onClick={()=>setModal({type:"editAlrg",a})} style={{background:"#FFFFFF",border:"1px solid #E8DDD0",borderRadius:8,padding:"5px 8px",color:"#5A4535"}}><Ic n="edit" s={13}/></button><button onClick={()=>delAlrg(a.id)} style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:8,padding:"5px 8px",color:"#C4714A"}}><Ic n="trash" s={13}/></button></div></div></Card>))}
+    <div style={{fontSize:11,fontWeight:700,color:"#2D7D6F",textTransform:"uppercase",letterSpacing:".06em"}}>Medications</div>
+    {meds.filter(m=>m.active).map(m=>(<Card key={m.id} style={{borderColor:"#2D7D6F44"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div><div style={{fontWeight:600,marginBottom:4}}>{m.name} <span style={{background:"#2D7D6F14",color:"#2D7D6F",fontSize:11,padding:"2px 8px",borderRadius:20}}>ACTIVE</span></div><div style={{fontSize:13,color:"#5A4535"}}>{m.dosage} · {m.frequency}</div></div><div style={{display:"flex",gap:5}}><button onClick={()=>setModal({type:"editMed",m})} style={{background:"#FFFFFF",border:"1px solid #E8DDD0",borderRadius:8,padding:"5px 8px",color:"#5A4535"}}><Ic n="edit" s={13}/></button><button onClick={()=>delMed(m.id)} style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:8,padding:"5px 8px",color:"#C4714A"}}><Ic n="trash" s={13}/></button></div></div></Card>))}
+    {meds.length===0&&<Empty icon="pill" title="No medications" sub="Add current or past medications." action={<Btn onClick={()=>setModal({type:"addMed"})}><Ic n="plus" s={14}/> Add Medication</Btn>}/>}
+    {modal?.type==="addMed"&&<MedForm dogId={dog.id} userId={userId} onSave={m=>{dispatch({t:"ADD_MED",m});setModal(null);}} onClose={()=>setModal(null)}/>}
+    {modal?.type==="editMed"&&<MedForm med={modal.m} dogId={dog.id} userId={userId} onSave={m=>{dispatch({t:"UPD_MED",m});setModal(null);}} onClose={()=>setModal(null)}/>}
+    {modal?.type==="addAlrg"&&<AllergyForm dogId={dog.id} userId={userId} onSave={x=>{dispatch({t:"ADD_ALRG",x});setModal(null);}} onClose={()=>setModal(null)}/>}
+    {modal?.type==="editAlrg"&&<AllergyForm allergy={modal.a} dogId={dog.id} userId={userId} onSave={x=>{dispatch({t:"UPD_ALRG",x});setModal(null);}} onClose={()=>setModal(null)}/>}
+  </div>);
+};
+
+const RecordsTab=({dog,state,dispatch,userId})=>{
+  const[modal,setModal]=useState(null);
+  const visits=state.visits.filter(v=>v.dog_id===dog.id).sort((a,b)=>b.visit_date.localeCompare(a.visit_date));
+  const delVisit=async(id)=>{await db.deleteVisit(id);dispatch({t:"DEL_VISIT",id});};
+  return(<div style={{display:"flex",flexDirection:"column",gap:12}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><h3 style={{fontFamily:"'Lora',serif",fontSize:20}}>Vet Visits</h3><Btn sm onClick={()=>setModal({type:"add"})}><Ic n="plus" s={14}/> Log Visit</Btn></div>
+    {visits.length===0?<Empty icon="stethoscope" title="No visits logged" sub="Track every vet visit for a complete history." action={<Btn onClick={()=>setModal({type:"add"})}><Ic n="plus" s={14}/> Log Visit</Btn>}/>:visits.map(v=>(<Card key={v.id}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div style={{flex:1}}><div style={{fontWeight:600}}>{v.reason}</div><div style={{fontSize:12,color:"#5A4535",marginTop:2}}>{fmt(v.visit_date)}{v.vet_name?` · ${v.vet_name}`:""}{v.clinic?` @ ${v.clinic}`:""}</div>{v.diagnosis&&<div style={{fontSize:13,marginTop:6}}><span style={{color:"#8B7355"}}>Dx: </span>{v.diagnosis}</div>}{v.treatment&&<div style={{fontSize:13}}><span style={{color:"#8B7355"}}>Tx: </span>{v.treatment}</div>}{v.cost&&<div style={{fontSize:13,color:"#2D7D6F",marginTop:4}}>${v.cost}</div>}</div><div style={{display:"flex",gap:5,marginLeft:10}}><button onClick={()=>setModal({type:"edit",v})} style={{background:"#FFFFFF",border:"1px solid #E8DDD0",borderRadius:8,padding:"5px 8px",color:"#5A4535"}}><Ic n="edit" s={13}/></button><button onClick={()=>delVisit(v.id)} style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:8,padding:"5px 8px",color:"#C4714A"}}><Ic n="trash" s={13}/></button></div></div></Card>))}
+    {modal?.type==="add"&&<VisitForm dogId={dog.id} userId={userId} onSave={v=>{dispatch({t:"ADD_VISIT",v});setModal(null);}} onClose={()=>setModal(null)}/>}
+    {modal?.type==="edit"&&<VisitForm visit={modal.v} dogId={dog.id} userId={userId} onSave={v=>{dispatch({t:"UPD_VISIT",v});setModal(null);}} onClose={()=>setModal(null)}/>}
+  </div>);
+};
+
 const MoreTab=({dog,state,dispatch,userId,tier,onUpgrade})=>{
   const[section,setSection]=useState(null);
   const[modal,setModal]=useState(null);
