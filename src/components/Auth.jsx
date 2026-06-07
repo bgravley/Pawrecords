@@ -1,6 +1,66 @@
 // src/components/Auth.jsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
+
+const EmergencyLookup = ({ onBack }) => {
+  const [pets, setPets] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      // Only fetch pets that have a QR code generated (emergency_token is set)
+      const { data } = await supabase
+        .from("dogs")
+        .select("id, name, breed, color, photo_url, emergency_token, pet_type")
+        .not("emergency_token", "is", null)
+        .order("name");
+      setPets(data || []);
+      setLoading(false);
+    };
+    load();
+  }, []);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <button onClick={onBack} style={{ background: "none", border: "none", cursor: "pointer", color: "#8B7355", fontSize: 22, alignSelf: "flex-start", lineHeight: 1 }}>←</button>
+      <div style={{ textAlign: "center" }}>
+        <div style={{ fontSize: 36, marginBottom: 8 }}>🚨</div>
+        <div style={{ fontFamily: "'Lora', serif", fontSize: 22, color: "#2C2017", marginBottom: 4 }}>Emergency Pet Lookup</div>
+        <div style={{ fontSize: 13, color: "#8B7355", lineHeight: 1.6 }}>Select the pet to view their health record.</div>
+      </div>
+      {loading
+        ? <div style={{ textAlign: "center", padding: 20, color: "#8B7355" }}>Loading...</div>
+        : pets.length === 0
+          ? <div style={{ textAlign: "center", padding: 20, color: "#8B7355", fontSize: 14 }}>
+              No pets found. Scan the QR code on the pet's tag to access their record.
+            </div>
+          : <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {pets.map(pet => (
+                <button key={pet.id} onClick={() => window.location.href = `/emergency/${pet.emergency_token}`}
+                  style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", background: "#FAF6F0", border: "1px solid #E8DDD0", borderRadius: 14, cursor: "pointer", textAlign: "left", width: "100%" }}
+                  onMouseEnter={e => e.currentTarget.style.borderColor = "#2D7D6F"}
+                  onMouseLeave={e => e.currentTarget.style.borderColor = "#E8DDD0"}>
+                  {pet.photo_url
+                    ? <img src={pet.photo_url} style={{ width: 56, height: 56, borderRadius: "50%", objectFit: "cover", border: "2px solid #2D7D6F", flexShrink: 0 }} />
+                    : <div style={{ width: 56, height: 56, borderRadius: "50%", background: "#2D7D6F25", border: "2px solid #2D7D6F", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0, fontFamily: "'Lora', serif", fontWeight: 700, color: "#2D7D6F" }}>
+                        {pet.name[0]}
+                      </div>}
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 700, fontSize: 16, color: "#2C2017", marginBottom: 2 }}>{pet.name}</div>
+                    <div style={{ fontSize: 13, color: "#5A4535" }}>{pet.breed || "Dog"}{pet.color ? ` · ${pet.color}` : ""}</div>
+                    {pet.pet_type && pet.pet_type !== "pet" && (
+                      <div style={{ fontSize: 11, color: "#2D7D6F", fontWeight: 700, marginTop: 2 }}>
+                        {pet.pet_type === "service_animal" ? "🦺 Service Animal" : "💙 ESA"}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 20, color: "#8B7355" }}>›</div>
+                </button>
+              ))}
+            </div>}
+    </div>
+  );
+};
 
 const C = {
   bg: "#1E5C52",
@@ -234,37 +294,7 @@ export default function Auth() {
         )}
 
         {/* EMERGENCY LOOKUP */}
-        {mode === "emergency" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <button onClick={() => { setMode("landing"); clearErr(); }} style={{ background: "none", border: "none", cursor: "pointer", color: C.muted, fontSize: 22, alignSelf: "flex-start", lineHeight: 1 }}>←</button>
-            <div style={{ textAlign: "center", marginBottom: 4 }}>
-              <div style={{ fontSize: 36, marginBottom: 8 }}>🚨</div>
-              <div style={{ fontFamily: "'Lora', serif", fontSize: 22, color: C.text, marginBottom: 4 }}>Emergency Pet Lookup</div>
-              <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.6 }}>Enter the pet's emergency code from their tag or QR code to access their health record.</div>
-            </div>
-            <input
-              style={{ ...inp, textAlign: "center", letterSpacing: ".05em", fontSize: 16 }}
-              placeholder="Emergency code (e.g. abc123xyz)"
-              value={email}
-              onChange={e => setEmail(e.target.value.trim())}
-              autoCapitalize="none"
-              autoCorrect="off"
-            />
-            {error && <div style={{ background: "#C4714A14", border: "1px solid #C4714A44", borderRadius: 10, padding: 10, fontSize: 13, color: C.danger }}>{error}</div>}
-            <button
-              disabled={!email || loading}
-              onClick={() => {
-                if (!email) return;
-                window.location.href = `/emergency/${email}`;
-              }}
-              style={{ ...btn("#C4714A"), opacity: email ? 1 : 0.5 }}>
-              View Health Record
-            </button>
-            <div style={{ fontSize: 12, color: C.muted, textAlign: "center", lineHeight: 1.6 }}>
-              The emergency code is the last part of the URL on the pet's QR code tag — e.g. <b>yourpetpass.com/emergency/<span style={{color:C.accent}}>abc123xyz</span></b>
-            </div>
-          </div>
-        )}
+        {mode === "emergency" && <EmergencyLookup onBack={() => { setMode("landing"); clearErr(); }} />}
 
         {/* FORGOT PASSWORD */}
         {mode === "forgot" && (
