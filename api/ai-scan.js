@@ -1,5 +1,7 @@
 // api/ai-scan.js
-// Smart document scanner — detects document type and extracts accordingly
+// Smart document scanner with rate limiting:
+// - Premium: 20 AI scans/month
+// - Free: 0 (AI scan is premium only)
 
 async function logUsage({ userId, userEmail, petName, feature, model, inputTokens, outputTokens, success, error }) {
   try {
@@ -32,6 +34,42 @@ async function logUsage({ userId, userEmail, petName, feature, model, inputToken
   }
 }
 
+async function checkRateLimit(userId) {
+  // Count scans this calendar month for this user
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+
+  const res = await fetch(
+    `${process.env.SUPABASE_URL}/rest/v1/ai_usage_log?user_id=eq.${userId}&feature=eq.document_scan&success=eq.true&created_at=gte.${monthStart}&select=id`,
+    {
+      headers: {
+        'apikey': process.env.SUPABASE_SERVICE_KEY,
+        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
+        'Prefer': 'count=exact',
+        'Range-Unit': 'items',
+        'Range': '0-0',
+      }
+    }
+  );
+  const countHeader = res.headers.get('content-range');
+  const count = countHeader ? parseInt(countHeader.split('/')[1]) || 0 : 0;
+  return count;
+}
+
+async function getUserTier(userId) {
+  const res = await fetch(
+    `${process.env.SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=subscription_tier`,
+    {
+      headers: {
+        'apikey': process.env.SUPABASE_SERVICE_KEY,
+        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
+      }
+    }
+  );
+  const data = await res.json();
+  return data?.[0]?.subscription_tier || 'free';
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -43,6 +81,33 @@ export default async function handler(req, res) {
   try {
     const { imageBase64, mediaType, images, userId, userEmail, petName } = req.body;
 
+    // Check user tier and rate limit
+    if (userId) {
+      const tier = await getUserTier(userId);
+      const isPremium = tier === 'premium' || tier === 'lifetime';
+
+      if (!isPremium) {
+        return res.status(403).json({
+          error: 'AI Document Scan is a Premium feature. Upgrade to scan documents.',
+          rateLimitExceeded: false,
+          requiresUpgrade: true,
+        });
+      }
+
+      const scanCount = await checkRateLimit(userId);
+      const MONTHLY_LIMIT = 20;
+
+      if (scanCount >= MONTHLY_LIMIT) {
+        return res.status(429).json({
+          error: `Monthly scan limit reached (${MONTHLY_LIMIT} scans/month). Resets on the 1st of next month.`,
+          rateLimitExceeded: true,
+          scansUsed: scanCount,
+          scansLimit: MONTHLY_LIMIT,
+        });
+      }
+    }
+
+    // Normalize images
     let imageList = [];
     if (images && Array.isArray(images)) {
       imageList = images;
@@ -75,7 +140,6 @@ Return ONLY raw JSON, no markdown, no explanation:
 {
   "documentType": "vet_visit" | "service_animal_cert" | "esa_letter" | "health_certificate" | "vaccine_record" | "unknown",
   "documentSummary": "one sentence describing what this document is",
-
   "vetVisit": {
     "visitDate": "YYYY-MM-DD or null",
     "vetName": "string or null",
@@ -83,31 +147,29 @@ Return ONLY raw JSON, no markdown, no explanation:
     "reason": "string or null",
     "diagnosis": "string or null",
     "treatment": "string or null",
-    "weight": number_or_null,
-    "cost": number_or_null,
+    "weight": null,
+    "cost": null,
     "notes": "string or null",
     "vaccines": [{"name":"string","dateGiven":"YYYY-MM-DD or null","nextDue":"YYYY-MM-DD or null","lotNumber":"string or null","type":"core or optional"}],
     "medications": [{"name":"string","dosage":"string or null","frequency":"string or null","reason":"string or null"}],
     "allergies": [{"allergen":"string","reaction":"string or null","severity":"mild or moderate or severe"}]
   },
-
   "serviceAnimal": {
     "petName": "string or null",
     "petType": "service_animal",
     "breed": "string or null",
     "dateOfBirth": "YYYY-MM-DD or null",
     "microchip": "string or null",
-    "weight": number_or_null,
+    "weight": null,
     "handlerName": "string or null",
     "certificationNumber": "string or null",
     "issuingOrganization": "string or null",
     "issueDate": "YYYY-MM-DD or null",
     "expirationDate": "YYYY-MM-DD or null",
-    "tasksPerformed": ["string"],
+    "tasksPerformed": [],
     "trainerName": "string or null",
     "trainerCertification": "string or null"
   },
-
   "esaLetter": {
     "petName": "string or null",
     "petType": "esa",
@@ -119,27 +181,24 @@ Return ONLY raw JSON, no markdown, no explanation:
     "expirationDate": "YYYY-MM-DD or null",
     "issuingPractice": "string or null"
   },
-
   "healthCertificate": {
     "visitDate": "YYYY-MM-DD or null",
     "vetName": "string or null",
     "clinicName": "string or null",
     "destination": "string or null",
     "validThrough": "YYYY-MM-DD or null",
-    "weight": number_or_null,
+    "weight": null,
     "microchip": "string or null",
-    "vaccines": [{"name":"string","dateGiven":"YYYY-MM-DD or null","nextDue":"YYYY-MM-DD or null","lotNumber":"string or null","type":"core or optional"}]
+    "vaccines": []
   }
 }
 
 Rules:
-- Only populate the section matching the documentType. Leave other sections as null or empty arrays.
+- Only populate the section matching the documentType. Leave others as null/empty.
 - Rabies/DHPP/DA2PP = core vaccines. All others = optional.
 - Calculate nextDue if missing: Rabies=12mo, DHPP/DA2PP=36mo, others=12mo from dateGiven.
 - Weight always in lbs as a number only.
 - Cost as number only, no $ sign.
-- Allergy severity: use "mild", "moderate", or "severe" only.
-- If document type is unknown, still fill in whatever fields you can find.
 - Return only the JSON. Nothing else.`;
 
     const contentArray = imageList.map(img => ({
@@ -151,11 +210,7 @@ Rules:
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'gpt-4o',
-        max_tokens: 2500,
-        messages: [{ role: 'user', content: contentArray }]
-      })
+      body: JSON.stringify({ model: 'gpt-4o', max_tokens: 2500, messages: [{ role: 'user', content: contentArray }] })
     });
 
     if (!response.ok) {
