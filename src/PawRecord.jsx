@@ -1713,7 +1713,7 @@ const OwnerProfileModal=({userId,tier,userEmail,onUpgrade,onClose})=>{
   useEffect(()=>{
     const load=async()=>{
       const{data:prof}=await supabase.from("profiles").select("*").eq("id",userId).single();
-      if(prof)setF({fullName:prof.full_name||"",phoneCode:prof.phone_country_code||"+1",phone:prof.phone||"",whatsapp:prof.whatsapp||"",whatsappCode:prof.whatsapp_country_code||"+1",country:prof.country||"",city:prof.city||"",state:prof.state||"",zip:prof.zip||"",address:prof.address||"",instagram:prof.instagram||"",facebook:prof.facebook||"",twitter:prof.twitter||"",photo:prof.photo_url||""});
+      if(prof)setF({fullName:prof.full_name||"",phoneCode:prof.phone_country_code||"+1",phone:prof.phone||"",whatsapp:prof.whatsapp||"",whatsappCode:prof.whatsapp_country_code||"+1",country:prof.country||"",city:prof.city||"",state:prof.state||"",zip:prof.zip||"",address:prof.address||"",instagram:prof.instagram||"",facebook:prof.facebook||"",twitter:prof.twitter||"",photo:prof.photo_url||"",emailNotifications:prof.email_notifications!==false});
       const{data:ec}=await supabase.from("emergency_contacts").select("*").eq("user_id",userId).order("sort_order");
       setContacts(ec||[]);
       setLoading(false);
@@ -1724,7 +1724,7 @@ const OwnerProfileModal=({userId,tier,userEmail,onUpgrade,onClose})=>{
   const saveProfile=async()=>{
     setSaving(true);
     try{
-      const profUpdate={full_name:f.fullName,phone:f.phone,phone_country_code:f.phoneCode,whatsapp:f.whatsapp,whatsapp_country_code:f.whatsappCode,address:f.address,city:f.city,state:f.state,zip:f.zip,country:f.country,instagram:f.instagram,facebook:f.facebook,twitter:f.twitter};
+      const profUpdate={full_name:f.fullName,phone:f.phone,phone_country_code:f.phoneCode,whatsapp:f.whatsapp,whatsapp_country_code:f.whatsappCode,address:f.address,city:f.city,state:f.state,zip:f.zip,country:f.country,instagram:f.instagram,facebook:f.facebook,twitter:f.twitter,email_notifications:f.emailNotifications};
       if(f.photo&&f.photo.startsWith("data:")){
         const blob=await(await fetch(f.photo)).blob();
         const path=`${userId}/profile_photo.jpg`;
@@ -1816,7 +1816,19 @@ const OwnerProfileModal=({userId,tier,userEmail,onUpgrade,onClose})=>{
           <div style={{display:"flex",alignItems:"center",gap:10}}><span style={{fontSize:20,width:28}}>🐦</span><input value={f.twitter} onChange={e=>set("twitter",e.target.value)} placeholder="X/Twitter (@yourhandle)"/></div>
         </div>
       </div>
-      <Btn onClick={saveProfile} disabled={saving} full>{saving?"Saving...":"Save Profile"}</Btn>
+      <div style={{background:"#FAF6F0",borderRadius:12,padding:"14px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+        <div>
+          <div style={{fontWeight:700,fontSize:14,color:"#2C2017"}}>Email Notifications</div>
+          <div style={{fontSize:12,color:"#8B7355",marginTop:2}}>Vaccine reminders, travel deadlines, weekly digest</div>
+        </div>
+        <label style={{position:"relative",display:"inline-block",width:46,height:26,cursor:"pointer"}}>
+          <input type="checkbox" checked={f.emailNotifications!==false} onChange={e=>set("emailNotifications",e.target.checked)} style={{opacity:0,width:0,height:0,position:"absolute"}}/>
+          <div style={{position:"absolute",inset:0,background:f.emailNotifications!==false?"#2D7D6F":"#E8DDD0",borderRadius:13,transition:"background .2s"}}>
+            <div style={{position:"absolute",left:f.emailNotifications!==false?22:2,top:2,width:22,height:22,background:"#FFFFFF",borderRadius:"50%",transition:"left .2s",boxShadow:"0 1px 3px rgba(0,0,0,0.2)"}}/>
+          </div>
+        </label>
+      </div>
+      <Btn onClick={saveProfile} disabled={saving} full style={{justifyContent:"center",background:saved?"#2D7D6F":undefined}}>{saving?"Saving...":saved?"✓ Saved!":"Save Profile"}</Btn>
       {/* Emergency Contacts */}
       <div>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
