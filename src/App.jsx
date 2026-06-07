@@ -4,6 +4,7 @@ import { supabase } from "./lib/supabase";
 import Auth from "./components/Auth.jsx";
 import YourPetPass from "./PawRecord.jsx";
 import Admin from "./Admin.jsx";
+import Emergency from "./Emergency.jsx";
 
 // Your admin email — only this account sees the admin dashboard
 const ADMIN_EMAIL = "bgravley@rdmarketingllc.com";
@@ -42,6 +43,13 @@ export default function App() {
     setProfile(null);
     setShowAdmin(false);
   };
+
+  // Check for emergency route - no login needed
+  const path = window.location.pathname;
+  const emergencyMatch = path.match(/^\/emergency\/([a-z0-9]+)$/i);
+  if (emergencyMatch) {
+    return <Emergency token={emergencyMatch[1]} />;
+  }
 
   if (loading) return (
     <div style={{ minHeight: "100vh", background: "#FAF6F0", display: "flex", alignItems: "center", justifyContent: "center" }}>
