@@ -448,19 +448,50 @@ export default function Admin({ onBack }) {
                 </select>
               </div>
               <div>
-                <label style={{ fontSize: 11, color: C.sub, textTransform: "uppercase", letterSpacing: ".05em", display: "block", marginBottom: 6 }}>Full Name</label>
-                <input id="name-input" defaultValue={editUser.full_name || ""}
-                  style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: "9px 12px", color: C.text, fontSize: 14, width: "100%", outline: "none" }} />
+                <label style={{ fontSize: 11, color: C.sub, textTransform: 'uppercase', letterSpacing: '.05em', display: 'block', marginBottom: 6 }}>Full Name</label>
+                <input id="name-input" defaultValue={editUser.full_name || ''}
+                  style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '9px 12px', color: C.text, fontSize: 14, width: '100%', outline: 'none' }} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ fontSize: 11, color: C.sub, textTransform: 'uppercase', letterSpacing: '.05em', display: 'block', marginBottom: 6 }}>
+                    AI Scan Limit / Month
+                    <span style={{ color: C.warn, marginLeft: 4, fontWeight: 400, textTransform: 'none' }}>(default: 20)</span>
+                  </label>
+                  <input id="scan-limit-input" type="number" min="0" max="999"
+                    defaultValue={editUser.ai_scan_limit_override !== null && editUser.ai_scan_limit_override !== undefined ? editUser.ai_scan_limit_override : ''}
+                    placeholder="20 (default)"
+                    style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '9px 12px', color: C.text, fontSize: 14, width: '100%', outline: 'none' }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 11, color: C.sub, textTransform: 'uppercase', letterSpacing: '.05em', display: 'block', marginBottom: 6 }}>
+                    Travel Limit / Month
+                    <span style={{ color: C.warn, marginLeft: 4, fontWeight: 400, textTransform: 'none' }}>(default: 8)</span>
+                  </label>
+                  <input id="travel-limit-input" type="number" min="0" max="999"
+                    defaultValue={editUser.ai_travel_limit_override !== null && editUser.ai_travel_limit_override !== undefined ? editUser.ai_travel_limit_override : ''}
+                    placeholder="8 (default)"
+                    style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '9px 12px', color: C.text, fontSize: 14, width: '100%', outline: 'none' }} />
+                </div>
+              </div>
+              <div style={{ fontSize: 12, color: C.sub, marginTop: -6 }}>
+                Leave blank to use the default. Set to a high number (e.g. 999) to give unlimited access to testers or affiliates.
               </div>
               <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
                 <button onClick={() => setEditUser(null)}
                   style={{ flex: 1, background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px", color: C.sub, cursor: "pointer", fontWeight: 600 }}>
                   Cancel
                 </button>
-                <button onClick={() => updateUser(editUser.id, {
-                  subscription_tier: document.getElementById("tier-select").value,
-                  full_name: document.getElementById("name-input").value,
-                })}
+                <button onClick={() => {
+                  const scanVal = document.getElementById('scan-limit-input').value;
+                  const travelVal = document.getElementById('travel-limit-input').value;
+                  updateUser(editUser.id, {
+                    subscription_tier: document.getElementById('tier-select').value,
+                    full_name: document.getElementById('name-input').value,
+                    ai_scan_limit_override: scanVal !== '' ? parseInt(scanVal) : null,
+                    ai_travel_limit_override: travelVal !== '' ? parseInt(travelVal) : null,
+                  });
+                }}
                   style={{ flex: 1, background: C.accent, border: "none", borderRadius: 8, padding: "10px", color: "#fff", cursor: "pointer", fontWeight: 600 }}>
                   Save Changes
                 </button>
