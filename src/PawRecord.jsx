@@ -1080,6 +1080,11 @@ const QRSection=({dog,state,backBtn})=>{
     setGenerating(false);
   };
 
+  // Auto-generate if pet doesn't have a token yet
+  useEffect(()=>{
+    if(!token&&!generating){generateToken();}
+  },[]);
+
   const emergencyUrl=token?`https://yourpetpass.com/emergency/${token}`:"";
   const qrUrl=token?`https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(emergencyUrl)}`:"";
 
@@ -1102,18 +1107,14 @@ const QRSection=({dog,state,backBtn})=>{
           Anyone who scans it (a vet, border agent, dog sitter) sees the complete record instantly in their browser.
         </div>
 
-        {!token?(
-          <div style={{textAlign:"center",padding:"20px 0"}}>
-            <div style={{fontSize:40,marginBottom:12}}>🔲</div>
-            <div style={{fontFamily:"'Lora',serif",fontSize:18,marginBottom:8}}>No QR code yet</div>
-            <div style={{color:"#8B7355",fontSize:13,marginBottom:20}}>Generate a unique emergency link for {dog.name}</div>
-            <Btn onClick={generateToken} disabled={generating} style={{margin:"0 auto",justifyContent:"center"}}>
-              {generating?"Generating...":"Generate QR Code"}
-            </Btn>
+        {!token||generating?(
+          <div style={{textAlign:"center",padding:"28px 0"}}>
+            <div style={{fontSize:13,color:"#8B7355"}}>{generating?"Generating your QR code...":"Loading..."}</div>
           </div>
         ):(
           <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:16}}>
             <img src={qrUrl} style={{borderRadius:12,border:"2px solid #E8DDD0",background:"#fff",padding:10,width:240,height:240}}/>
+            {/* Shareable link */}
             <div style={{width:"100%",background:"#FAF6F0",borderRadius:10,padding:"10px 14px",display:"flex",alignItems:"center",gap:8}}>
               <span style={{fontSize:12,color:"#5A4535",flex:1,wordBreak:"break-all"}}>{emergencyUrl}</span>
               <button onClick={copyLink} style={{background:"#2D7D6F",color:"#fff",border:"none",borderRadius:8,padding:"6px 12px",fontSize:12,fontWeight:600,cursor:"pointer",flexShrink:0}}>
@@ -1129,8 +1130,8 @@ const QRSection=({dog,state,backBtn})=>{
               </Btn>
             </div>
             <div style={{fontSize:12,color:"#8B7355",textAlign:"center",lineHeight:1.6}}>
-              💡 Print this QR code and attach it to {dog.name}'s collar tag or carrier.
-              Tap "Regenerate" to invalidate the old link if needed.
+              💡 Print this QR code and attach it to {dog.name}'s collar tag or carrier.<br/>
+              Tap "Regenerate" only if you need to invalidate the old link.
             </div>
           </div>
         )}
@@ -1900,12 +1901,48 @@ const OwnerProfileModal=({userId,tier,userEmail,onUpgrade,onClose})=>{
   </Modal>);
 };
 
+const AlertsModal=({state,onClose,onSelectDog})=>{
+  const alertPets=state.dogs.map(dog=>{
+    const vacc=state.vaccinations.filter(v=>v.dog_id===dog.id&&v.next_due&&daysUntil(v.next_due)<=30);
+    const overdue=vacc.filter(v=>daysUntil(v.next_due)<0);
+    const dueSoon=vacc.filter(v=>daysUntil(v.next_due)>=0);
+    return{dog,overdue,dueSoon,total:vacc.length};
+  }).filter(p=>p.total>0);
+  return(<Modal title="Health Alerts" onClose={onClose}>
+    {alertPets.length===0?(<div style={{textAlign:"center",padding:32,color:"#8B7355"}}>No alerts — all vaccines are up to date ✓</div>)
+    :(<div style={{display:"flex",flexDirection:"column",gap:14}}>
+      {alertPets.map(({dog,overdue,dueSoon})=>(<div key={dog.id} style={{background:"#FAF6F0",borderRadius:12,overflow:"hidden",border:"1px solid #E8DDD0"}}>
+        <div style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",background:"#FFFFFF",borderBottom:"1px solid #E8DDD044",cursor:"pointer"}} onClick={()=>{onSelectDog(dog.id);onClose();}}>
+          <Avatar dog={dog} size={38}/>
+          <div style={{flex:1}}>
+            <div style={{fontWeight:700,fontSize:15}}>{dog.name}</div>
+            <div style={{fontSize:12,color:"#8B7355"}}>{overdue.length>0?`${overdue.length} overdue`:""}{overdue.length>0&&dueSoon.length>0?" · ":""}{dueSoon.length>0?`${dueSoon.length} due soon`:""}</div>
+          </div>
+          <Ic n="chevR" s={16} c="#8B7355"/>
+        </div>
+        <div style={{padding:"8px 14px",display:"flex",flexDirection:"column",gap:6}}>
+          {overdue.map(v=>{const d=Math.abs(daysUntil(v.next_due));return(<div key={v.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:"1px solid #F0E8DC"}}>
+            <span style={{fontSize:14}}>{v.name}</span>
+            <span style={{fontSize:12,color:"#C4714A",fontWeight:700,background:"#C4714A14",padding:"2px 8px",borderRadius:6}}>Overdue {d===0?"today":`${d}d`}</span>
+          </div>);})}
+          {dueSoon.map(v=>{const d=daysUntil(v.next_due);return(<div key={v.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:"1px solid #F0E8DC"}}>
+            <span style={{fontSize:14}}>{v.name}</span>
+            <span style={{fontSize:12,color:"#E8A838",fontWeight:700,background:"#E8A83814",padding:"2px 8px",borderRadius:6}}>{d===0?"Due today":`Due in ${d}d`}</span>
+          </div>);})}
+        </div>
+      </div>))}
+    </div>)}
+  </Modal>);
+};
+
 const Home=({state,dispatch,userId,tier,userEmail,onSignOut,isAdmin,onOpenAdmin,onOpenTravel})=>{
   const[addDog,setAddDog]=useState(false);
   const[selDog,setSelDog]=useState(null);
   const[showUpgrade,setShowUpgrade]=useState(false);
   const[showProfile,setShowProfile]=useState(false);
+  const[showAlerts,setShowAlerts]=useState(false);
   const[errorCount,setErrorCount]=useState(0);
+  const[upcomingTrips,setUpcomingTrips]=useState([]);
   const premium=isPremium(tier);
 
   useEffect(()=>{
@@ -1924,6 +1961,15 @@ const Home=({state,dispatch,userId,tier,userEmail,onSignOut,isAdmin,onOpenAdmin,
     return()=>clearInterval(interval);
   },[isAdmin]);
 
+  useEffect(()=>{
+    const loadTrips=async()=>{
+      const today=new Date().toISOString().split("T")[0];
+      const{data}=await supabase.from("trips").select("*").eq("user_id",userId).neq("status","cancelled").gte("departure_date",today).order("departure_date").limit(3);
+      setUpcomingTrips(data||[]);
+    };
+    loadTrips();
+  },[userId]);
+
   if(selDog){
     const dog=state.dogs.find(d=>d.id===selDog);
     if(dog)return <DogDetail dog={dog} state={state} dispatch={dispatch} userId={userId} tier={tier} userEmail={userEmail} onBack={()=>setSelDog(null)} onUpgrade={()=>setShowUpgrade(true)}/>;
@@ -1941,7 +1987,7 @@ const Home=({state,dispatch,userId,tier,userEmail,onSignOut,isAdmin,onOpenAdmin,
         </div>
         <div style={{display:"flex",alignItems:"center",gap:8}}>
           {!premium&&<button onClick={()=>setShowUpgrade(true)} style={{background:"#E8A83820",border:"1px solid #E8A83844",borderRadius:10,padding:"7px 12px",color:"#E8A838",fontWeight:600,fontSize:12,display:"flex",alignItems:"center",gap:5,cursor:"pointer"}}><Ic n="crown" s={13} c="#E8A838"/>Premium</button>}
-          {totalAlerts>0&&<div style={{background:"#E8A83814",border:"1px solid #E8A83844",borderRadius:10,padding:"7px 12px",display:"flex",alignItems:"center",gap:5,color:"#E8A838",fontSize:13}}><Ic n="alert" s={14} c="#E8A838"/>{totalAlerts}</div>}
+          {totalAlerts>0&&<button onClick={()=>setShowAlerts(true)} style={{background:"#E8A83814",border:"1px solid #E8A83844",borderRadius:10,padding:"7px 12px",display:"flex",alignItems:"center",gap:5,color:"#E8A838",fontSize:13,cursor:"pointer"}}><Ic n="alert" s={14} c="#E8A838"/>{totalAlerts}</button>}
           <button onClick={onOpenTravel} title="Travel" style={{background:"#FFFFFF",border:"1px solid #E8DDD0",borderRadius:10,padding:"7px 10px",color:"#5A4535",cursor:"pointer"}}><Ic n="map" s={16} c="#5A4535"/></button>
           <button onClick={()=>setShowProfile(true)} title="My Account" style={{background:"#FFFFFF",border:"1px solid #E8DDD0",borderRadius:10,padding:"7px 10px",color:"#5A4535",cursor:"pointer"}}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5A4535" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1995,14 +2041,48 @@ const Home=({state,dispatch,userId,tier,userEmail,onSignOut,isAdmin,onOpenAdmin,
             </Card>);
           })}
         </div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginTop:18}}>
-          {[{l:"Pets",v:state.dogs.length,i:"paw",c:"#2D7D6F"},{l:"Vaccines",v:state.vaccinations.length,i:"syringe",c:"#2D7D6F"},{l:"Visits",v:state.visits.length,i:"stethoscope",c:"#5A4535"}].map(s=>(<Card key={s.l} style={{padding:14,textAlign:"center"}}><div style={{color:s.c,marginBottom:6}}><Ic n={s.i} s={18} c={s.c}/></div><div style={{fontFamily:"'Lora',serif",fontSize:22}}>{s.v}</div><div style={{fontSize:11,color:"#5A4535"}}>{s.l}</div></Card>))}
+        {/* Upcoming Travel Section */}
+        <div style={{marginTop:24}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+            <h2 style={{fontFamily:"'Lora',serif",fontSize:20}}>✈️ Upcoming Travel</h2>
+            <Btn sm onClick={onOpenTravel}><Ic n="plus" s={14}/> Add Trip</Btn>
+          </div>
+          {upcomingTrips.length===0?(
+            <Card style={{textAlign:"center",padding:"22px 16px"}}>
+              <div style={{fontSize:28,marginBottom:8}}>🗺️</div>
+              <div style={{fontFamily:"'Lora',serif",fontSize:16,marginBottom:6}}>No upcoming trips</div>
+              <div style={{fontSize:13,color:"#8B7355",marginBottom:14}}>Plan your next adventure and generate AI-powered travel docs.</div>
+              <Btn sm onClick={onOpenTravel} style={{margin:"0 auto",justifyContent:"center"}}>Plan a Trip</Btn>
+            </Card>
+          ):(
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              {upcomingTrips.map(trip=>{
+                const daysAway=Math.ceil((new Date(trip.departure_date)-new Date())/(1000*60*60*24));
+                const urgency=daysAway<=7?"#C4714A":daysAway<=30?"#E8A838":"#2D7D6F";
+                return(<Card key={trip.id} onClick={onOpenTravel} style={{cursor:"pointer"}}>
+                  <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:12}}>
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:700,fontSize:15,marginBottom:3}}>{trip.name||`${trip.origin_city} → ${trip.destination_city}`}</div>
+                      <div style={{fontSize:13,color:"#5A4535",marginBottom:6}}>{trip.origin_country} → {trip.destination_country}</div>
+                      {trip.airline&&<div style={{fontSize:12,color:"#8B7355"}}>{trip.airline}{trip.flight_number?` · ${trip.flight_number}`:""}</div>}
+                    </div>
+                    <div style={{textAlign:"right",flexShrink:0}}>
+                      <div style={{fontSize:12,color:urgency,fontWeight:700,background:`${urgency}14`,padding:"3px 8px",borderRadius:6,marginBottom:4}}>{daysAway===0?"Today":daysAway===1?"Tomorrow":`${daysAway}d away`}</div>
+                      <div style={{fontSize:11,color:"#8B7355"}}>{new Date(trip.departure_date+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric"})}</div>
+                    </div>
+                  </div>
+                </Card>);
+              })}
+              <button onClick={onOpenTravel} style={{background:"none",border:"none",color:"#2D7D6F",fontWeight:600,fontSize:13,cursor:"pointer",padding:"4px 0",textAlign:"left"}}>View all travel →</button>
+            </div>
+          )}
         </div>
       </>)}
     </div>
     {addDog&&<DogForm userId={userId} userEmail={userEmail} onSave={d=>{dispatch({t:"ADD_DOG",d});setAddDog(false);}} onClose={()=>setAddDog(false)}/>}
     {showUpgrade&&<UpgradeModal userId={userId} userEmail={userEmail} onClose={()=>setShowUpgrade(false)}/>}
     {showProfile&&<OwnerProfileModal userId={userId} tier={tier} userEmail={userEmail} onUpgrade={()=>{setShowProfile(false);setShowUpgrade(true);}} onClose={()=>setShowProfile(false)}/>}
+    {showAlerts&&<AlertsModal state={state} onClose={()=>setShowAlerts(false)} onSelectDog={(id)=>setSelDog(id)}/>}
     {/* Bottom nav */}
     <div style={{position:"fixed",bottom:0,left:0,right:0,background:"#FFFFFF",borderTop:"1px solid #E8DDD0",display:"flex",zIndex:200,paddingBottom:"env(safe-area-inset-bottom)"}}>
       <button style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"10px 0",background:"none",border:"none",cursor:"pointer",color:"#2D7D6F",borderTop:"2px solid #2D7D6F"}}>
