@@ -1191,13 +1191,72 @@ const SchedulePanel=({vaccines,all})=>{
 
 const VaccinesTab=({dog,state,dispatch,userId,tier,onUpgrade})=>{
   const[modal,setModal]=useState(null);
+  const[filter,setFilter]=useState("");
   const vaccines=state.vaccinations.filter(v=>v.dog_id===dog.id);
   const all=[...CORE_V,...OPT_V];
   const premium=isPremium(tier);
   const delVacc=async(id)=>{await db.deleteVaccination(id);dispatch({t:"DEL_VACC",id});};
+  const filtered=vaccines.filter(v=>!filter||v.name.toLowerCase().includes(filter.toLowerCase()));
+  const core=filtered.filter(v=>v.type==="core");
+  const optional=filtered.filter(v=>v.type!=="core");
+
+  const VaccCard=({v})=>{
+    const st=vSt(v.next_due);
+    const isOverdue=v.next_due&&daysUntil(v.next_due)<0;
+    const isDueSoon=v.next_due&&daysUntil(v.next_due)>=0&&daysUntil(v.next_due)<=30;
+    const borderColor=isOverdue?"#C4714A":isDueSoon?"#E8A838":"#2D7D6F";
+    return(
+      <div style={{background:"#FFFFFF",border:"1px solid #E8DDD0",borderRadius:14,borderLeft:`4px solid ${borderColor}`,overflow:"hidden",boxShadow:"0 2px 8px rgba(44,32,23,0.06)"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 14px 8px"}}>
+          <span style={{fontWeight:700,fontSize:15}}>{v.name}</span>
+          <div style={{display:"flex",gap:5}}>
+            {v.next_due&&<button title="Add to Calendar" onClick={()=>exportICS(dog.name,v.name,v.next_due)} style={{background:"#2D7D6F14",border:"1px solid #2D7D6F44",borderRadius:8,padding:"5px 8px",color:"#2D7D6F"}}><Ic n="cal" s={13}/></button>}
+            <button onClick={()=>setModal({type:"edit",v})} style={{background:"#FFFFFF",border:"1px solid #E8DDD0",borderRadius:8,padding:"5px 8px",color:"#5A4535"}}><Ic n="edit" s={13}/></button>
+            <button onClick={()=>delVacc(v.id)} style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:8,padding:"5px 8px",color:"#C4714A"}}><Ic n="trash" s={13}/></button>
+          </div>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",borderTop:"1px solid #F0E8DC",background:"#FAF6F0"}}>
+          <div style={{padding:"10px 14px",borderRight:"1px solid #F0E8DC"}}>
+            <div style={{fontSize:10,fontWeight:700,color:"#8B7355",textTransform:"uppercase",letterSpacing:".06em",marginBottom:3}}>Last Given</div>
+            <div style={{fontSize:14,fontWeight:600,color:"#2C2017"}}>{fmt(v.date_given)||"—"}</div>
+            {v.vet_name&&<div style={{fontSize:11,color:"#8B7355",marginTop:1}}>{v.vet_name}</div>}
+          </div>
+          <div style={{padding:"10px 14px",background:borderColor+"10"}}>
+            <div style={{fontSize:10,fontWeight:700,color:"#8B7355",textTransform:"uppercase",letterSpacing:".06em",marginBottom:3}}>Next Due</div>
+            <div style={{fontSize:14,fontWeight:700,color:borderColor}}>{v.next_due?fmt(v.next_due):"Not set"}</div>
+            <div style={{fontSize:11,color:borderColor,fontWeight:600,marginTop:1}}>{st.label}</div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return(<div style={{display:"flex",flexDirection:"column",gap:12}}>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><h3 style={{fontFamily:"'Lora',serif",fontSize:20}}>Vaccinations</h3><Btn sm onClick={()=>setModal({type:"add"})}><Ic n="plus" s={14}/> Add</Btn></div>
-    {vaccines.length===0?<Empty icon="syringe" title="No vaccinations yet" sub="Record your first vaccination to get started." action={<Btn onClick={()=>setModal({type:"add"})}><Ic n="plus" s={14}/> Record Vaccination</Btn>}/>:vaccines.map(v=>{const st=vSt(v.next_due);return(<Card key={v.id}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10}}><div style={{flex:1}}><div style={{display:"flex",flexWrap:"wrap",alignItems:"center",gap:8,marginBottom:4}}><span style={{fontWeight:600}}>{v.name}</span><Badge label={v.type==="core"?"CORE":"OPTIONAL"} color="#2D7D6F"/></div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:4,fontSize:12,color:"#5A4535",marginTop:4}}><span>Given: {fmt(v.date_given)}</span><span>Vet: {v.vet_name||"—"}</span></div></div><div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:8}}><Badge label={st.label} color={st.c}/><div style={{display:"flex",gap:5}}>{v.next_due&&<button title="Add to Calendar" onClick={()=>exportICS(dog.name,v.name,v.next_due)} style={{background:"#2D7D6F14",border:"1px solid #2D7D6F44",borderRadius:8,padding:"5px 8px",color:"#2D7D6F"}}><Ic n="cal" s={13}/></button>}<button onClick={()=>setModal({type:"edit",v})} style={{background:"#FFFFFF",border:"1px solid #E8DDD0",borderRadius:8,padding:"5px 8px",color:"#5A4535"}}><Ic n="edit" s={13}/></button><button onClick={()=>delVacc(v.id)} style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:8,padding:"5px 8px",color:"#C4714A"}}><Ic n="trash" s={13}/></button></div></div></div></Card>);})}
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+      <h3 style={{fontFamily:"'Lora',serif",fontSize:20}}>Vaccinations {vaccines.length>0&&<span style={{fontSize:14,color:"#8B7355",fontFamily:"'Nunito',sans-serif"}}>({vaccines.length})</span>}</h3>
+      <Btn sm onClick={()=>setModal({type:"add"})}><Ic n="plus" s={14}/> Add</Btn>
+    </div>
+    {vaccines.length>2&&(
+      <input value={filter} onChange={e=>setFilter(e.target.value)} placeholder="Search vaccines..."
+        style={{background:"#FAF6F0",border:"1.5px solid #E8DDD0",borderRadius:10,padding:"9px 14px",fontSize:14,color:"#2C2017",outline:"none",fontFamily:"'Nunito',sans-serif"}}/>
+    )}
+    {vaccines.length===0
+      ?<Empty icon="syringe" title="No vaccinations yet" sub="Record your first vaccination to get started." action={<Btn onClick={()=>setModal({type:"add"})}><Ic n="plus" s={14}/> Record Vaccination</Btn>}/>
+      :<>
+        {core.length>0&&<>
+          <div style={{fontSize:11,fontWeight:800,color:"#2D7D6F",textTransform:"uppercase",letterSpacing:".08em",display:"flex",alignItems:"center",gap:6,marginTop:4}}>
+            <span style={{width:8,height:8,borderRadius:"50%",background:"#2D7D6F",display:"inline-block"}}/>Core Vaccines
+          </div>
+          {core.map(v=><VaccCard key={v.id} v={v}/>)}
+        </>}
+        {optional.length>0&&<>
+          <div style={{fontSize:11,fontWeight:800,color:"#8B7355",textTransform:"uppercase",letterSpacing:".08em",display:"flex",alignItems:"center",gap:6,marginTop:4}}>
+            <span style={{width:8,height:8,borderRadius:"50%",background:"#8B7355",display:"inline-block"}}/>Optional Vaccines
+          </div>
+          {optional.map(v=><VaccCard key={v.id} v={v}/>)}
+        </>}
+        {filter&&filtered.length===0&&<div style={{textAlign:"center",padding:"20px 0",color:"#8B7355",fontSize:14}}>No vaccines matching "{filter}"</div>}
+      </>}
     {premium?<SchedulePanel vaccines={vaccines} all={all}/>:<PremiumLock onUpgrade={onUpgrade} label="Vaccine Schedule — Premium Feature"/>}
     {modal?.type==="add"&&<VaccineForm dogId={dog.id} userId={userId} onSave={v=>{dispatch({t:"ADD_VACC",v});setModal(null);}} onClose={()=>setModal(null)}/>}
     {modal?.type==="edit"&&<VaccineForm vacc={modal.v} dogId={dog.id} userId={userId} onSave={v=>{dispatch({t:"UPD_VACC",v});setModal(null);}} onClose={()=>setModal(null)}/>}
@@ -1482,7 +1541,14 @@ const DogDetail=({dog,state,dispatch,userId,tier,onBack,onUpgrade,userEmail})=>{
       {/* Main header */}
       <div style={{background:"#1E5C52",padding:"14px 16px"}}>
         <div style={{display:"flex",alignItems:"center",gap:10,maxWidth:680,margin:"0 auto"}}>
-          <button onClick={onBack} style={{background:"rgba(255,255,255,0.2)",border:"1px solid rgba(255,255,255,0.3)",borderRadius:10,padding:"8px 10px",color:"#FFFFFF"}}><Ic n="chevL" s={18}/></button>
+          <div style={{display:"flex",gap:6}}>
+          <button onClick={onBack} title="Back to My Pets" style={{background:"rgba(255,255,255,0.2)",border:"1px solid rgba(255,255,255,0.3)",borderRadius:10,padding:"8px 10px",color:"#FFFFFF"}}><Ic n="chevL" s={18}/></button>
+          <button onClick={onBack} title="Home" style={{background:"rgba(255,255,255,0.2)",border:"1px solid rgba(255,255,255,0.3)",borderRadius:10,padding:"8px 10px",color:"#FFFFFF"}}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+            </svg>
+          </button>
+        </div>
           <Avatar dog={dog} size={40}/>
           <div style={{flex:1}}>
             <div style={{display:"flex",alignItems:"center",gap:8}}>
@@ -1769,13 +1835,20 @@ const Home=({state,dispatch,userId,tier,userEmail,onSignOut,isAdmin,onOpenAdmin}
     <div style={{background:"#1E5C52",padding:"16px 16px"}}>
       <div style={{maxWidth:680,margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
         <div>
-          <div style={{fontFamily:"'Lora',serif",fontSize:28,color:"#FFFFFF"}}>🐾 <span style={{fontWeight:900}}>Your</span><span style={{color:"#F5C45E",fontWeight:900}}>Pet</span><span style={{fontWeight:900}}>Pass</span></div>
-          <div style={{fontSize:13,color:"#F5C45E",marginTop:1,fontStyle:"italic",fontFamily:"Lora,serif"}}>Your pet's health passport</div>
+          <button onClick={()=>{setSelDog(null);window.scrollTo(0,0);}} style={{background:"none",border:"none",cursor:"pointer",textAlign:"left",padding:0}}>
+            <div style={{fontFamily:"'Lora',serif",fontSize:28,color:"#FFFFFF"}}>🐾 <span style={{fontWeight:900}}>Your</span><span style={{color:"#F5C45E",fontWeight:900}}>Pet</span><span style={{fontWeight:900}}>Pass</span></div>
+            <div style={{fontSize:13,color:"#F5C45E",marginTop:1,fontStyle:"italic",fontFamily:"Lora,serif"}}>Your pet's health passport</div>
+          </button>
         </div>
         <div style={{display:"flex",alignItems:"center",gap:8}}>
           {!premium&&<button onClick={()=>setShowUpgrade(true)} style={{background:"#E8A83820",border:"1px solid #E8A83844",borderRadius:10,padding:"7px 12px",color:"#E8A838",fontWeight:600,fontSize:12,display:"flex",alignItems:"center",gap:5,cursor:"pointer"}}><Ic n="crown" s={13} c="#E8A838"/>Premium</button>}
           {totalAlerts>0&&<div style={{background:"#E8A83814",border:"1px solid #E8A83844",borderRadius:10,padding:"7px 12px",display:"flex",alignItems:"center",gap:5,color:"#E8A838",fontSize:13}}><Ic n="alert" s={14} c="#E8A838"/>{totalAlerts}</div>}
-          <button onClick={()=>setShowProfile(true)} title="My Account" style={{background:"#FFFFFF",border:"1px solid #E8DDD0",borderRadius:10,padding:"7px 10px",color:"#5A4535",cursor:"pointer"}}><Ic n="home" s={16} c="#5A4535"/></button>
+          <button onClick={()=>setShowProfile(true)} title="My Account" style={{background:"#FFFFFF",border:"1px solid #E8DDD0",borderRadius:10,padding:"7px 10px",color:"#5A4535",cursor:"pointer"}}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5A4535" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
+              <circle cx="12" cy="7" r="4"/>
+            </svg>
+          </button>
           {isAdmin&&<button onClick={onOpenAdmin} title="Admin Dashboard" style={{position:"relative",background:"#1E5C52",border:"1px solid #2D7D6F44",borderRadius:10,padding:"7px 10px",color:"#FFFFFF",cursor:"pointer",fontSize:11,fontWeight:700}}>
   ⚙ Admin
   {errorCount>0&&<span style={{position:"absolute",top:-6,right:-6,background:"#C4714A",color:"#fff",borderRadius:"50%",width:18,height:18,fontSize:10,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700}}>{errorCount}</span>}
