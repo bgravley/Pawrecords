@@ -1,8 +1,28 @@
 // api/ai-scan.js
 // Smart document scanner with rate limiting:
-// - Premium: 20 AI scans/month
+// - Premium: 20 AI scans/month (overridable per user in Admin)
 // - Free: 0 (AI scan is premium only)
 
+// ── MIME validation ────────────────────────────────────────────────────────
+// Checks the actual base64 content matches the declared media type.
+// Prevents someone from renaming a file to trick the scanner.
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'];
+const MAGIC = {
+  'image/jpeg':      '/9j/',
+  'image/png':       'iVBOR',
+  'image/gif':       'R0lG',
+  'image/webp':      'UklGR',
+  'application/pdf': 'JVBER',
+};
+
+function validateMime(base64, declaredType) {
+  if (!ALLOWED_TYPES.includes(declaredType)) return false;
+  const prefix = (base64 || '').slice(0, 8);
+  const expected = MAGIC[declaredType];
+  return expected ? prefix.startsWith(expected) : false;
+}
+
+// ── Logging ────────────────────────────────────────────────────────────────
 async function logUsage({ userId, userEmail, petName, feature, model, inputTokens, outputTokens, success, error }) {
   try {
     const costPer1kInput = 0.0025;
@@ -34,11 +54,10 @@ async function logUsage({ userId, userEmail, petName, feature, model, inputToken
   }
 }
 
+// ── Rate limit ─────────────────────────────────────────────────────────────
 async function checkRateLimit(userId) {
-  // Count scans this calendar month for this user
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-
   const res = await fetch(
     `${process.env.SUPABASE_URL}/rest/v1/ai_usage_log?user_id=eq.${userId}&feature=eq.document_scan&success=eq.true&created_at=gte.${monthStart}&select=id`,
     {
@@ -52,13 +71,13 @@ async function checkRateLimit(userId) {
     }
   );
   const countHeader = res.headers.get('content-range');
-  const count = countHeader ? parseInt(countHeader.split('/')[1]) || 0 : 0;
-  return count;
+  return countHeader ? parseInt(countHeader.split('/')[1]) || 0 : 0;
 }
 
-async function getUserTier(userId) {
+// ── User profile (tier + limit override) ──────────────────────────────────
+async function getUserProfile(userId) {
   const res = await fetch(
-    `${process.env.SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=subscription_tier`,
+    `${process.env.SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=subscription_tier,ai_scan_limit_override`,
     {
       headers: {
         'apikey': process.env.SUPABASE_SERVICE_KEY,
@@ -67,9 +86,13 @@ async function getUserTier(userId) {
     }
   );
   const data = await res.json();
-  return data?.[0]?.subscription_tier || 'free';
+  return {
+    tier: data?.[0]?.subscription_tier || 'free',
+    scanLimitOverride: data?.[0]?.ai_scan_limit_override ?? null,
+  };
 }
 
+// ── Handler ────────────────────────────────────────────────────────────────
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -81,9 +104,9 @@ export default async function handler(req, res) {
   try {
     const { imageBase64, mediaType, images, userId, userEmail, petName } = req.body;
 
-    // Check user tier and rate limit
+    // ── Auth / tier / rate limit ──────────────────────────────────────────
     if (userId) {
-      const tier = await getUserTier(userId);
+      const { tier, scanLimitOverride } = await getUserProfile(userId);
       const isPremium = tier === 'premium' || tier === 'lifetime';
 
       if (!isPremium) {
@@ -95,7 +118,8 @@ export default async function handler(req, res) {
       }
 
       const scanCount = await checkRateLimit(userId);
-      const MONTHLY_LIMIT = 20;
+      // Use per-user override if set, otherwise default 20
+      const MONTHLY_LIMIT = scanLimitOverride !== null ? scanLimitOverride : 20;
 
       if (scanCount >= MONTHLY_LIMIT) {
         return res.status(429).json({
@@ -107,7 +131,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // Normalize images
+    // ── Normalize image list ──────────────────────────────────────────────
     let imageList = [];
     if (images && Array.isArray(images)) {
       imageList = images;
@@ -117,6 +141,16 @@ export default async function handler(req, res) {
 
     if (imageList.length === 0) return res.status(400).json({ error: 'No image data provided' });
     if (imageList.length > 4) return res.status(400).json({ error: 'Maximum 4 images per scan' });
+
+    // ── MIME validation ───────────────────────────────────────────────────
+    for (const img of imageList) {
+      const declaredType = img.mediaType || 'image/jpeg';
+      if (!validateMime(img.base64, declaredType)) {
+        return res.status(400).json({
+          error: `Invalid file type. Only JPEG, PNG, GIF, WebP, and PDF are allowed.`,
+        });
+      }
+    }
 
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) return res.status(500).json({ error: 'OpenAI API key not configured' });
