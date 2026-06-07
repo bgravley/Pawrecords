@@ -383,6 +383,59 @@ const BottomNav=({tab,setTab,alerts})=>{
   );
 };
 
+
+const DeletePetModal=({dog,onConfirm,onClose})=>{
+  const[step,setStep]=useState(1);
+  const[typing,setTyping]=useState("");
+
+  return(
+    <div style={{position:"fixed",inset:0,background:"#000000cc",zIndex:600,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+      <div style={{background:"#FFFFFF",borderRadius:20,padding:28,width:"100%",maxWidth:420,border:"2px solid #C4714A44"}} className="fade">
+        {step===1&&<>
+          <div style={{textAlign:"center",marginBottom:20}}>
+            <div style={{fontSize:40,marginBottom:12}}>⚠️</div>
+            <div style={{fontFamily:"'Lora',serif",fontSize:22,color:"#C4714A",marginBottom:8}}>Delete {dog.name}?</div>
+            <div style={{fontSize:14,color:"#5A4535",lineHeight:1.7}}>
+              This will permanently delete <b>{dog.name}'s</b> entire profile including all vaccines, medications, visits, and records.<br/><br/>
+              <b>This cannot be undone.</b>
+            </div>
+          </div>
+          <div style={{display:"flex",gap:10}}>
+            <Btn v="secondary" onClick={onClose} full>Cancel — Keep {dog.name}</Btn>
+            <Btn onClick={()=>setStep(2)} style={{background:"#C4714A",color:"#fff",justifyContent:"center"}} full>Yes, Delete</Btn>
+          </div>
+        </>}
+        {step===2&&<>
+          <div style={{textAlign:"center",marginBottom:20}}>
+            <div style={{fontSize:40,marginBottom:12}}>🗑️</div>
+            <div style={{fontFamily:"'Lora',serif",fontSize:22,color:"#C4714A",marginBottom:8}}>Are you absolutely sure?</div>
+            <div style={{fontSize:14,color:"#5A4535",lineHeight:1.7,marginBottom:16}}>
+              Type <b>{dog.name}</b> below to confirm deletion.
+            </div>
+            <input
+              value={typing}
+              onChange={e=>setTyping(e.target.value)}
+              placeholder={`Type "${dog.name}" to confirm`}
+              style={{width:"100%",padding:"12px 16px",borderRadius:10,border:`2px solid ${typing===dog.name?"#C4714A":"#E8DDD0"}`,fontSize:15,background:"#FAF6F0",color:"#2C2017",outline:"none",fontFamily:"'Nunito',sans-serif",boxSizing:"border-box"}}
+            />
+          </div>
+          <div style={{display:"flex",gap:10}}>
+            <Btn v="secondary" onClick={onClose} full>Cancel</Btn>
+            <Btn
+              onClick={()=>typing===dog.name&&onConfirm()}
+              disabled={typing!==dog.name}
+              style={{background:"#C4714A",color:"#fff",justifyContent:"center",opacity:typing===dog.name?1:0.4}}
+              full>
+              Delete Forever
+            </Btn>
+          </div>
+        </>}
+      </div>
+    </div>
+  );
+};
+
+
 const DogForm=({dog,userId,userEmail,onSave,onClose})=>{
   const[f,setF]=useState(dog?{name:dog.name,breed:dog.breed||"",dob:dog.dob||"",weight:dog.weight||"",gender:dog.gender||"male",neutered:dog.neutered||false,microchip:dog.microchip||"",color:dog.color||"",emergencyContact:dog.emergency_contact||"",emergencyPhone:dog.emergency_phone||"",notes:dog.notes||"",photo:dog.photo_url||"",petType:dog.pet_type||"pet"}:{name:"",breed:"",dob:"",weight:"",gender:"male",neutered:false,microchip:"",color:"",emergencyContact:"",emergencyPhone:"",emergencyPhoneCode:"+1",emergencyWhatsapp:"",emergencyWhatsappCode:"+1",notes:"",photo:"",petType:"pet"});
   const[saving,setSaving]=useState(false);
@@ -399,6 +452,20 @@ const DogForm=({dog,userId,userEmail,onSave,onClose})=>{
     if(dog){const{data}=await db.updateDog({...payload,id:dog.id});result=data;}
     else{const{data}=await db.addDog(userId,payload);result=data;}
     if(result){
+      // Upload photo if a new one was selected (base64 data URL)
+      if(f.photo&&f.photo.startsWith("data:")){
+        try{
+          const blob=await(await fetch(f.photo)).blob();
+          const ext=blob.type.includes("png")?"png":"jpg";
+          const path=`${userId}/pets/${result.id}/profile.${ext}`;
+          const{error:upErr}=await supabase.storage.from("documents").upload(path,blob,{upsert:true,contentType:blob.type});
+          if(!upErr){
+            const{data:urlData}=supabase.storage.from("documents").getPublicUrl(path);
+            await supabase.from("dogs").update({photo_url:urlData.publicUrl}).eq("id",result.id);
+            result.photo_url=urlData.publicUrl;
+          }
+        }catch(e){console.error("Photo upload failed:",e);}
+      }
       if(certFile){
         const path=`${userId}/certs/${result.id}_${certFile.name}`;
         await supabase.storage.from("documents").upload(path,certFile,{upsert:true});
@@ -1207,9 +1274,26 @@ const DogDetail=({dog,state,dispatch,userId,tier,onBack,onUpgrade,userEmail})=>{
   const[modal,setModal]=useState(null);
   const[showScan,setShowScan]=useState(false);
   const[showUpgrade,setShowUpgrade]=useState(false);
+  const[showDelete,setShowDelete]=useState(false);
   const urgent=state.vaccinations.filter(v=>v.dog_id===dog.id&&v.next_due&&daysUntil(v.next_due)<=30).length;
   const premium=isPremium(tier);
   const upgrade=()=>setShowUpgrade(true);
+
+  const handleDeletePet=async()=>{
+    // Delete all related records first
+    await Promise.all([
+      supabase.from("vaccinations").delete().eq("dog_id",dog.id),
+      supabase.from("medications").delete().eq("dog_id",dog.id),
+      supabase.from("allergies").delete().eq("dog_id",dog.id),
+      supabase.from("visits").delete().eq("dog_id",dog.id),
+      supabase.from("weights").delete().eq("dog_id",dog.id),
+      supabase.from("documents").delete().eq("dog_id",dog.id),
+    ]);
+    await supabase.from("dogs").delete().eq("id",dog.id);
+    dispatch({t:"DEL_DOG",id:dog.id});
+    onBack();
+  };
+
   const ptLabel=petTypeLabel(dog.pet_type);
   const ptColor=petTypeColor(dog.pet_type);
   return(<div style={{minHeight:"100vh",background:"#FAF6F0",paddingBottom:80}}>
@@ -1250,6 +1334,15 @@ const DogDetail=({dog,state,dispatch,userId,tier,onBack,onUpgrade,userEmail})=>{
               <span style={{fontSize:11,fontWeight:600}}>{btn.label}</span>
             </button>
           ))}
+          <button onClick={()=>setShowDelete(true)}
+            style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3,
+              background:"rgba(196,113,74,0.25)",border:"1px solid rgba(196,113,74,0.4)",
+              borderRadius:10,padding:"7px 10px",color:"#FFAA88",cursor:"pointer",transition:"opacity .15s"}}
+            onMouseEnter={e=>e.currentTarget.style.opacity="0.8"}
+            onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
+            <Ic n="trash" s={15} c="#FFAA88"/>
+            <span style={{fontSize:11,fontWeight:600}}>Delete</span>
+          </button>
         </div>
       </div>
     </div>
@@ -1262,6 +1355,7 @@ const DogDetail=({dog,state,dispatch,userId,tier,onBack,onUpgrade,userEmail})=>{
     </div>
     <BottomNav tab={tab} setTab={setTab} alerts={urgent}/>
     {modal==="editDog"&&<DogForm dog={dog} userId={userId} userEmail={userEmail} onSave={d=>{dispatch({t:"UPD_DOG",d});setModal(null);}} onClose={()=>setModal(null)}/>}
+    {showDelete&&<DeletePetModal dog={dog} onConfirm={handleDeletePet} onClose={()=>setShowDelete(false)}/>}
     {modal==="share"&&<ShareModal dog={dog} onClose={()=>setModal(null)}/>}
     {showScan&&<AIScanModal dog={dog} userId={userId} userEmail={userEmail} onSave={async()=>{const[{data:v},{data:m},{data:vis},{data:al}]=await Promise.all([db.getVaccinations(userId),db.getMedications(userId),db.getVisits(userId),db.getAllergies(userId)]);dispatch({t:'LOAD',s:{dogs:state.dogs,vaccinations:v||[],medications:m||[],allergies:al||[],visits:vis||[],weights:state.weights,vets:state.vets,documents:state.documents}});}} onClose={()=>setShowScan(false)}/>}
     {showUpgrade&&<UpgradeModal userId={userId} userEmail={userEmail} onClose={()=>setShowUpgrade(false)}/>}
