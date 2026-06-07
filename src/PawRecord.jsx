@@ -186,7 +186,13 @@ const exportHTML=(dog,state)=>{
   const ptLabel=petTypeLabel(dog.pet_type);
   const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${dog.name} Medical Records</title>
 <style>body{font-family:Georgia,serif;max-width:720px;margin:40px auto;padding:0 24px;color:#111}h1{font-size:26px;margin-bottom:4px}.gen{color:#666;font-size:13px;margin-bottom:32px}h2{font-size:14px;font-weight:700;text-transform:uppercase;border-bottom:2px solid #111;padding-bottom:6px;margin:28px 0 14px}table{width:100%;border-collapse:collapse;font-size:13px}th{background:#f2f2f2;padding:8px 10px;text-align:left}td{padding:8px 10px;border-bottom:1px solid #e8e8e8;vertical-align:top}.core{background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700}.opt{background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:20px;font-size:11px}.sa{background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700}.esa{background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700}footer{margin-top:48px;color:#aaa;font-size:12px;border-top:1px solid #eee;padding-top:16px}@media print{body{margin:16px}}</style></head><body>
-<h1>🐾 ${dog.name}'s Medical Records</h1><div class="gen">Generated ${new Date().toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"})} · YourPetPass</div>
+<div style="display:flex;align-items:center;gap:20px;margin-bottom:8px;">
+    ${dog.photo_url ? `<img src="${dog.photo_url}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:3px solid #2D7D6F;" />` : '<div style="width:80px;height:80px;border-radius:50%;background:#2D7D6F;display:flex;align-items:center;justify-content:center;font-size:32px;color:white;font-family:Georgia,serif;">'+dog.name[0]+'</div>'}
+    <div>
+      <h1 style="margin:0;font-size:28px;">🐾 ${dog.name}'s Medical Records</h1>
+      ${dog.breed ? `<div style="color:#5A4535;font-size:14px;margin-top:4px;">${dog.breed}</div>` : ''}
+    </div>
+  </div><div class="gen">Generated ${new Date().toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"})} · YourPetPass</div>
 <h2>Profile</h2><table><tr><td><b>Name</b></td><td>${dog.name}${ptLabel?` <span class="${dog.pet_type==='service_animal'?'sa':'esa'}">${ptLabel.toUpperCase()}</span>`:''}</td></tr><tr><td><b>Breed</b></td><td>${dog.breed||"—"}</td></tr><tr><td><b>Born</b></td><td>${fmt(dog.dob)}</td></tr><tr><td><b>Weight</b></td><td>${dog.weight?dog.weight+" lbs":"—"}</td></tr><tr><td><b>Microchip</b></td><td>${dog.microchip||"—"}</td></tr>${dog.emergency_contact?`<tr><td><b>Emergency</b></td><td>${dog.emergency_contact} ${dog.emergency_phone||""}</td></tr>`:""}</table>
 ${al.length?`<h2>⚠️ Allergies</h2><table><tr><th>Allergen</th><th>Reaction</th><th>Severity</th></tr>${al.map(a=>`<tr><td><b>${a.allergen}</b></td><td>${a.reaction}</td><td>${a.severity.toUpperCase()}</td></tr>`).join("")}</table>`:""}
 <h2>Vaccinations</h2>${v.length?`<table><tr><th>Vaccine</th><th>Type</th><th>Given</th><th>Next Due</th><th>Vet</th></tr>${v.map(x=>`<tr><td><b>${x.name}</b></td><td><span class="${x.type==="core"?"core":"opt"}">${x.type.toUpperCase()}</span></td><td>${fmt(x.date_given)}</td><td>${fmt(x.next_due)}</td><td>${x.vet_name||"—"}</td></tr>`).join("")}</table>`:"<p>No vaccinations recorded.</p>"}
@@ -717,7 +723,7 @@ const ShareModal=({dog,onClose})=>{
   </Modal>);
 };
 
-const AIScanModal=({dog,userId,userEmail,dispatch,onSave,onClose})=>{
+const AIScanModal=({dog,userId,userEmail,dispatch,onSave,onClose,onUpgrade})=>{
   const[step,setStep]=useState("upload");
   const[images,setImages]=useState([]);
   const[extracted,setExtracted]=useState(null);
@@ -780,7 +786,12 @@ const AIScanModal=({dog,userId,userEmail,dispatch,onSave,onClose})=>{
     try{
       const imagePayload=images.map(img=>({base64:img.dataUrl.split(",")[1],mediaType:img.dataUrl.split(";")[0].split(":")[1]}));
       const res=await fetch("/api/ai-scan",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({images:imagePayload,userId,userEmail:userEmail||null,petName:dog.name})});
-      if(!res.ok){const e=await res.json();throw new Error(e.error||"Scan request failed");}
+      if(!res.ok){
+        const e=await res.json();
+        if(e.requiresUpgrade){setStep("upload");setError(null);onUpgrade&&onUpgrade();return;}
+        if(e.rateLimitExceeded){setStep("upload");setError(`Monthly scan limit reached (20/month). Resets the 1st of next month. ${e.scansUsed||0} of 20 used.`);return;}
+        throw new Error(e.error||"Scan request failed");
+      }
       const data=await res.json();
       if(data.error)throw new Error(data.error);
       setExtracted(data.extracted);
@@ -1063,7 +1074,7 @@ const QRSection=({dog,state,backBtn})=>{
 
   const generateToken=async()=>{
     setGenerating(true);
-    const newToken=Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2);
+    const newToken=crypto.randomUUID().replace(/-/g,'');
     await supabase.from("dogs").update({emergency_token:newToken}).eq("id",dog.id);
     setToken(newToken);
     setGenerating(false);
@@ -1648,7 +1659,7 @@ const DogDetail=({dog,state,dispatch,userId,tier,onBack,onUpgrade,userEmail})=>{
     {modal==="editDog"&&<DogForm dog={dog} userId={userId} userEmail={userEmail} onSave={d=>{dispatch({t:"UPD_DOG",d});setModal(null);}} onClose={()=>setModal(null)}/>}
     {showDelete&&<DeletePetModal dog={dog} onConfirm={handleDeletePet} onClose={()=>setShowDelete(false)}/>}
     {modal==="share"&&<ShareModal dog={dog} onClose={()=>setModal(null)}/>}
-    {showScan&&<AIScanModal dog={dog} userId={userId} userEmail={userEmail} dispatch={dispatch} onSave={async()=>{const[{data:v},{data:m},{data:vis},{data:al}]=await Promise.all([db.getVaccinations(userId),db.getMedications(userId),db.getVisits(userId),db.getAllergies(userId)]);dispatch({t:'LOAD',s:{dogs:state.dogs,vaccinations:v||[],medications:m||[],allergies:al||[],visits:vis||[],weights:state.weights,vets:state.vets,documents:state.documents}});}} onClose={()=>setShowScan(false)}/>}
+    {showScan&&<AIScanModal dog={dog} userId={userId} userEmail={userEmail} dispatch={dispatch} onUpgrade={onUpgrade} onSave={async()=>{const[{data:v},{data:m},{data:vis},{data:al}]=await Promise.all([db.getVaccinations(userId),db.getMedications(userId),db.getVisits(userId),db.getAllergies(userId)]);dispatch({t:'LOAD',s:{dogs:state.dogs,vaccinations:v||[],medications:m||[],allergies:al||[],visits:vis||[],weights:state.weights,vets:state.vets,documents:state.documents}});}} onClose={()=>setShowScan(false)}/>}
     {showUpgrade&&<UpgradeModal userId={userId} userEmail={userEmail} onClose={()=>setShowUpgrade(false)}/>}
   </div>);
 };
