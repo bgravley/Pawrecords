@@ -1509,7 +1509,7 @@ const MoreTab=({dog,state,dispatch,userId,tier,onUpgrade})=>{
     <div style={{display:"flex",alignItems:"center",gap:10}}>{backBtn}<h3 style={{fontFamily:"'Lora',serif",fontSize:20,flex:1}}>Saved Vets</h3><Btn sm onClick={()=>setModal({type:"addVet"})}><Ic n="plus" s={14}/> Add</Btn></div>
     <Btn full v="secondary" onClick={()=>window.open("https://www.google.com/maps/search/veterinarian+near+me","_blank")}><Ic n="map" s={15}/> Find Nearby Vets</Btn>
     {vets.map(v=>(<Card key={v.id}><div style={{display:"flex",justifyContent:"space-between"}}><div><div style={{fontWeight:600}}>{v.name}</div>{v.clinic&&<div style={{fontSize:13,color:"#5A4535"}}>{v.clinic}</div>}{v.phone&&<a href={`tel:${v.phone}`} style={{fontSize:13,color:"#2D7D6F",display:"flex",alignItems:"center",gap:4,marginTop:4,textDecoration:"none"}}><Ic n="phone" s={12} c="#2D7D6F"/>{v.phone}</a>}</div><button onClick={async()=>{await db.deleteSavedVet(v.id);dispatch({t:"DEL_VET",id:v.id});}} style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:8,padding:"5px 8px",color:"#C4714A"}}><Ic n="trash" s={13}/></button></div></Card>))}
-    {{modal?.type==="addVet"&&<VetForm userId={userId} onSave={v=>{dispatch({t:"ADD_VET",v});setModal(null);}} onClose={()=>setModal(null)}/>}
+    {modal?.type==="addVet"&&<VetForm userId={userId} onSave={v=>{dispatch({t:"ADD_VET",v});setModal(null);}} onClose={()=>setModal(null)}/>}
   </div>);
 
   if(section==="docs")return(<div style={{display:"flex",flexDirection:"column",gap:12}}>
