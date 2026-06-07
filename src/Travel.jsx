@@ -936,6 +936,18 @@ export default function Travel({ userId, onBack }) {
           onSave={t => { setTrips(prev => prev.map(x => x.id === t.id ? t : x)); setEditTrip(null); }}
           onClose={() => setEditTrip(null)} />
       )}
+      {/* Bottom nav — matches home screen */}
+      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "#FFFFFF", borderTop: "1px solid #E8DDD0", display: "flex", zIndex: 200, paddingBottom: "env(safe-area-inset-bottom)" }}>
+        <button onClick={onBack} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "10px 0", background: "none", border: "none", cursor: "pointer", color: "#8B7355" }}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8B7355" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: ".04em" }}>MY PETS</span>
+        </button>
+        <button style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "10px 0", background: "none", border: "none", cursor: "pointer", color: "#2D7D6F" }}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2D7D6F" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20"/></svg>
+          <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: ".04em" }}>TRAVEL</span>
+        </button>
+      </div>
+      <div style={{ height: 72 }} />
     </div>
   );
 }
