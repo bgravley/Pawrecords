@@ -117,27 +117,50 @@ const generateChecklist = async (trip, pets) => {
     `${p.name} (${p.breed || 'mixed'}${p.is_service_animal ? ', SERVICE ANIMAL' : ''}${p.is_esa ? ', ESA' : ''})`
   ).join('; ');
 
-  const prompt = `You are a pet travel expert. List ALL official requirements for traveling with pets on this route:
+  const isOriginUSA = trip.origin_country === "United States";
+  const isDestUSA = trip.destination_country === "United States";
 
-Origin: ${trip.origin_city}, ${trip.origin_country}
-Destination: ${trip.destination_city}, ${trip.destination_country}
-Departure: ${trip.departure_date}
-Airline: ${trip.airline || 'unspecified'}
-Pets: ${petList}
+  const prompt = `You are a veterinary travel compliance expert. Generate a COMPLETE and ACCURATE pet travel requirements checklist for this specific route.
 
-IMPORTANT RULES:
-- Always include BOTH origin country export requirements AND destination country entry requirements
-- For Colombia origin: always include the ICA (Instituto Colombiano Agropecuario) export certificate
-- For source_url use this priority order: (1) destination country government/agriculture ministry, (2) origin country government/agriculture ministry, (3) USDA APHIS if USA involved, (4) airline website only for airline-specific requirements
-- Never use an airline website as the source for government or veterinary requirements
-- For description: write numbered steps (Step 1, Step 2, etc.) that a first-time pet traveler can follow. Include who to contact, what to bring, and how long it takes.
-- Be specific to this exact route and airline
+TRIP DETAILS:
+- Origin: ${trip.origin_city}, ${trip.origin_country}
+- Destination: ${trip.destination_city}, ${trip.destination_country}
+- Departure Date: ${trip.departure_date}
+- Airline: ${trip.airline || "not specified"}
+- Pets: ${petList}
 
-Return ONLY a JSON array starting with [ and ending with ]. No markdown, no backticks, no extra text.
+CRITICAL RULES:
+
+1. DIRECTION MATTERS: Export = ORIGIN country rules. Import = DESTINATION country rules. Never mix.
+   - If ORIGIN is Colombia: include ICA (Instituto Colombiano Agropecuario) export health certificate
+   - If DESTINATION is Colombia: include Colombian IMPORT requirements (ICA import permit, health cert from origin country endorsed by origin country authority, rabies cert, parasite treatment)
+   - If ORIGIN is USA: include USDA APHIS Form 7001 health certificate endorsed by USDA APHIS office
+   - If DESTINATION is USA: include full USA re-entry process (see rule 2)
+
+2. USA RE-ENTRY — MANDATORY separate items when destination is USA:
+   a) "USDA-Accredited Vet Exam & Health Certificate" — vet must be USDA-accredited, completes APHIS Form 7001. Must be done within 10 days of travel.
+   b) "USDA APHIS State Office Endorsement" — the completed Form 7001 must be mailed or hand-delivered to the USDA APHIS Veterinary Services office in the state where the exam occurred, for an official endorsement stamp. Takes 1-3 business days. Must happen BEFORE departure. Source: https://www.aphis.usda.gov/pet-travel
+   c) "CDC Dog Import Online Form" — all dogs entering USA since 2024 require a CDC Dog Import Form submitted online at least 2-5 business days before arrival. Source: https://www.cdc.gov/importation/dogs
+   d) "Valid US Rabies Vaccination" — must have been vaccinated in the USA by a licensed US vet, with a certificate showing vet license number. Source: https://www.cdc.gov/importation/dogs
+
+3. COLOMBIA ENTRY requirements when destination is Colombia:
+   - ICA import permit (apply online at ica.gov.co before travel)
+   - Health certificate issued by licensed vet in origin country, endorsed by origin country agricultural authority
+   - Current rabies vaccination certificate
+   - Deworming and parasite treatment certificate within 15 days of travel
+   Source: https://www.ica.gov.co
+
+4. Always include airline-specific requirements: cabin/cargo policy, carrier size limits, booking lead time, breed restrictions, fees. Source: airline pet policy page.
+
+5. Descriptions must be numbered steps a first-time traveler can follow. Include who to contact, what to bring, how long it takes, approximate cost.
+
+6. deadline_days_before: days before departure to complete. window_start_days/window_end_days: validity window for the document.
+
+Return ONLY a JSON array. No markdown, no backticks, no explanation.
 Each item must have: title, description, category, deadline_days_before, window_start_days, window_end_days, requires_document, source_url, notes.
 Valid categories: health_certificate, vaccination, treatment, documentation, airline, government_form, entry_document, other.
 
-Start with [`;
+[`;
 
   const response = await fetch("/api/ai-travel", {
     method: "POST",
@@ -211,7 +234,7 @@ const TripForm = ({ trip, userId, dogs, onSave, onClose }) => {
       origin_city: f.originCity, origin_country: f.originCountry,
       destination_city: f.destinationCity, destination_country: f.destinationCountry,
       departure_date: f.departureDate, return_date: f.returnDate || null,
-      airline: f.airline, notes: f.notes, pet_ids: f.selectedPets,
+      airline: f.airline, flight_number: f.flightNumber || null, notes: f.notes, pet_ids: f.selectedPets,
     };
     let result;
     if (trip) {
@@ -258,9 +281,14 @@ const TripForm = ({ trip, userId, dogs, onSave, onClose }) => {
           <Field label="Return Date (optional)"><input style={inp} type="date" value={f.returnDate} onChange={e => set("returnDate", e.target.value)} /></Field>
         </div>
 
-        <Field label="Airline (optional)">
-          <input style={inp} value={f.airline} onChange={e => set("airline", e.target.value)} placeholder="e.g. American Airlines, Copa Airlines" />
-        </Field>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <Field label="Airline (optional)">
+            <input style={inp} value={f.airline} onChange={e => set("airline", e.target.value)} placeholder="e.g. Copa Airlines" />
+          </Field>
+          <Field label="Flight Number (optional)">
+            <input style={inp} value={f.flightNumber || ""} onChange={e => set("flightNumber", e.target.value)} placeholder="CM205" autoCapitalize="characters" />
+          </Field>
+        </div>
 
         <div>
           <div style={{ fontWeight: 800, fontSize: 12, color: C.sub, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 10 }}>🐾 Which Pets Are Coming?</div>
@@ -811,23 +839,29 @@ export default function Travel({ userId, onBack }) {
           const st = tripStatus(trip);
           const tripPets = dogs.filter(d => (trip.pet_ids || []).includes(d.id));
           return (
-            <Card key={trip.id} onClick={() => setSelectedTrip(trip.id)} style={{ marginBottom: 12 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <Card key={trip.id} onClick={() => setSelectedTrip(trip.id)} style={{ marginBottom: 12, cursor: "pointer" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontFamily: "'Lora', serif", fontSize: 18, fontWeight: 600, marginBottom: 2 }}>{trip.origin_city} → {trip.destination_city}</div>
+                  <div style={{ fontFamily: "'Lora', serif", fontSize: 18, fontWeight: 600, marginBottom: 2 }}>
+                    {trip.origin_city}, {trip.origin_country} → {trip.destination_city}, {trip.destination_country}
+                  </div>
                   {trip.name && trip.name !== `${trip.origin_city} → ${trip.destination_city}` && (
                     <div style={{ fontSize: 13, color: C.muted, marginBottom: 4 }}>{trip.name}</div>
                   )}
-                  <div style={{ fontSize: 13, color: C.sub }}>
-                    {fmt(trip.departure_date)}{trip.return_date ? ` → ${fmt(trip.return_date)}` : ""}{trip.airline ? ` · ${trip.airline}` : ""}
-                  </div>
-                  {tripPets.length > 0 && <div style={{ fontSize: 13, color: C.muted, marginTop: 4 }}>🐾 {tripPets.map(p => p.name).join(", ")}</div>}
                 </div>
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
-                  <Badge label={st.label} color={st.color} />
-                  <span style={{ fontSize: 18, color: C.muted }}>→</span>
-                </div>
+                <Badge label={st.label} color={st.color} />
               </div>
+              {/* Trip details grid */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, background: "#FAF6F0", borderRadius: 10, padding: "10px 12px", fontSize: 12 }}>
+                <div><span style={{ color: C.muted, fontWeight: 600 }}>Depart </span>{fmt(trip.departure_date)}</div>
+                {trip.return_date && <div><span style={{ color: C.muted, fontWeight: 600 }}>Return </span>{fmt(trip.return_date)}</div>}
+                {trip.airline && <div><span style={{ color: C.muted, fontWeight: 600 }}>Airline </span>{trip.airline}</div>}
+                {trip.flight_number && <div><span style={{ color: C.muted, fontWeight: 600 }}>Flight </span>{trip.flight_number}</div>}
+              </div>
+              {tripPets.length > 0 && (
+                <div style={{ fontSize: 13, color: C.muted, marginTop: 8 }}>🐾 {tripPets.map(p => p.name).join(", ")}</div>
+              )}
+              <div style={{ fontSize: 12, color: C.accent, marginTop: 8, fontWeight: 600 }}>Tap to view checklist →</div>
             </Card>
           );
         })}
