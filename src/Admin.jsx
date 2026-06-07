@@ -3,6 +3,18 @@
 import { useState, useEffect } from "react";
 import { supabase } from "./lib/supabase";
 
+// Fetch admin data through server-side endpoint (bypasses RLS)
+const adminFetch = async (type, extra = {}) => {
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token;
+  const res = await fetch('/api/admin-data', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify({ type, ...extra }),
+  });
+  return res.json();
+};
+
 const C = {
   bg: "#0F1117", card: "#1A1D27", border: "#2A2D3A",
   accent: "#2D7D6F", warn: "#E8A838", danger: "#C4714A",
@@ -41,26 +53,41 @@ export default function Admin({ onBack }) {
   const [loading, setLoading] = useState(true);
   const [editUser, setEditUser] = useState(null);
   const [search, setSearch] = useState("");
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [userPets, setUserPets] = useState([]);
+  const [petsLoading, setPetsLoading] = useState(false);
 
   useEffect(() => { loadData(); }, []);
 
+  const loadUserPets = async (user) => {
+    setSelectedUser(user);
+    setPetsLoading(true);
+    const res = await adminFetch('user_pets', { userId: user.id });
+    setUserPets(res.data || []);
+    setPetsLoading(false);
+  };
+
   const loadData = async () => {
     setLoading(true);
-    const [{ data: u }, { data: logs }, { data: activity }, { data: errors }] = await Promise.all([
-      supabase.from("profiles").select("*").order("created_at", { ascending: false }),
-      supabase.from("ai_usage_log").select("*").order("created_at", { ascending: false }).limit(500),
-      supabase.from("activity_log").select("*").order("created_at", { ascending: false }).limit(200),
-      supabase.from("error_log").select("*").order("created_at", { ascending: false }).limit(200),
-    ]);
-    setUsers(u || []);
-    setAiLogs(logs || []);
-    setActivityLogs(activity || []);
-    setErrorLogs(errors || []);
+    try {
+      const [usersRes, aiRes, actRes, errRes] = await Promise.all([
+        adminFetch('users'),
+        adminFetch('ai_logs'),
+        adminFetch('activity'),
+        adminFetch('errors'),
+      ]);
+      setUsers(usersRes.data || []);
+      setAiLogs(aiRes.data || []);
+      setActivityLogs(actRes.data || []);
+      setErrorLogs(errRes.data || []);
+    } catch(e) {
+      console.error('Admin load error:', e);
+    }
     setLoading(false);
   };
 
   const updateUser = async (userId, updates) => {
-    await supabase.from("profiles").update(updates).eq("id", userId);
+    await adminFetch('update_user', { targetUserId: userId, updates });
     setUsers(p => p.map(u => u.id === userId ? { ...u, ...updates } : u));
     setEditUser(null);
   };
@@ -189,10 +216,16 @@ export default function Admin({ onBack }) {
                       <td style={{ padding: "12px 16px", color: C.sub }}>{fmt(user.created_at)}</td>
                       <td style={{ padding: "12px 16px" }}>{userLogs.length}</td>
                       <td style={{ padding: "12px 16px" }}>
-                        <button onClick={() => setEditUser(user)}
-                          style={{ background: C.accent + "22", color: C.accent, border: `1px solid ${C.accent}44`, borderRadius: 7, padding: "4px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-                          Edit
-                        </button>
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <button onClick={() => loadUserPets(user)}
+                            style={{ background: "#2D7D6F22", color: "#2D7D6F", border: "1px solid #2D7D6F44", borderRadius: 7, padding: "4px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                            Pets
+                          </button>
+                          <button onClick={() => setEditUser(user)}
+                            style={{ background: C.accent + "22", color: C.accent, border: `1px solid ${C.accent}44`, borderRadius: 7, padding: "4px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                            Edit
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -318,7 +351,7 @@ export default function Admin({ onBack }) {
                       <span style={{ fontSize: 12, color: C.sub }}>{fmtTime(err.created_at)}</span>
                       {!err.reviewed && (
                         <button onClick={async () => {
-                          await supabase.from("error_log").update({ reviewed: true }).eq("id", err.id);
+                          await adminFetch('mark_error_reviewed', { errorId: err.id });
                           setErrorLogs(p => p.map(e => e.id === err.id ? { ...e, reviewed: true } : e));
                         }} style={{ background: "#2D7D6F22", color: "#2D7D6F", border: "1px solid #2D7D6F44", borderRadius: 7, padding: "3px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
                           Mark Reviewed
@@ -334,6 +367,66 @@ export default function Admin({ onBack }) {
               ))}
           </div>
         )}
+
+      {/* User Pets Panel */}
+      {selectedUser && (
+        <div style={{ position: "fixed", inset: 0, background: "#000000cc", zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
+          onClick={e => e.target === e.currentTarget && setSelectedUser(null)}>
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 16, padding: 28, width: "100%", maxWidth: 560, maxHeight: "80vh", overflow: "auto" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 18 }}>{selectedUser.email}</div>
+                <div style={{ fontSize: 13, color: C.sub, marginTop: 2 }}>
+                  {selectedUser.subscription_tier?.toUpperCase() || 'FREE'} · Joined {new Date(selectedUser.created_at).toLocaleDateString()}
+                </div>
+              </div>
+              <button onClick={() => setSelectedUser(null)} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 10px", color: C.sub, cursor: "pointer", fontSize: 18 }}>×</button>
+            </div>
+            <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 12 }}>🐾 Pets</div>
+            {petsLoading
+              ? <div style={{ textAlign: "center", padding: 24, color: C.sub }}>Loading pets...</div>
+              : userPets.length === 0
+                ? <div style={{ textAlign: "center", padding: 24, color: C.sub, border: `1px dashed ${C.border}`, borderRadius: 12 }}>No pets added yet</div>
+                : userPets.map(pet => (
+                  <div key={pet.id} style={{ background: "#0F1117", border: `1px solid ${C.border}`, borderRadius: 12, padding: 16, marginBottom: 10 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 16 }}>{pet.name}</div>
+                        <div style={{ fontSize: 13, color: C.sub, marginTop: 2 }}>{pet.breed || "—"} · {pet.gender || "—"}{pet.neutered ? " · Fixed" : ""}</div>
+                        {pet.pet_type && pet.pet_type !== 'pet' && (
+                          <div style={{ marginTop: 4 }}>
+                            <span style={{ background: "#2D7D6F22", color: "#2D7D6F", borderRadius: 20, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>
+                              {pet.pet_type === 'service_animal' ? 'Service Animal' : 'ESA'}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ textAlign: "right", fontSize: 12, color: C.sub }}>
+                        {pet.weight && <div>{pet.weight} lbs</div>}
+                        {pet.microchip && <div>Chip: {pet.microchip}</div>}
+                        <div>Added {new Date(pet.created_at).toLocaleDateString()}</div>
+                      </div>
+                    </div>
+                    {pet.emergency_contact && (
+                      <div style={{ marginTop: 8, fontSize: 12, color: C.sub }}>
+                        🚨 {pet.emergency_contact} {pet.emergency_phone_code} {pet.emergency_phone}
+                      </div>
+                    )}
+                  </div>
+                ))}
+            <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
+              <button onClick={() => { setEditUser(selectedUser); setSelectedUser(null); }}
+                style={{ flex: 1, background: C.accent, border: "none", borderRadius: 8, padding: "10px", color: "#fff", cursor: "pointer", fontWeight: 600 }}>
+                Edit User
+              </button>
+              <button onClick={() => setSelectedUser(null)}
+                style={{ flex: 1, background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8, padding: "10px", color: C.sub, cursor: "pointer", fontWeight: 600 }}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Edit User Modal */}
       {editUser && (
