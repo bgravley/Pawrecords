@@ -478,10 +478,17 @@ const DogForm=({dog,userId,userEmail,onSave,onClose})=>{
           const blob=await(await fetch(f.photo)).blob();
           const ext=blob.type.includes("png")?"png":"jpg";
           const path=`${userId}/pets/${result.id}/profile.${ext}`;
-          await supabase.storage.from("documents").upload(path,blob,{upsert:true,contentType:blob.type});
-          const{data:urlData}=supabase.storage.from("documents").getPublicUrl(path);
-          await supabase.from("dogs").update({photo_url:urlData.publicUrl}).eq("id",result.id);
-          result.photo_url=urlData.publicUrl;
+          const{error:upErr}=await supabase.storage.from("documents").upload(path,blob,{upsert:true,contentType:blob.type});
+          if(upErr){
+            console.error("Storage upload error:",upErr);
+          } else {
+            const{data:urlData}=supabase.storage.from("documents").getPublicUrl(path);
+            const publicUrl=urlData?.publicUrl;
+            if(publicUrl){
+              await supabase.from("dogs").update({photo_url:publicUrl}).eq("id",result.id);
+              result.photo_url=publicUrl;
+            }
+          }
         }catch(e){console.error("Photo upload failed:",e);}
       }
       // Upload cert
@@ -492,7 +499,9 @@ const DogForm=({dog,userId,userEmail,onSave,onClose})=>{
         result.certification_doc_path=path;
       }
       await logActivity(userId,userEmail||null,dog?"pet_updated":"pet_added",{petName:f.name,breed:f.breed});
-      onSave(result);
+      // Reload the dog from DB to get the latest photo_url and all columns
+      const{data:freshDog}=await supabase.from("dogs").select("*").eq("id",result.id).single();
+      onSave(freshDog||result);
     }catch(e){
       console.error("Save pet error:",e);
       alert("Could not save: "+e.message);
@@ -1478,7 +1487,13 @@ const MoreTab=({dog,state,dispatch,userId,tier,onUpgrade})=>{
     {!premium&&<PremiumLock onUpgrade={onUpgrade} label="Document Storage — Premium Feature"/>}
     {premium&&(<>
       {docs.length===0
-        ?<Empty icon="doc" title="No documents yet" sub="Use AI Scan above to scan and save any vet document." action={<Btn onClick={onScan}><Ic n="camera" s={14}/> Start Scanning</Btn>}/>
+        ?(<div style={{textAlign:"center",padding:"24px 0"}}>
+            <div style={{fontSize:40,marginBottom:12}}>📄</div>
+            <div style={{fontFamily:"'Lora',serif",fontSize:18,marginBottom:6}}>No documents yet</div>
+            <div style={{fontSize:13,color:"#5A4535",marginBottom:4}}>Use AI Scan to upload vet records, vaccine docs, or service animal certs.</div>
+            <div style={{fontSize:12,color:"#8B7355",marginBottom:16}}>Scanned records are automatically saved to your pet's health profile.</div>
+            <Btn onClick={onScan}><Ic n="camera" s={14}/> Start AI Scan</Btn>
+          </div>)
         :docs.map(d=>(<Card key={d.id}><div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
           <div style={{width:56,height:56,borderRadius:10,background:"#FFFFFF",border:"1px solid #E8DDD0",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
             <Ic n="doc" s={22} c="#8B7355"/>
@@ -1940,11 +1955,11 @@ const Home=({state,dispatch,userId,tier,userEmail,onSignOut,isAdmin,onOpenAdmin,
     {showProfile&&<OwnerProfileModal userId={userId} tier={tier} userEmail={userEmail} onUpgrade={()=>{setShowProfile(false);setShowUpgrade(true);}} onClose={()=>setShowProfile(false)}/>}
     {/* Bottom nav */}
     <div style={{position:"fixed",bottom:0,left:0,right:0,background:"#FFFFFF",borderTop:"1px solid #E8DDD0",display:"flex",zIndex:200,paddingBottom:"env(safe-area-inset-bottom)"}}>
-      <button style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"10px 0",background:"none",border:"none",cursor:"pointer",color:"#2D7D6F"}}>
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2D7D6F" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-        <span style={{fontSize:10,fontWeight:700,letterSpacing:".04em"}}>MY PETS</span>
+      <button style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"10px 0",background:"none",border:"none",cursor:"pointer",color:"#2D7D6F",borderTop:"2px solid #2D7D6F"}}>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="#2D7D6F" stroke="#2D7D6F" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22" fill="#2D7D6F"/></svg>
+        <span style={{fontSize:10,fontWeight:800,letterSpacing:".04em",color:"#2D7D6F"}}>MY PETS</span>
       </button>
-      <button onClick={onOpenTravel} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"10px 0",background:"none",border:"none",cursor:"pointer",color:"#8B7355"}}>
+      <button onClick={onOpenTravel} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"10px 0",background:"none",border:"none",cursor:"pointer",color:"#8B7355",borderTop:"2px solid transparent"}}>
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8B7355" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20"/></svg>
         <span style={{fontSize:10,fontWeight:700,letterSpacing:".04em"}}>TRAVEL</span>
       </button>
