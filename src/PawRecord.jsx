@@ -1148,7 +1148,23 @@ const OverviewTab=({dog,state,userId,tier,setModal,onUpgrade,onScan,dispatch})=>
       <ProfileRow label="Breed" value={dog.breed}/>
       <ProfileRow label="Date of Birth" value={fmt(dog.dob)}/>
       <ProfileRow label="Age" value={age!==null?`${age} years old`:null}/>
-      <ProfileRow label="Weight" value={dog.weight?`${dog.weight} lbs`:null}/>
+      {(()=>{
+        const weights=state.weights.filter(w=>w.dog_id===dog.id).sort((a,b)=>b.log_date.localeCompare(a.log_date));
+        const latest=weights[0];
+        const prev=weights[1];
+        const trend=latest&&prev?(parseFloat(latest.weight_lbs)-parseFloat(prev.weight_lbs)):null;
+        const trendStr=trend!==null?(trend>0?`▲ ${trend.toFixed(1)} lbs since last visit`:trend<0?`▼ ${Math.abs(trend).toFixed(1)} lbs since last visit`:"Stable"):null;
+        const trendColor=trend>0?"#C4714A":trend<0?"#2D7D6F":"#8B7355";
+        return dog.weight?(
+          <div style={{display:"flex",flexDirection:"column",gap:3,padding:"10px 0",borderBottom:"1px solid #F0E8DC"}}>
+            <div style={{fontSize:11,fontWeight:700,color:"#8B7355",textTransform:"uppercase",letterSpacing:".06em"}}>Weight</div>
+            <div style={{display:"flex",alignItems:"center",gap:10}}>
+              <span style={{fontWeight:500,fontSize:15,color:"#2C2017"}}>{dog.weight} lbs</span>
+              {trendStr&&<span style={{fontSize:12,color:trendColor,fontWeight:600}}>{trendStr}</span>}
+            </div>
+          </div>
+        ):null;
+      })()}
       <ProfileRow label="Color" value={dog.color}/>
       <ProfileRow label="Gender" value={dog.gender?(dog.gender.charAt(0).toUpperCase()+dog.gender.slice(1))+(dog.neutered?" · Neutered/Spayed":""):null}/>
       <ProfileRow label="Microchip" value={dog.microchip}/>
@@ -1190,18 +1206,98 @@ const VaccinesTab=({dog,state,dispatch,userId,tier,onUpgrade})=>{
 
 const HealthTab=({dog,state,dispatch,userId,tier,onUpgrade})=>{
   const[modal,setModal]=useState(null);
+  const[medFilter,setMedFilter]=useState("active"); // active | all
   const meds=state.medications.filter(m=>m.dog_id===dog.id);
   const al=state.allergies.filter(a=>a.dog_id===dog.id);
-  const sev=s=>({mild:"#2D7D6F",moderate:"#E8A838",severe:"#C4714A"}[s]||"#E8A838");
+  const sevColor=s=>({mild:"#2D7D6F",moderate:"#E8A838",severe:"#C4714A"}[s]||"#E8A838");
+  const sevBorder=s=>({mild:"#2D7D6F",moderate:"#E8A838",severe:"#C4714A"}[s]||"#E8A838");
   const delMed=async(id)=>{await db.deleteMedication(id);dispatch({t:"DEL_MED",id});};
   const delAlrg=async(id)=>{await db.deleteAllergy(id);dispatch({t:"DEL_ALRG",id});};
+
+  // Sort allergies — severe first
+  const sortedAllergies=[...al].sort((a,b)=>{const order={severe:0,moderate:1,mild:2};return(order[a.severity]||2)-(order[b.severity]||2);});
+  const displayMeds=medFilter==="active"?meds.filter(m=>m.active):meds;
+
   return(<div style={{display:"flex",flexDirection:"column",gap:14}}>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><h3 style={{fontFamily:"'Lora',serif",fontSize:20}}>Health</h3><div style={{display:"flex",gap:8}}><Btn sm v="secondary" onClick={()=>setModal({type:"addAlrg"})}><Ic n="alert" s={13}/> Allergy</Btn><Btn sm onClick={()=>setModal({type:"addMed"})}><Ic n="pill" s={13}/> Med</Btn></div></div>
-    <div style={{fontSize:11,fontWeight:700,color:"#C4714A",textTransform:"uppercase",letterSpacing:".06em"}}>⚠ Allergies</div>
-    {al.length===0?<Card style={{borderStyle:"dashed"}}><div style={{color:"#5A4535",fontSize:14,textAlign:"center",padding:"12px 0"}}>No allergies recorded. <span style={{color:"#2D7D6F",cursor:"pointer"}} onClick={()=>setModal({type:"addAlrg"})}>Add one</span></div></Card>:al.map(a=>(<Card key={a.id} style={{border:`1px solid ${sev(a.severity)}44`}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div><div style={{fontWeight:600,display:"flex",alignItems:"center",gap:8,marginBottom:4}}>{a.allergen} <Badge label={a.severity.toUpperCase()} color={sev(a.severity)}/></div><div style={{fontSize:13,color:"#5A4535"}}>Reaction: {a.reaction}</div></div><div style={{display:"flex",gap:5}}><button onClick={()=>setModal({type:"editAlrg",a})} style={{background:"#FFFFFF",border:"1px solid #E8DDD0",borderRadius:8,padding:"5px 8px",color:"#5A4535"}}><Ic n="edit" s={13}/></button><button onClick={()=>delAlrg(a.id)} style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:8,padding:"5px 8px",color:"#C4714A"}}><Ic n="trash" s={13}/></button></div></div></Card>))}
-    <div style={{fontSize:11,fontWeight:700,color:"#2D7D6F",textTransform:"uppercase",letterSpacing:".06em"}}>Medications</div>
-    {meds.filter(m=>m.active).map(m=>(<Card key={m.id} style={{borderColor:"#2D7D6F44"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div><div style={{fontWeight:600,marginBottom:4}}>{m.name} <span style={{background:"#2D7D6F14",color:"#2D7D6F",fontSize:11,padding:"2px 8px",borderRadius:20}}>ACTIVE</span></div><div style={{fontSize:13,color:"#5A4535"}}>{m.dosage} · {m.frequency}</div></div><div style={{display:"flex",gap:5}}><button onClick={()=>setModal({type:"editMed",m})} style={{background:"#FFFFFF",border:"1px solid #E8DDD0",borderRadius:8,padding:"5px 8px",color:"#5A4535"}}><Ic n="edit" s={13}/></button><button onClick={()=>delMed(m.id)} style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:8,padding:"5px 8px",color:"#C4714A"}}><Ic n="trash" s={13}/></button></div></div></Card>))}
-    {meds.length===0&&<Empty icon="pill" title="No medications" sub="Add current or past medications." action={<Btn onClick={()=>setModal({type:"addMed"})}><Ic n="plus" s={14}/> Add Medication</Btn>}/>}
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+      <h3 style={{fontFamily:"'Lora',serif",fontSize:20}}>Health</h3>
+      <div style={{display:"flex",gap:8}}>
+        <Btn sm v="secondary" onClick={()=>setModal({type:"addAlrg"})}><Ic n="alert" s={13}/> Allergy</Btn>
+        <Btn sm onClick={()=>setModal({type:"addMed"})}><Ic n="pill" s={13}/> Med</Btn>
+      </div>
+    </div>
+
+    {/* Allergies section */}
+    <div style={{fontSize:11,fontWeight:800,color:"#C4714A",textTransform:"uppercase",letterSpacing:".08em",display:"flex",alignItems:"center",gap:6}}>
+      <span style={{width:8,height:8,borderRadius:"50%",background:"#C4714A",display:"inline-block"}}/>
+      Known Allergies {al.length>0&&`(${al.length})`}
+    </div>
+    {sortedAllergies.length===0
+      ?<Card style={{borderStyle:"dashed"}}><div style={{color:"#5A4535",fontSize:14,textAlign:"center",padding:"12px 0"}}>No allergies recorded. <span style={{color:"#2D7D6F",cursor:"pointer"}} onClick={()=>setModal({type:"addAlrg"})}>Add one</span></div></Card>
+      :sortedAllergies.map(a=>(
+        <div key={a.id} style={{background:"#FFFFFF",border:`1px solid ${sevColor(a.severity)}44`,borderLeft:`5px solid ${sevBorder(a.severity)}`,borderRadius:"0 12px 12px 0",padding:"14px 16px",display:"flex",justifyContent:"space-between",alignItems:"flex-start",boxShadow:"0 2px 8px rgba(44,32,23,0.06)"}}>
+          <div style={{flex:1}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6}}>
+              <span style={{fontWeight:700,fontSize:16}}>{a.allergen}</span>
+              <span style={{background:sevColor(a.severity)+"20",color:sevColor(a.severity),border:`1px solid ${sevColor(a.severity)}40`,borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:700}}>{a.severity.toUpperCase()}</span>
+              {a.severity==="severe"&&<span style={{fontSize:12,color:"#C4714A",fontWeight:700}}>⚠ DO NOT EXPOSE</span>}
+            </div>
+            {a.reaction&&<div style={{fontSize:13,color:"#5A4535"}}>Reaction: {a.reaction}</div>}
+            {a.date_discovered&&<div style={{fontSize:12,color:"#8B7355",marginTop:4}}>Identified: {fmt(a.date_discovered)}</div>}
+          </div>
+          <div style={{display:"flex",gap:5,marginLeft:10}}>
+            <button onClick={()=>setModal({type:"editAlrg",a})} style={{background:"#FFFFFF",border:"1px solid #E8DDD0",borderRadius:8,padding:"5px 8px",color:"#5A4535"}}><Ic n="edit" s={13}/></button>
+            <button onClick={()=>delAlrg(a.id)} style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:8,padding:"5px 8px",color:"#C4714A"}}><Ic n="trash" s={13}/></button>
+          </div>
+        </div>
+      ))}
+
+    {/* Medications section */}
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:4}}>
+      <div style={{fontSize:11,fontWeight:800,color:"#2D7D6F",textTransform:"uppercase",letterSpacing:".08em",display:"flex",alignItems:"center",gap:6}}>
+        <span style={{width:8,height:8,borderRadius:"50%",background:"#2D7D6F",display:"inline-block"}}/>
+        Medications {meds.length>0&&`(${meds.length})`}
+      </div>
+      {meds.length>0&&(
+        <div style={{display:"flex",gap:4,background:"#FAF6F0",borderRadius:8,padding:3,border:"1px solid #E8DDD0"}}>
+          {["active","all"].map(f=>(
+            <button key={f} onClick={()=>setMedFilter(f)} style={{padding:"4px 12px",borderRadius:6,fontSize:12,fontWeight:600,border:"none",cursor:"pointer",background:medFilter===f?"#FFFFFF":"transparent",color:medFilter===f?"#2C2017":"#8B7355",boxShadow:medFilter===f?"0 1px 3px rgba(44,32,23,0.1)":"none"}}>
+              {f.charAt(0).toUpperCase()+f.slice(1)}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+
+    {displayMeds.length===0
+      ?<Empty icon="pill" title={medFilter==="active"?"No active medications":"No medications"} sub="Add current or past medications." action={<Btn onClick={()=>setModal({type:"addMed"})}><Ic n="plus" s={14}/> Add Medication</Btn>}/>
+      :displayMeds.map(m=>(
+        <Card key={m.id} style={{borderLeft:`4px solid ${m.active?"#2D7D6F":"#E8DDD0"}`}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+            <div style={{flex:1}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                <span style={{fontWeight:700,fontSize:15}}>{m.name}</span>
+                <span style={{background:m.active?"#2D7D6F14":"#E8DDD033",color:m.active?"#2D7D6F":"#8B7355",fontSize:11,padding:"2px 8px",borderRadius:20,fontWeight:700}}>{m.active?"ACTIVE":"COMPLETED"}</span>
+              </div>
+              <div style={{fontSize:13,color:"#5A4535",marginBottom:4}}>
+                {m.dosage&&<span>{m.dosage}</span>}
+                {m.frequency&&<span> · {m.frequency}</span>}
+              </div>
+              {m.reason&&<div style={{fontSize:12,color:"#8B7355"}}>For: {m.reason}</div>}
+              {m.prescribing_vet&&<div style={{fontSize:12,color:"#8B7355"}}>Rx: {m.prescribing_vet}</div>}
+              <div style={{fontSize:12,color:"#8B7355",marginTop:2}}>
+                Started: {fmt(m.start_date)}
+                {m.end_date&&<span> · Ended: {fmt(m.end_date)}</span>}
+              </div>
+            </div>
+            <div style={{display:"flex",gap:5}}>
+              <button onClick={()=>setModal({type:"editMed",m})} style={{background:"#FFFFFF",border:"1px solid #E8DDD0",borderRadius:8,padding:"5px 8px",color:"#5A4535"}}><Ic n="edit" s={13}/></button>
+              <button onClick={()=>delMed(m.id)} style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:8,padding:"5px 8px",color:"#C4714A"}}><Ic n="trash" s={13}/></button>
+            </div>
+          </div>
+        </Card>
+      ))}
+
     {modal?.type==="addMed"&&<MedForm dogId={dog.id} userId={userId} onSave={m=>{dispatch({t:"ADD_MED",m});setModal(null);}} onClose={()=>setModal(null)}/>}
     {modal?.type==="editMed"&&<MedForm med={modal.m} dogId={dog.id} userId={userId} onSave={m=>{dispatch({t:"UPD_MED",m});setModal(null);}} onClose={()=>setModal(null)}/>}
     {modal?.type==="addAlrg"&&<AllergyForm dogId={dog.id} userId={userId} onSave={x=>{dispatch({t:"ADD_ALRG",x});setModal(null);}} onClose={()=>setModal(null)}/>}
@@ -1209,17 +1305,69 @@ const HealthTab=({dog,state,dispatch,userId,tier,onUpgrade})=>{
   </div>);
 };
 
+
 const RecordsTab=({dog,state,dispatch,userId})=>{
   const[modal,setModal]=useState(null);
+  const[filter,setFilter]=useState("");
   const visits=state.visits.filter(v=>v.dog_id===dog.id).sort((a,b)=>b.visit_date.localeCompare(a.visit_date));
+  const filtered=visits.filter(v=>!filter||v.reason?.toLowerCase().includes(filter.toLowerCase())||v.vet_name?.toLowerCase().includes(filter.toLowerCase())||v.diagnosis?.toLowerCase().includes(filter.toLowerCase()));
   const delVisit=async(id)=>{await db.deleteVisit(id);dispatch({t:"DEL_VISIT",id});};
+
   return(<div style={{display:"flex",flexDirection:"column",gap:12}}>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><h3 style={{fontFamily:"'Lora',serif",fontSize:20}}>Vet Visits</h3><Btn sm onClick={()=>setModal({type:"add"})}><Ic n="plus" s={14}/> Log Visit</Btn></div>
-    {visits.length===0?<Empty icon="stethoscope" title="No visits logged" sub="Track every vet visit for a complete history." action={<Btn onClick={()=>setModal({type:"add"})}><Ic n="plus" s={14}/> Log Visit</Btn>}/>:visits.map(v=>(<Card key={v.id}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div style={{flex:1}}><div style={{fontWeight:600}}>{v.reason}</div><div style={{fontSize:12,color:"#5A4535",marginTop:2}}>{fmt(v.visit_date)}{v.vet_name?` · ${v.vet_name}`:""}{v.clinic?` @ ${v.clinic}`:""}</div>{v.diagnosis&&<div style={{fontSize:13,marginTop:6}}><span style={{color:"#8B7355"}}>Dx: </span>{v.diagnosis}</div>}{v.treatment&&<div style={{fontSize:13}}><span style={{color:"#8B7355"}}>Tx: </span>{v.treatment}</div>}{v.cost&&<div style={{fontSize:13,color:"#2D7D6F",marginTop:4}}>${v.cost}</div>}</div><div style={{display:"flex",gap:5,marginLeft:10}}><button onClick={()=>setModal({type:"edit",v})} style={{background:"#FFFFFF",border:"1px solid #E8DDD0",borderRadius:8,padding:"5px 8px",color:"#5A4535"}}><Ic n="edit" s={13}/></button><button onClick={()=>delVisit(v.id)} style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:8,padding:"5px 8px",color:"#C4714A"}}><Ic n="trash" s={13}/></button></div></div></Card>))}
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+      <h3 style={{fontFamily:"'Lora',serif",fontSize:20}}>Vet Visits {visits.length>0&&<span style={{fontSize:14,color:"#8B7355",fontFamily:"'Nunito',sans-serif"}}>({visits.length})</span>}</h3>
+      <Btn sm onClick={()=>setModal({type:"add"})}><Ic n="plus" s={14}/> Log Visit</Btn>
+    </div>
+
+    {visits.length>2&&(
+      <input value={filter} onChange={e=>setFilter(e.target.value)} placeholder="Search visits by reason, vet, or diagnosis..."
+        style={{background:"#FAF6F0",border:"1.5px solid #E8DDD0",borderRadius:10,padding:"9px 14px",fontSize:14,color:"#2C2017",outline:"none",fontFamily:"'Nunito',sans-serif"}}/>
+    )}
+
+    {visits.length===0
+      ?<Empty icon="stethoscope" title="No visits logged" sub="Track every vet visit for a complete history." action={<Btn onClick={()=>setModal({type:"add"})}><Ic n="plus" s={14}/> Log Visit</Btn>}/>
+      :<div style={{position:"relative"}}>
+        {/* Timeline line */}
+        <div style={{position:"absolute",left:19,top:24,bottom:24,width:2,background:"#E8DDD0",zIndex:0}}/>
+        <div style={{display:"flex",flexDirection:"column",gap:0}}>
+          {filtered.map((v,idx)=>(
+            <div key={v.id} style={{display:"flex",gap:14,paddingBottom:16,position:"relative"}}>
+              {/* Timeline dot */}
+              <div style={{flexShrink:0,width:40,display:"flex",flexDirection:"column",alignItems:"center",paddingTop:16}}>
+                <div style={{width:12,height:12,borderRadius:"50%",background:"#2D7D6F",border:"2px solid #FFFFFF",boxShadow:"0 0 0 2px #2D7D6F",zIndex:1}}/>
+              </div>
+              {/* Card */}
+              <div style={{flex:1,background:"#FFFFFF",border:"1px solid #E8DDD0",borderRadius:14,padding:"14px 16px",boxShadow:"0 2px 8px rgba(44,32,23,0.06)"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+                  <div style={{flex:1}}>
+                    <div style={{fontWeight:700,fontSize:15,marginBottom:2}}>{v.reason}</div>
+                    <div style={{fontSize:12,color:"#8B7355",display:"flex",alignItems:"center",gap:6}}>
+                      <Ic n="cal" s={12} c="#8B7355"/>
+                      {fmt(v.visit_date)}
+                      {v.vet_name&&<><span>·</span>{v.vet_name}</>}
+                      {v.clinic&&<><span>·</span>{v.clinic}</>}
+                    </div>
+                  </div>
+                  <div style={{display:"flex",gap:5,marginLeft:8}}>
+                    <button onClick={()=>setModal({type:"edit",v})} style={{background:"#FFFFFF",border:"1px solid #E8DDD0",borderRadius:8,padding:"5px 8px",color:"#5A4535"}}><Ic n="edit" s={13}/></button>
+                    <button onClick={()=>delVisit(v.id)} style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:8,padding:"5px 8px",color:"#C4714A"}}><Ic n="trash" s={13}/></button>
+                  </div>
+                </div>
+                {v.diagnosis&&<div style={{fontSize:13,color:"#2C2017",marginBottom:3}}><span style={{color:"#8B7355",fontWeight:600}}>Dx: </span>{v.diagnosis}</div>}
+                {v.treatment&&<div style={{fontSize:13,color:"#2C2017",marginBottom:3}}><span style={{color:"#8B7355",fontWeight:600}}>Tx: </span>{v.treatment}</div>}
+                {v.cost&&<div style={{fontSize:13,color:"#2D7D6F",fontWeight:600,marginTop:4}}>${v.cost}</div>}
+              </div>
+            </div>
+          ))}
+          {filter&&filtered.length===0&&<div style={{textAlign:"center",padding:"20px 40px",color:"#8B7355",fontSize:14}}>No visits matching "{filter}"</div>}
+        </div>
+      </div>}
+
     {modal?.type==="add"&&<VisitForm dogId={dog.id} userId={userId} onSave={v=>{dispatch({t:"ADD_VISIT",v});setModal(null);}} onClose={()=>setModal(null)}/>}
     {modal?.type==="edit"&&<VisitForm visit={modal.v} dogId={dog.id} userId={userId} onSave={v=>{dispatch({t:"UPD_VISIT",v});setModal(null);}} onClose={()=>setModal(null)}/>}
   </div>);
 };
+
 
 const MoreTab=({dog,state,dispatch,userId,tier,onUpgrade})=>{
   const[section,setSection]=useState(null);
