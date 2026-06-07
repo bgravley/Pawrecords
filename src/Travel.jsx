@@ -112,7 +112,7 @@ const inp = {
 };
 
 // ── AI REQUIREMENTS ENGINE — calls OpenAI directly ───────
-const generateChecklist = async (trip, pets) => {
+const generateChecklist = async (trip, pets, userId) => {
   const petList = pets.map(p =>
     `${p.name} (${p.breed || 'mixed'}${p.is_service_animal ? ', SERVICE ANIMAL' : ''}${p.is_esa ? ', ESA' : ''})`
   ).join('; ');
@@ -514,7 +514,7 @@ const TripDetail = ({ trip, userId, dogs, onBack, onUpdate }) => {
   const generateRequirements = async () => {
     setGenerating(true); setGenError(null);
     try {
-      const items = await generateChecklist(trip, tripPets);
+      const items = await generateChecklist(trip, tripPets, userId);
       const now = new Date().toISOString();
       const depDate = new Date(trip.departure_date + 'T12:00:00');
       const daysToDate = (days) => {
