@@ -146,6 +146,9 @@ Start with [`;
     },
     body: JSON.stringify({
       messages: [{ role: "user", content: prompt }],
+      userId: userId,
+      userEmail: null,
+      destination: `${trip.origin_city} to ${trip.destination_city}`,
     }),
   });
 
@@ -174,7 +177,7 @@ const TripForm = ({ trip, userId, dogs, onSave, onClose }) => {
   const [f, setF] = useState(trip ? {
     name: trip.name || "",
     originCity: trip.origin_city || "",
-    originCountry: trip.origin_country || "",
+    originCountry: trip.origin_country || "United States",
     destinationCity: trip.destination_city || "",
     destinationCountry: trip.destination_country || "",
     departureDate: trip.departure_date || "",
@@ -183,7 +186,7 @@ const TripForm = ({ trip, userId, dogs, onSave, onClose }) => {
     notes: trip.notes || "",
     selectedPets: trip.pet_ids || [],
   } : {
-    name: "", originCity: "", originCountry: "", destinationCity: "",
+    name: "", originCity: "", originCountry: "United States", destinationCity: "",
     destinationCountry: "", departureDate: "", returnDate: "",
     airline: "", notes: "", selectedPets: [],
   });
@@ -241,7 +244,12 @@ const TripForm = ({ trip, userId, dogs, onSave, onClose }) => {
           <div style={{ fontWeight: 800, fontSize: 12, color: C.sub, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 12 }}>🛬 Destination</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <Field label="City"><input style={inp} value={f.destinationCity} onChange={e => set("destinationCity", e.target.value)} placeholder="Miami" /></Field>
-            <Field label="Country"><input style={inp} value={f.destinationCountry} onChange={e => set("destinationCountry", e.target.value)} placeholder="United States" /></Field>
+            <Field label="Country">
+              <select style={{...inp, appearance:"none"}} value={f.destinationCountry} onChange={e => set("destinationCountry", e.target.value)}>
+                <option value="">Select country...</option>
+                {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </Field>
           </div>
         </div>
 
