@@ -117,8 +117,23 @@ const generateChecklist = async (trip, pets, userId) => {
     `${p.name} (${p.breed || 'mixed'}${p.is_service_animal ? ', SERVICE ANIMAL' : ''}${p.is_esa ? ', ESA' : ''})`
   ).join('; ');
 
-  const isOriginUSA = trip.origin_country === "United States";
-  const isDestUSA = trip.destination_country === "United States";
+  // US territories count as USA for all federal pet travel requirements
+  const US_TERRITORIES = [
+    "United States", "Puerto Rico", "Guam", "US Virgin Islands",
+    "U.S. Virgin Islands", "American Samoa", "Northern Mariana Islands",
+    "United States Virgin Islands"
+  ];
+  const US_CITIES = ["san juan", "ponce", "bayamon", "mayaguez", "carolina"]; // PR cities
+  
+  const originCity = (trip.origin_city || "").toLowerCase();
+  const destCity = (trip.destination_city || "").toLowerCase();
+  
+  const isOriginUSA = US_TERRITORIES.includes(trip.origin_country) ||
+    US_TERRITORIES.some(t => (trip.origin_country || "").includes(t)) ||
+    US_CITIES.some(c => originCity.includes(c));
+  const isDestUSA = US_TERRITORIES.includes(trip.destination_country) ||
+    US_TERRITORIES.some(t => (trip.destination_country || "").includes(t)) ||
+    US_CITIES.some(c => destCity.includes(c));
   const usaInvolved = isOriginUSA || isDestUSA;
 
   const prompt = `You are a veterinary travel compliance expert specializing in international pet travel documentation. Generate a COMPLETE, ACCURATE, and ACTIONABLE pet travel checklist for this route.
@@ -132,9 +147,11 @@ TRIP DETAILS:
 
 ===== CRITICAL RULE: USA INVOLVEMENT =====
 ${usaInvolved ? `
-⚠️ THE UNITED STATES IS INVOLVED IN THIS TRIP. THE FOLLOWING USA REQUIREMENTS MUST BE INCLUDED AS SEPARATE CHECKLIST ITEMS — NO EXCEPTIONS:
+⚠️ THE UNITED STATES OR A US TERRITORY IS INVOLVED IN THIS TRIP. THE FOLLOWING USA REQUIREMENTS MUST BE INCLUDED AS SEPARATE CHECKLIST ITEMS — NO EXCEPTIONS:
 
 IMPORTANT TIMING WARNING: ALL USA documentation must be completed BEFORE the pet leaves the United States. If the pet has already left the USA, it is too late — they will face 28-day quarantine or a titer test (blood test to prove rabies immunity) upon return, which costs $300-500 and requires waiting weeks for results.
+
+NOTE: Puerto Rico, Guam, US Virgin Islands, American Samoa, and Northern Mariana Islands are US territories subject to the SAME federal CDC and USDA requirements as the continental United States. If origin or destination is any US territory, ALL items below are required.
 
 MANDATORY USA CHECKLIST ITEMS TO INCLUDE:
 
