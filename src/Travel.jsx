@@ -342,7 +342,12 @@ const TripForm = ({ trip, userId, dogs, onSave, onClose }) => {
           <div style={{ fontWeight: 800, fontSize: 12, color: C.sub, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 12 }}>📍 Origin</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <Field label="City"><input style={inp} value={f.originCity} onChange={e => set("originCity", e.target.value)} placeholder="Panama City" /></Field>
-            <Field label="Country"><input style={inp} value={f.originCountry} onChange={e => set("originCountry", e.target.value)} placeholder="Panama" /></Field>
+            <Field label="Country">
+              <select style={{...inp, appearance:"none"}} value={f.originCountry} onChange={e => set("originCountry", e.target.value)}>
+                <option value="">Select country...</option>
+                {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </Field>
           </div>
         </div>
 
