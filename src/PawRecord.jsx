@@ -711,14 +711,25 @@ const VisitForm=({visit,dogId,userId,onSave,onClose})=>{
 const ShareModal=({dog,onClose})=>{
   const msgs=[`🐾 ${dog.name} is up to date on all vaccinations! Keeping pet records organized with YourPetPass 📋`,`💉 Just logged ${dog.name}'s latest vet visit! Healthy pup = happy life. #YourPetPass #DogMom #DogDad`,`✅ ${dog.name}'s medical records are travel-ready. Best investment for any dog parent! 🐶`];
   const[sel,setSel]=useState(0);
+  const[copied,setCopied]=useState(false);
+  const shareUrl="https://yourpetpass.com";
+  const copyAndOpen=(platform)=>{
+    navigator.clipboard.writeText(msgs[sel]).catch(()=>{});
+    setCopied(true);
+    setTimeout(()=>setCopied(false),3000);
+    if(platform==="twitter")window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(msgs[sel])}%20${encodeURIComponent(shareUrl)}`,"_blank");
+    if(platform==="facebook")window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`,"_blank");
+  };
   return(<Modal title={`Share ${dog.name}'s Update`} onClose={onClose}>
     <div style={{display:"flex",flexDirection:"column",gap:12}}>
       {msgs.map((m,i)=><div key={i} onClick={()=>setSel(i)} style={{padding:14,borderRadius:12,border:`2px solid ${sel===i?"#2D7D6F":"#E8DDD0"}`,cursor:"pointer",fontSize:14,lineHeight:1.6,background:sel===i?"#2D7D6F14":"#FFFFFF"}}>{m}</div>)}
+      {copied&&<div style={{background:"#2D7D6F14",border:"1px solid #2D7D6F44",borderRadius:10,padding:"10px 14px",fontSize:13,color:"#2D7D6F",fontWeight:600}}>✓ Message copied — paste it into your post!</div>}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginTop:4}}>
-        <Btn onClick={()=>window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(msgs[sel])}`,"_blank")} style={{background:"#1da1f2",color:"#fff",justifyContent:"center"}}>Twitter</Btn>
-        <Btn onClick={()=>window.open(`https://www.facebook.com/sharer/sharer.php?quote=${encodeURIComponent(msgs[sel])}`,"_blank")} style={{background:"#1877f2",color:"#fff",justifyContent:"center"}}>Facebook</Btn>
-        <Btn v="secondary" onClick={()=>navigator.clipboard.writeText(msgs[sel])} style={{justifyContent:"center"}}><Ic n="doc" s={13}/> Copy</Btn>
+        <Btn onClick={()=>copyAndOpen("twitter")} style={{background:"#1da1f2",color:"#fff",justifyContent:"center"}}>Twitter/X</Btn>
+        <Btn onClick={()=>copyAndOpen("facebook")} style={{background:"#1877f2",color:"#fff",justifyContent:"center"}}>Facebook</Btn>
+        <Btn v="secondary" onClick={()=>{navigator.clipboard.writeText(msgs[sel]);setCopied(true);setTimeout(()=>setCopied(false),2000);}} style={{justifyContent:"center"}}><Ic n="doc" s={13}/> Copy</Btn>
       </div>
+      <div style={{fontSize:12,color:"#8B7355",textAlign:"center"}}>Tap Facebook or Twitter — your message is copied automatically. Just paste it into your post.</div>
     </div>
   </Modal>);
 };
