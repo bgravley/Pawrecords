@@ -10,12 +10,78 @@ import Travel from "./Travel.jsx";
 // Your admin email — only this account sees the admin dashboard
 const ADMIN_EMAIL = "bgravley@rdmarketingllc.com";
 
+function ResetPasswordScreen({ onDone }) {
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(false);
+
+  const inp = {
+    width: '100%', padding: '13px 16px', borderRadius: 12, fontSize: 15,
+    border: '1.5px solid #E8DDD0', background: '#FAF6F0', color: '#2C2017',
+    outline: 'none', fontFamily: "'Nunito', sans-serif", boxSizing: 'border-box',
+  };
+
+  const handleReset = async () => {
+    if (!password || password.length < 8) return setError('Password must be at least 8 characters.');
+    if (password !== confirm) return setError('Passwords do not match.');
+    setLoading(true);
+    setError(null);
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) {
+      setError(error.message);
+      setLoading(false);
+    } else {
+      setSuccess(true);
+      setTimeout(() => onDone(), 2000);
+    }
+  };
+
+  return (
+    <div style={{ minHeight: '100vh', background: '#FAF6F0', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <div style={{ background: '#FFFFFF', borderRadius: 20, padding: 32, width: '100%', maxWidth: 400, boxShadow: '0 4px 24px #0000000D', border: '1px solid #E8DDD0' }}>
+        <div style={{ fontFamily: "'Lora', serif", fontSize: 26, fontWeight: 600, color: '#1E5C52', marginBottom: 6, textAlign: 'center' }}>
+          🐾 YourPetPass
+        </div>
+        <div style={{ fontFamily: "'Lora', serif", fontSize: 20, color: '#2C2017', marginBottom: 20, textAlign: 'center' }}>
+          Set New Password
+        </div>
+        {success ? (
+          <div style={{ background: '#2D7D6F14', border: '1px solid #2D7D6F44', borderRadius: 12, padding: 16, color: '#2D7D6F', fontWeight: 600, textAlign: 'center' }}>
+            ✓ Password updated! Redirecting...
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 700, color: '#5A4535', textTransform: 'uppercase', letterSpacing: '.05em', display: 'block', marginBottom: 6 }}>New Password</label>
+              <input type="password" value={password} onChange={e => setPassword(e.target.value)}
+                style={inp} placeholder="At least 8 characters" autoComplete="new-password" />
+            </div>
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 700, color: '#5A4535', textTransform: 'uppercase', letterSpacing: '.05em', display: 'block', marginBottom: 6 }}>Confirm Password</label>
+              <input type="password" value={confirm} onChange={e => setConfirm(e.target.value)}
+                style={inp} placeholder="Type it again" autoComplete="new-password" />
+            </div>
+            {error && <div style={{ background: '#C4714A14', border: '1px solid #C4714A44', borderRadius: 10, padding: '10px 14px', color: '#C4714A', fontSize: 14 }}>{error}</div>}
+            <button onClick={handleReset} disabled={loading}
+              style={{ width: '100%', padding: 14, borderRadius: 12, fontSize: 15, fontWeight: 700, background: '#2D7D6F', color: '#fff', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1, fontFamily: "'Nunito', sans-serif" }}>
+              {loading ? 'Saving...' : 'Save New Password'}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showAdmin, setShowAdmin] = useState(false);
   const [showTravel, setShowTravel] = useState(false);
+  const [showPasswordReset, setShowPasswordReset] = useState(false);
 
   // Capture referral code from URL (?ref=CODE) and store it
   useEffect(() => {
@@ -55,6 +121,13 @@ export default function App() {
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      // When user clicks the reset link in their email, show the reset form
+      if (_event === 'PASSWORD_RECOVERY') {
+        setShowPasswordReset(true);
+        setSession(session);
+        setLoading(false);
+        return;
+      }
       setSession(session);
       if (session) {
         applyReferral(session.user.id);
@@ -93,6 +166,11 @@ export default function App() {
       </div>
     </div>
   );
+
+  // Password recovery — user clicked the reset link in their email
+  if (showPasswordReset) {
+    return <ResetPasswordScreen onDone={() => setShowPasswordReset(false)} />;
+  }
 
   if (!session) return <Auth />;
 
