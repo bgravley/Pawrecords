@@ -1490,6 +1490,42 @@ const VetForm=({userId,onSave,onClose})=>{
 };
 
 
+// Proper component for weight logging — avoids React hooks-in-IIFE violation
+const WeightLogModal=({userId,dog,dispatch,onClose})=>{
+  const[wf,setWf]=useState({date:today(),weight:"",notes:""});
+  const[saving,setSaving]=useState(false);
+  const[err,setErr]=useState(null);
+  const handleSave=async()=>{
+    if(!wf.weight)return;
+    setSaving(true);setErr(null);
+    try{
+      const{data,error:dbErr}=await db.addWeight(userId,{dogId:dog.id,date:wf.date,weight:parseFloat(wf.weight),notes:wf.notes});
+      if(dbErr)throw new Error(dbErr.message||"Save failed");
+      if(data){
+        dispatch({t:"ADD_WT",w:data});
+        await supabase.from("dogs").update({weight:parseFloat(wf.weight)}).eq("id",dog.id);
+        dispatch({t:"UPD_DOG",d:{...dog,weight:parseFloat(wf.weight)}});
+        onClose();
+      }else{
+        throw new Error("Weight not saved — check account permissions");
+      }
+    }catch(e){setErr(e.message);}
+    setSaving(false);
+  };
+  return(<Modal title="Log Weight" onClose={onClose}>
+    <div style={{display:"flex",flexDirection:"column",gap:12}}>
+      <Field label="Date"><input type="date" value={wf.date} onChange={e=>setWf(p=>({...p,date:e.target.value}))}/></Field>
+      <Field label="Weight (lbs)"><input type="number" step="0.1" value={wf.weight} onChange={e=>setWf(p=>({...p,weight:e.target.value}))} placeholder="55.2"/></Field>
+      <Field label="Notes (optional)"><input value={wf.notes} onChange={e=>setWf(p=>({...p,notes:e.target.value}))} placeholder="After vet visit"/></Field>
+      {err&&<div style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:10,padding:"10px 14px",fontSize:13,color:"#C4714A"}}>{err}</div>}
+      <div style={{display:"flex",gap:10}}>
+        <Btn v="secondary" onClick={onClose} full>Cancel</Btn>
+        <Btn onClick={handleSave} disabled={saving||!wf.weight} full>{saving?"Saving...":"Save"}</Btn>
+      </div>
+    </div>
+  </Modal>);
+};
+
 const MoreTab=({dog,state,dispatch,userId,tier,onUpgrade})=>{
   const[section,setSection]=useState(null);
   const[modal,setModal]=useState(null);
@@ -1504,16 +1540,8 @@ const MoreTab=({dog,state,dispatch,userId,tier,onUpgrade})=>{
     <div style={{display:"flex",alignItems:"center",gap:10}}>{backBtn}<h3 style={{fontFamily:"'Lora',serif",fontSize:20,flex:1}}>Weight History</h3>{premium&&<Btn sm onClick={()=>setModal("addWeight")}><Ic n="plus" s={14}/> Log</Btn>}</div>
     {premium?<>
       {weights.length>=2&&(<Card><div style={{width:"100%",height:180}}><ResponsiveContainer width="100%" height={180}><LineChart data={weights.map(w=>({date:w.log_date.slice(5),weight:w.weight_lbs}))}><CartesianGrid strokeDasharray="3 3" stroke="#E8DDD0"/><XAxis dataKey="date" stroke="#5A4535" tick={{fontSize:11}}/><YAxis stroke="#5A4535" tick={{fontSize:11}} domain={["auto","auto"]}/><Tooltip contentStyle={{background:"#FFFFFF",border:"1px solid #E8DDD0",borderRadius:10,color:"#2C2017",fontSize:13}} formatter={v=>[v+" lbs","Weight"]}/><Line type="monotone" dataKey="weight" stroke="#2D7D6F" strokeWidth={2} dot={{r:3,fill:"#2D7D6F"}}/></LineChart></ResponsiveContainer></div></Card>)}
-      {weights.length===0?<Empty icon="weight" title="No weight records" sub="Log weight at each vet visit to track trends." action={<Btn onClick={()=>setModal("addWeight")}><Ic n="plus" s={14}/> Log Weight</Btn>}/>:weights.slice().reverse().map(w=>(<Card key={w.id}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><span style={{fontFamily:"'Lora',serif",fontSize:22,fontWeight:600}}>{w.weight_lbs}<span style={{fontSize:14,color:"#5A4535"}}> lbs</span></span><div style={{fontSize:12,color:"#5A4535",marginTop:2}}>{fmt(w.log_date)}{w.notes?` · ${w.notes}`:""}</div></div><button onClick={async()=>{await db.deleteWeight(w.id);dispatch({t:"DEL_WT",id:w.id});}} style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:8,padding:"5px 8px",color:"#C4714A"}}><Ic n="trash" s={13}/></button></div></Card>))}
-      {modal==="addWeight"&&<Modal title="Log Weight" onClose={()=>setModal(null)}>
-        {(()=>{const[wf,setWf]=useState({date:today(),weight:"",notes:""});return <div style={{display:"flex",flexDirection:"column",gap:12}}><Field label="Date"><input type="date" value={wf.date} onChange={e=>setWf(p=>({...p,date:e.target.value}))}/></Field><Field label="Weight (lbs)"><input type="number" step="0.1" value={wf.weight} onChange={e=>setWf(p=>({...p,weight:e.target.value}))} placeholder="55.2"/></Field><Field label="Notes"><input value={wf.notes} onChange={e=>setWf(p=>({...p,notes:e.target.value}))}/></Field><div style={{display:"flex",gap:10}}><Btn v="secondary" onClick={()=>setModal(null)} full>Cancel</Btn><Btn onClick={async()=>{if(!wf.weight)return;const{data}=await db.addWeight(userId,{dogId:dog.id,date:wf.date,weight:parseFloat(wf.weight),notes:wf.notes});
-                  if(data){
-                    dispatch({t:"ADD_WT",w:data});
-                    await supabase.from("dogs").update({weight:parseFloat(wf.weight)}).eq("id",dog.id);
-                    dispatch({t:"UPD_DOG",d:{...dog,weight:parseFloat(wf.weight)}});
-                  }
-                  setModal(null);}} full>Save</Btn></div></div>;})()}
-      </Modal>}
+      {weights.length===0?<Empty icon="weight" title="No weight records" sub="Log weight at each vet visit to track trends." action={<Btn onClick={()=>setModal("addWeight")}><Ic n="plus" s={14}/> Log Weight</Btn>}/>:weights.slice().reverse().map(w=>(<Card key={w.id}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><span style={{fontFamily:"'Lora',serif",fontSize:22,fontWeight:600}}>{w.weight_lbs}<span style={{fontSize:14,color:"#5A4535"}}> lbs</span></span><div style={{fontSize:12,color:"#5A4535",marginTop:2}}>{fmt(w.log_date)}{w.notes?` · ${w.notes}`:""}</div></div><button onClick={async()=>{try{await db.deleteWeight(w.id);dispatch({t:"DEL_WT",id:w.id});}catch(e){alert("Could not delete: "+e.message);}}} style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:8,padding:"5px 8px",color:"#C4714A"}}><Ic n="trash" s={13}/></button></div></Card>))}
+      {modal==="addWeight"&&<WeightLogModal userId={userId} dog={dog} dispatch={dispatch} onClose={()=>setModal(null)}/>}
     </>:<PremiumLock onUpgrade={onUpgrade} label="Weight Tracking — Premium Feature"/>}
   </div>);
 
@@ -1781,8 +1809,12 @@ const OwnerProfileModal=({userId,tier,userEmail,onUpgrade,onClose})=>{
 
   const addContact=async()=>{
     if(!newContact.name||!newContact.phone)return;
-    const{data}=await supabase.from("emergency_contacts").insert({user_id:userId,...newContact,sort_order:contacts.length}).select().single();
-    if(data){setContacts(p=>[...p,data]);setNewContact({name:"",phoneCode:"+1",phone:"",whatsappCode:"+1",whatsapp:"",relationship:"",email:""});setAddingContact(false);}
+    try{
+      const{data,error:dbErr}=await supabase.from("emergency_contacts").insert({user_id:userId,...newContact,sort_order:contacts.length}).select().single();
+      if(dbErr)throw new Error(dbErr.message||"Could not save contact");
+      if(data){setContacts(p=>[...p,data]);setNewContact({name:"",phoneCode:"+1",phone:"",whatsappCode:"+1",whatsapp:"",relationship:"",email:""});setAddingContact(false);}
+      else{throw new Error("Contact not saved — please try again");}
+    }catch(e){alert("Could not save contact: "+e.message);}
   };
 
   const deleteContact=async(id)=>{
@@ -1867,7 +1899,7 @@ const OwnerProfileModal=({userId,tier,userEmail,onUpgrade,onClose})=>{
           </div>
         </label>
       </div>
-      <Btn onClick={saveProfile} disabled={saving} full style={{justifyContent:"center",background:saved?"#2D7D6F":undefined}}>{saving?"Saving...":saved?"✓ Saved!":"Save Profile"}</Btn>
+      <Btn onClick={saveProfile} disabled={saving} full style={{justifyContent:"center",background:saved?"#1E5C52":"#2D7D6F",color:"#FFFFFF"}}>{saving?"Saving...":saved?"✓ Saved!":"Save Profile"}</Btn>
       {/* Emergency Contacts */}
       <div>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
