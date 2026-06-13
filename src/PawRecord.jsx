@@ -1810,7 +1810,17 @@ const OwnerProfileModal=({userId,tier,userEmail,onUpgrade,onClose})=>{
   const addContact=async()=>{
     if(!newContact.name||!newContact.phone)return;
     try{
-      const{data,error:dbErr}=await supabase.from("emergency_contacts").insert({user_id:userId,...newContact,sort_order:contacts.length}).select().single();
+      const{data,error:dbErr}=await supabase.from("emergency_contacts").insert({
+        user_id:userId,
+        name:newContact.name,
+        phone_code:newContact.phoneCode||"+1",
+        phone:newContact.phone,
+        whatsapp_code:newContact.whatsappCode||"+1",
+        whatsapp:newContact.whatsapp||"",
+        relationship:newContact.relationship||"",
+        email:newContact.email||"",
+        sort_order:contacts.length
+      }).select().single();
       if(dbErr)throw new Error(dbErr.message||"Could not save contact");
       if(data){setContacts(p=>[...p,data]);setNewContact({name:"",phoneCode:"+1",phone:"",whatsappCode:"+1",whatsapp:"",relationship:"",email:""});setAddingContact(false);}
       else{throw new Error("Contact not saved — please try again");}
