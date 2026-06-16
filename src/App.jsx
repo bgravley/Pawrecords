@@ -6,6 +6,7 @@ import YourPetPass from "./PawRecord.jsx";
 import Admin from "./Admin.jsx";
 import Emergency from "./Emergency.jsx";
 import Travel from "./Travel.jsx";
+import AffiliatePortal from "./AffiliatePortal.jsx";
 
 // Your admin email — only this account sees the admin dashboard
 const ADMIN_EMAIL = "bgravley@rdmarketingllc.com";
@@ -82,6 +83,29 @@ export default function App() {
   const [showAdmin, setShowAdmin] = useState(false);
   const [showTravel, setShowTravel] = useState(false);
   const [showPasswordReset, setShowPasswordReset] = useState(false);
+  const [paymentToast, setPaymentToast] = useState(null); // 'success' | 'canceled' | null
+  const [showAffiliatePortal, setShowAffiliatePortal] = useState(false);
+  const [isAffiliate, setIsAffiliate] = useState(false);
+
+  // Detect Stripe payment redirect (?payment=success or ?payment=canceled)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const payment = params.get('payment');
+    if (payment === 'success') {
+      setPaymentToast('success');
+      setTimeout(() => setPaymentToast(null), 6000);
+      // Clean the URL
+      window.history.replaceState({}, '', window.location.pathname);
+      // Reload profile after a short delay so webhook has time to update the tier
+      setTimeout(() => {
+        if (session?.user?.id) loadProfile(session.user.id);
+      }, 3000);
+    } else if (payment === 'canceled') {
+      setPaymentToast('canceled');
+      setTimeout(() => setPaymentToast(null), 4000);
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, [session]);
 
   // Capture referral code from URL (?ref=CODE) and store it
   useEffect(() => {
@@ -142,6 +166,9 @@ export default function App() {
     const { data } = await supabase.from("profiles").select("*").eq("id", userId).single();
     setProfile(data);
     setLoading(false);
+    // Check if this user is an affiliate (uses RLS — only returns their own record if exists)
+    const { data: affData } = await supabase.from("affiliates").select("id").eq("user_id", userId).single();
+    setIsAffiliate(!!affData);
   };
 
   const handleSignOut = async () => {
@@ -187,14 +214,34 @@ export default function App() {
 
   return (
     <>
-      <YourPetPass
-        userId={session.user.id}
-        profile={profile}
-        onSignOut={handleSignOut}
-        isAdmin={isAdmin}
-        onOpenAdmin={() => setShowAdmin(true)}
-        onOpenTravel={() => setShowTravel(true)}
-      />
+      {paymentToast==='success'&&(
+        <div style={{position:'fixed',top:16,left:'50%',transform:'translateX(-50%)',background:'#2D7D6F',color:'#fff',borderRadius:12,padding:'12px 24px',fontSize:15,fontWeight:700,zIndex:9999,boxShadow:'0 4px 20px #00000033',display:'flex',alignItems:'center',gap:10}}>
+          🎉 Payment successful! Your account is being upgraded — this may take a moment.
+        </div>
+      )}
+      {paymentToast==='canceled'&&(
+        <div style={{position:'fixed',top:16,left:'50%',transform:'translateX(-50%)',background:'#5A4535',color:'#fff',borderRadius:12,padding:'12px 24px',fontSize:15,fontWeight:600,zIndex:9999,boxShadow:'0 4px 20px #00000033'}}>
+          Checkout canceled — no charge was made.
+        </div>
+      )}
+      {showAffiliatePortal ? (
+        <AffiliatePortal
+          userId={session.user.id}
+          userEmail={session.user.email}
+          onClose={() => setShowAffiliatePortal(false)}
+        />
+      ) : (
+        <YourPetPass
+          userId={session.user.id}
+          profile={profile}
+          onSignOut={handleSignOut}
+          isAdmin={isAdmin}
+          isAffiliate={isAffiliate}
+          onOpenAdmin={() => setShowAdmin(true)}
+          onOpenTravel={() => setShowTravel(true)}
+          onOpenAffiliate={() => setShowAffiliatePortal(true)}
+        />
+      )}
     </>
   );
 }
