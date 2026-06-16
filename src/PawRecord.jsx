@@ -322,8 +322,9 @@ const UpgradeModal=({userId,userEmail,onClose})=>{
     try{
       const body={priceId:PRICES[priceKey],userId,userEmail,mode};
       if(couponApplied&&coupon.trim())body.couponCode=coupon.trim().toUpperCase();
-      const{data,error:fnErr}=await supabase.functions.invoke("create-checkout",{body});
-      if(fnErr||data.error)throw new Error(fnErr?.message||data.error);
+      const res=await fetch('/api/create-checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      const data=await res.json();
+      if(!res.ok||data.error)throw new Error(data.error||'Checkout failed — please try again');
       window.location.href=data.url;
     }catch(e){setError(e.message);setLoading(null);}
   };
@@ -1988,7 +1989,7 @@ const AlertsModal=({state,onClose,onSelectDog})=>{
   </Modal>);
 };
 
-const Home=({state,dispatch,userId,tier,userEmail,onSignOut,isAdmin,onOpenAdmin,onOpenTravel})=>{
+const Home=({state,dispatch,userId,tier,userEmail,onSignOut,isAdmin,onOpenAdmin,onOpenTravel,isAffiliate,onOpenAffiliate})=>{
   const[addDog,setAddDog]=useState(false);
   const[selDog,setSelDog]=useState(null);
   const[showUpgrade,setShowUpgrade]=useState(false);
@@ -2048,6 +2049,7 @@ const Home=({state,dispatch,userId,tier,userEmail,onSignOut,isAdmin,onOpenAdmin,
               <circle cx="12" cy="7" r="4"/>
             </svg>
           </button>
+          {isAffiliate&&!isAdmin&&<button onClick={onOpenAffiliate} style={{background:"#E8A838",border:"none",borderRadius:10,padding:"7px 10px",color:"#FFFFFF",cursor:"pointer",fontSize:11,fontWeight:700}}>🤝 Affiliate</button>}
           {isAdmin&&<button onClick={onOpenAdmin} title="Admin Dashboard" style={{position:"relative",background:"#1E5C52",border:"1px solid #2D7D6F44",borderRadius:10,padding:"7px 10px",color:"#FFFFFF",cursor:"pointer",fontSize:11,fontWeight:700}}>
   ⚙ Admin
   {errorCount>0&&<span style={{position:"absolute",top:-6,right:-6,background:"#C4714A",color:"#fff",borderRadius:"50%",width:18,height:18,fontSize:10,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700}}>{errorCount}</span>}
@@ -2151,7 +2153,7 @@ const Home=({state,dispatch,userId,tier,userEmail,onSignOut,isAdmin,onOpenAdmin,
   </div>);
 };
 
-export default function YourPetPass({userId,profile,onSignOut,isAdmin,onOpenAdmin,onOpenTravel}){
+export default function YourPetPass({userId,profile,onSignOut,isAdmin,isAffiliate,onOpenAdmin,onOpenTravel,onOpenAffiliate}){
   const[state,dispatch]=useReducer(reducer,null,initState);
   const[ready,setReady]=useState(false);
   const[tier,setTier]=useState("free");
@@ -2179,7 +2181,7 @@ export default function YourPetPass({userId,profile,onSignOut,isAdmin,onOpenAdmi
   return(
     <ErrorBoundary>
       <style>{GLOBAL}</style>
-      <Home state={state} dispatch={dispatch} userId={userId} tier={tier} userEmail={userEmail} onSignOut={onSignOut} isAdmin={isAdmin} onOpenAdmin={onOpenAdmin} onOpenTravel={onOpenTravel}/>
+      <Home state={state} dispatch={dispatch} userId={userId} tier={tier} userEmail={userEmail} onSignOut={onSignOut} isAdmin={isAdmin} isAffiliate={isAffiliate} onOpenAdmin={onOpenAdmin} onOpenTravel={onOpenTravel} onOpenAffiliate={onOpenAffiliate}/>
     </ErrorBoundary>
   );
 }
