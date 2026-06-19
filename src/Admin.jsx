@@ -450,16 +450,33 @@ export default function Admin({ onBack }) {
           if (!newAffiliate.userId) return;
           const user = users.find(u => u.id === newAffiliate.userId);
           const code = genCode(user?.email || '');
+          const rate = parseFloat(newAffiliate.commissionRate) || 20;
           const res = await adminFetch('create_affiliate', {
             userId: newAffiliate.userId,
             referralCode: code,
-            commissionRate: parseFloat(newAffiliate.commissionRate) || 20,
+            commissionRate: rate,
             notes: newAffiliate.notes,
           });
           if (res.data) {
             setAffiliates(p => [res.data, ...p]);
             setShowCreateAffiliate(false);
             setNewAffiliate({ userId: '', commissionRate: 20, notes: '' });
+            // Send welcome email to the new affiliate
+            try {
+              await fetch('/api/notify-affiliate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  affiliateEmail: user?.email || '',
+                  affiliateName: user?.full_name || '',
+                  referralCode: code,
+                  commissionRate: rate,
+                  notes: newAffiliate.notes || '',
+                }),
+              });
+            } catch (e) {
+              console.error('Affiliate welcome email failed (non-critical):', e.message);
+            }
           }
         };
         const toggleStatus = async (aff) => {
@@ -468,13 +485,29 @@ export default function Admin({ onBack }) {
           setAffiliates(p => p.map(a => a.id === aff.id ? { ...a, status: newStatus } : a));
         };
         const totalOwed = affiliateCommissions.filter(c => c.status === 'pending').reduce((s, c) => s + (c.commission_amount_cents || 0), 0);
+
+        // Monthly summary — current month only
+        const thisMonth = new Date().toISOString().slice(0, 7);
+        const thisMonthOwed = affiliateCommissions.filter(c => c.status === 'pending' && (c.period_month || '').startsWith(thisMonth)).reduce((s, c) => s + (c.commission_amount_cents || 0), 0);
+
+        const markPaid = async (commissionId, method) => {
+          await adminFetch('update_commission', { commissionId, updates: { status: 'paid', payout_method: method, paid_at: new Date().toISOString() } });
+          setAffiliateCommissions(p => p.map(c => c.id === commissionId ? { ...c, status: 'paid', payout_method: method } : c));
+        };
+
+        const savePayoutInfo = async (affId, updates) => {
+          await adminFetch('update_affiliate', { affiliateId: affId, updates });
+          setAffiliates(p => p.map(a => a.id === affId ? { ...a, ...updates } : a));
+        };
         return (
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
               <div>
                 <div style={{ fontWeight: 700, fontSize: 18 }}>Affiliate Partners</div>
                 <div style={{ fontSize: 13, color: C.sub, marginTop: 2 }}>
-                  Total commissions pending: <span style={{ color: C.warn, fontWeight: 700 }}>${(totalOwed / 100).toFixed(2)}</span>
+                  Total pending: <span style={{ color: C.warn, fontWeight: 700 }}>${(totalOwed / 100).toFixed(2)}</span>
+                  &nbsp;&nbsp;·&nbsp;&nbsp;
+                  This month: <span style={{ color: C.warn, fontWeight: 700 }}>${(thisMonthOwed / 100).toFixed(2)}</span>
                 </div>
               </div>
               <button onClick={() => setShowCreateAffiliate(true)}
@@ -509,10 +542,14 @@ export default function Admin({ onBack }) {
                             <span style={{ fontSize: 12, color: C.sub }}>{aff.commission_rate}% commission</span>
                           </div>
                           {aff.notes && <div style={{ fontSize: 12, color: C.sub, marginBottom: 8 }}>{aff.notes}</div>}
-                          <div style={{ display: 'flex', gap: 16, fontSize: 13 }}>
+                          <div style={{ display: 'flex', gap: 16, fontSize: 13, marginBottom: 8 }}>
                             <span style={{ color: C.text }}><b>{referred}</b> <span style={{ color: C.sub }}>referred</span></span>
                             <span style={{ color: C.warn }}><b>${(owed/100).toFixed(2)}</b> <span style={{ color: C.sub }}>owed</span></span>
                             <span style={{ color: C.green }}><b>${(paid/100).toFixed(2)}</b> <span style={{ color: C.sub }}>paid</span></span>
+                          </div>
+                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            <input defaultValue={aff.payout_paypal || ''} onBlur={e => savePayoutInfo(aff.id, { payout_paypal: e.target.value })} placeholder="PayPal email" style={{ fontSize: 12, padding: '4px 8px', borderRadius: 6, border: '1px solid ' + C.border, background: C.bg, color: C.text, flex: 1, minWidth: 160 }}/>
+                            <input defaultValue={aff.payout_stripe_email || ''} onBlur={e => savePayoutInfo(aff.id, { payout_stripe_email: e.target.value })} placeholder="Stripe email" style={{ fontSize: 12, padding: '4px 8px', borderRadius: 6, border: '1px solid ' + C.border, background: C.bg, color: C.text, flex: 1, minWidth: 160 }}/>
                           </div>
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
@@ -564,9 +601,16 @@ export default function Admin({ onBack }) {
                             <td style={{ padding: '8px 12px', color: C.sub }}>{c.commission_rate}%</td>
                             <td style={{ padding: '8px 12px', color: C.warn, fontWeight: 700 }}>${((c.commission_amount_cents||0)/100).toFixed(2)}</td>
                             <td style={{ padding: '8px 12px' }}>
-                              <span style={{ background: statusColor+'22', color: statusColor, borderRadius: 20, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>
-                                {c.status.toUpperCase()}
-                              </span>
+                              {c.status === 'pending' ? (
+                                <div style={{ display: 'flex', gap: 4 }}>
+                                  <button onClick={() => markPaid(c.id, 'paypal')} style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, border: '1px solid #003087', background: '#003087', color: '#fff', cursor: 'pointer', fontWeight: 600 }}>Pay PayPal</button>
+                                  <button onClick={() => markPaid(c.id, 'stripe')} style={{ fontSize: 11, padding: '3px 8px', borderRadius: 6, border: '1px solid #6772E5', background: '#6772E5', color: '#fff', cursor: 'pointer', fontWeight: 600 }}>Pay Stripe</button>
+                                </div>
+                              ) : (
+                                <span style={{ background: statusColor+'22', color: statusColor, borderRadius: 20, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}>
+                                  PAID via {c.payout_method?.toUpperCase() || 'N/A'}
+                                </span>
+                              )}
                             </td>
                           </tr>
                         );
