@@ -44,7 +44,20 @@ export default async function handler(req, res) {
     const session = await stripe.checkout.sessions.create(sessionParams);
     return res.status(200).json({ url: session.url });
   } catch (err) {
-    console.error('Stripe checkout error:', err.message);
-    return res.status(500).json({ error: err.message });
+    // Log full detail server-side for debugging
+    console.error('Stripe checkout error:', {
+      message: err.message,
+      type: err.type,
+      param: err.param,
+      code: err.code,
+      sentParams: { ...sessionParams, line_items: sessionParams.line_items },
+    });
+    // Surface the specific failing field in the error sent to the client
+    const detail = [
+      err.message,
+      err.param ? `(param: ${err.param})` : null,
+      err.type ? `[${err.type}]` : null,
+    ].filter(Boolean).join(' ');
+    return res.status(500).json({ error: detail, stripeParam: err.param || null, stripeType: err.type || null });
   }
 }
