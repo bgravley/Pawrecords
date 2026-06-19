@@ -3,6 +3,13 @@
 
 export const config = { api: { bodyParser: false } };
 
+// One shared stripe instance per request
+let _stripe = null;
+const getStripe = async () => {
+  if (!_stripe) _stripe = (await import('stripe')).default(process.env.STRIPE_SECRET_KEY);
+  return _stripe;
+};
+
 async function getRawBody(req) {
   return new Promise((resolve, reject) => {
     const chunks = [];
@@ -10,6 +17,54 @@ async function getRawBody(req) {
     req.on('end', () => resolve(Buffer.concat(chunks)));
     req.on('error', reject);
   });
+}
+
+// Returns the net amount in cents after Stripe fees for a given charge.
+// This is what you actually receive — what the affiliate commission should be based on.
+// Falls back to estimating (gross - 2.9% - $0.30) if balance transaction unavailable.
+async function getNetCents(chargeId, grossCents) {
+  if (!chargeId) return estimateNet(grossCents);
+  try {
+    const stripe = await getStripe();
+    const charge = await stripe.charges.retrieve(chargeId, { expand: ['balance_transaction'] });
+    const bt = charge.balance_transaction;
+    if (bt && typeof bt === 'object' && bt.net) {
+      console.log(`Net after Stripe fees: $${(bt.net/100).toFixed(2)} (gross $${(grossCents/100).toFixed(2)}, fee $${(bt.fee/100).toFixed(2)})`);
+      return bt.net;
+    }
+  } catch (e) {
+    console.error('Could not retrieve balance transaction, estimating net:', e.message);
+  }
+  return estimateNet(grossCents);
+}
+
+function estimateNet(grossCents) {
+  // Stripe standard US rate: 2.9% + $0.30
+  // Used as fallback when balance transaction isn't available (e.g. test mode timing)
+  const fee = Math.round(grossCents * 0.029) + 30;
+  return Math.max(0, grossCents - fee);
+}
+
+async function linkStripeCustomerToProfile(userId, stripeCustomerId) {
+  if (!userId || !stripeCustomerId) return;
+  try {
+    await fetch(
+      `${process.env.SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': process.env.SUPABASE_SERVICE_KEY,
+          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
+          'Prefer': 'return=minimal',
+        },
+        body: JSON.stringify({ stripe_customer_id: stripeCustomerId }),
+      }
+    );
+    console.log(`Linked Stripe customer ${stripeCustomerId} to profile ${userId}`);
+  } catch (e) {
+    console.error('Failed to link Stripe customer to profile:', e.message);
+  }
 }
 
 async function updateUserTier(stripeCustomerId, tier) {
@@ -47,26 +102,21 @@ async function updateUserTier(stripeCustomerId, tier) {
   return profile; // return full profile so we can use it for commission calc
 }
 
-async function recordCommission({ profile, amountCents, stripeInvoiceId, periodMonth }) {
-  if (!profile?.referral_code_used || amountCents <= 0) return;
+async function recordCommission({ profile, grossCents, netCents, stripeInvoiceId, periodMonth }) {
+  // Commission is always on NET (after Stripe fees) — never on gross
+  if (!profile?.referral_code_used || netCents <= 0) return;
 
   try {
-    // Look up the affiliate by referral code
     const affRes = await fetch(
       `${process.env.SUPABASE_URL}/rest/v1/affiliates?referral_code=eq.${profile.referral_code_used}&status=eq.active&select=id,commission_rate`,
-      {
-        headers: {
-          'apikey': process.env.SUPABASE_SERVICE_KEY,
-          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
-        }
-      }
+      { headers: { 'apikey': process.env.SUPABASE_SERVICE_KEY, 'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}` } }
     );
     const affiliates = await affRes.json();
-    if (!affiliates?.length) return; // code not found or affiliate inactive
+    if (!affiliates?.length) return;
 
     const affiliate = affiliates[0];
     const rate = parseFloat(affiliate.commission_rate) || 20;
-    const commissionCents = Math.round(amountCents * (rate / 100));
+    const commissionCents = Math.round(netCents * (rate / 100));
 
     await fetch(`${process.env.SUPABASE_URL}/rest/v1/affiliate_commissions`, {
       method: 'POST',
@@ -80,7 +130,8 @@ async function recordCommission({ profile, amountCents, stripeInvoiceId, periodM
         affiliate_id: affiliate.id,
         referred_user_id: profile.id,
         stripe_payment_id: stripeInvoiceId,
-        payment_amount_cents: amountCents,
+        payment_amount_cents: netCents,
+        gross_amount_cents: grossCents,
         commission_rate: rate,
         commission_amount_cents: commissionCents,
         status: 'pending',
@@ -88,10 +139,68 @@ async function recordCommission({ profile, amountCents, stripeInvoiceId, periodM
       }),
     });
 
-    console.log(`Commission recorded: $${(commissionCents/100).toFixed(2)} for affiliate ${affiliate.id}`);
+    console.log(`Commission: ${rate}% of net $${(netCents/100).toFixed(2)} = $${(commissionCents/100).toFixed(2)} (gross $${(grossCents/100).toFixed(2)})`);
   } catch (e) {
     console.error('Commission recording failed:', e.message);
-    // Never let commission errors break the webhook
+  }
+}
+
+async function recordRefund({ stripeChargeId, stripeCustomerId, refundAmountCents, periodMonth }) {
+  if (!refundAmountCents || refundAmountCents <= 0) return;
+  try {
+    // Find the original commission using the stripe_payment_id (charge or invoice)
+    const commRes = await fetch(
+      `${process.env.SUPABASE_URL}/rest/v1/affiliate_commissions?stripe_payment_id=eq.${stripeChargeId}&status=eq.pending&select=*`,
+      { headers: { 'apikey': process.env.SUPABASE_SERVICE_KEY, 'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}` } }
+    );
+    const commissions = await commRes.json();
+
+    // Look up the user profile for this customer (need referral_code_used)
+    const profRes = await fetch(
+      `${process.env.SUPABASE_URL}/rest/v1/profiles?stripe_customer_id=eq.${stripeCustomerId}&select=id,referral_code_used`,
+      { headers: { 'apikey': process.env.SUPABASE_SERVICE_KEY, 'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}` } }
+    );
+    const profiles = await profRes.json();
+    const profile = profiles?.[0];
+
+    if (!profile?.referral_code_used) return; // not a referred user
+
+    // Find affiliate
+    const affRes = await fetch(
+      `${process.env.SUPABASE_URL}/rest/v1/affiliates?referral_code=eq.${profile.referral_code_used}&select=id,commission_rate`,
+      { headers: { 'apikey': process.env.SUPABASE_SERVICE_KEY, 'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}` } }
+    );
+    const affiliates = await affRes.json();
+    if (!affiliates?.length) return;
+
+    const affiliate = affiliates[0];
+    const rate = parseFloat(affiliate.commission_rate) || 20;
+    const refundCommissionCents = Math.round(refundAmountCents * (rate / 100));
+
+    // Insert a NEGATIVE commission entry to represent the refund
+    await fetch(`${process.env.SUPABASE_URL}/rest/v1/affiliate_commissions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': process.env.SUPABASE_SERVICE_KEY,
+        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
+        'Prefer': 'return=minimal',
+      },
+      body: JSON.stringify({
+        affiliate_id: affiliate.id,
+        referred_user_id: profile.id,
+        stripe_payment_id: stripeChargeId,
+        payment_amount_cents: -refundAmountCents,   // negative = refund
+        commission_rate: rate,
+        commission_amount_cents: -refundCommissionCents, // negative = clawback
+        status: 'refund',
+        period_month: periodMonth,
+      }),
+    });
+
+    console.log(`Refund recorded: -$${(refundCommissionCents/100).toFixed(2)} clawback for affiliate ${affiliate.id}`);
+  } catch (e) {
+    console.error('Refund recording failed:', e.message);
   }
 }
 
@@ -132,13 +241,21 @@ export default async function handler(req, res) {
         const session = event.data.object;
         const customerId = session.customer;
         const mode = session.mode;
+        const userId = session.metadata?.userId;
+
+        // Link this Stripe customer to the Supabase profile so future
+        // lookups (renewals, refunds) can find it by stripe_customer_id
+        await linkStripeCustomerToProfile(userId, customerId);
 
         if (mode === 'payment') {
           const profile = await updateUserTier(customerId, 'lifetime');
-          // One-time lifetime payment — record commission once
+          // One-time lifetime payment — get net after Stripe fees
+          const grossCents = session.amount_total || 0;
+          const netCents = await getNetCents(session.payment_intent, grossCents);
           await recordCommission({
             profile,
-            amountCents: session.amount_total || 0,
+            grossCents,
+            netCents,
             stripeInvoiceId: session.id,
             periodMonth: new Date().toISOString().slice(0, 7),
           });
@@ -154,9 +271,13 @@ export default async function handler(req, res) {
         const invoice = event.data.object;
         if (invoice.subscription) {
           const profile = await updateUserTier(invoice.customer, 'premium');
+          // Get net after Stripe fees — commission base is what we actually receive
+          const grossCents = invoice.amount_paid || 0;
+          const netCents = await getNetCents(invoice.charge, grossCents);
           await recordCommission({
             profile,
-            amountCents: invoice.amount_paid || 0,
+            grossCents,
+            netCents,
             stripeInvoiceId: invoice.id,
             periodMonth: new Date(invoice.period_start * 1000).toISOString().slice(0, 7),
           });
@@ -183,6 +304,18 @@ export default async function handler(req, res) {
         } else if (status === 'canceled' || status === 'unpaid' || status === 'past_due') {
           await updateUserTier(customerId, 'free');
         }
+        break;
+      }
+
+      // Refund issued — record a negative commission (clawback)
+      case 'charge.refunded': {
+        const charge = event.data.object;
+        await recordRefund({
+          stripeChargeId: charge.id,
+          stripeCustomerId: charge.customer,
+          refundAmountCents: charge.amount_refunded || 0,
+          periodMonth: new Date().toISOString().slice(0, 7),
+        });
         break;
       }
 
