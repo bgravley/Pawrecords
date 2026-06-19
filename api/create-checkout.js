@@ -2,7 +2,11 @@
 // Creates a Stripe Checkout session for subscription or one-time payment.
 // Replaces the missing Supabase Edge Function that was previously called.
 
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+let _stripe = null;
+const getStripe = async () => {
+  if (!_stripe) _stripe = (await import('stripe')).default(process.env.STRIPE_SECRET_KEY);
+  return _stripe;
+};
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -41,6 +45,7 @@ export default async function handler(req, res) {
   }
 
   try {
+    const stripe = await getStripe();
     const session = await stripe.checkout.sessions.create(sessionParams);
     return res.status(200).json({ url: session.url });
   } catch (err) {
