@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contact & Support — YourPetPass</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --teal: #2D7D6F; --teal-dk: #1E5C52; --cream: #FAF6F0;
+      --brown: #5A4535; --muted: #8B7355; --border: #E8DDD0; --text: #2C2017; --gold: #E8A838;
+    }
+    body { background: var(--cream); color: var(--text); font-family: 'Nunito', sans-serif; font-size: 16px; line-height: 1.7; }
+    header { background: var(--teal-dk); padding: 18px 24px; display: flex; align-items: center; gap: 12px; }
+    header a { font-family: 'Lora', serif; font-size: 22px; color: #fff; text-decoration: none; font-weight: 600; }
+    header a span { color: #A8D5CE; }
+    .wrap { max-width: 640px; margin: 0 auto; padding: 56px 24px 80px; }
+    .hero { text-align: center; margin-bottom: 44px; }
+    .hero h1 { font-family: 'Lora', serif; font-size: clamp(28px, 5vw, 40px); font-weight: 600; color: var(--teal-dk); margin-bottom: 10px; }
+    .hero p { color: var(--muted); font-size: 16px; }
+    .card { background: #fff; border: 1px solid var(--border); border-radius: 16px; padding: 28px; margin-bottom: 20px; }
+    .card h2 { font-family: 'Lora', serif; font-size: 19px; color: var(--teal-dk); margin-bottom: 6px; display: flex; align-items: center; gap: 10px; }
+    .card p { color: var(--brown); margin-bottom: 4px; font-size: 15px; }
+    .card a.btn {
+      display: inline-block; margin-top: 14px; background: var(--teal); color: #fff !important;
+      text-decoration: none; border-radius: 10px; padding: 11px 22px; font-weight: 700; font-size: 14px;
+    }
+    .card a.link { color: var(--teal); font-weight: 700; }
+    .faq-item { border-bottom: 1px solid var(--border); padding: 16px 0; }
+    .faq-item:last-child { border-bottom: none; }
+    .faq-item h3 { font-size: 15px; color: var(--text); margin-bottom: 6px; font-weight: 700; }
+    .faq-item p { color: var(--brown); font-size: 14px; margin: 0; }
+    footer { text-align: center; font-size: 13px; color: var(--muted); padding: 24px; border-top: 1px solid var(--border); margin-top: 20px; }
+    .icon { font-size: 22px; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <a href="https://yourpetpass.com">Your<span>Pet</span>Pass</a>
+  </header>
+
+  <div class="wrap">
+
+    <div class="hero">
+      <h1>We're here to help 🐾</h1>
+      <p>Questions about your account, billing, or a pet's records? Reach out anytime.</p>
+    </div>
+
+    <div class="card">
+      <h2><span class="icon">✉️</span> Email Support</h2>
+      <p>For account issues, billing questions, bug reports, or anything else — email us directly and we'll get back to you, usually within 24 hours.</p>
+      <a class="btn" href="mailto:hello@yourpetpass.com">hello@yourpetpass.com</a>
+    </div>
+
+    <div class="card">
+      <h2><span class="icon">💳</span> Billing & Subscriptions</h2>
+      <p>To update your payment method, change plans, or cancel a subscription, sign in and go to <strong>My Account → Billing → Manage Subscription</strong>. This takes you to a secure Stripe-hosted page where you have full control over your plan.</p>
+    </div>
+
+    <div class="card">
+      <h2><span class="icon">📋</span> Quick Answers</h2>
+      <div class="faq-item">
+        <h3>How do I cancel my subscription?</h3>
+        <p>Sign in → tap your profile icon → Billing → "Manage Subscription / Cancel." You'll be taken to Stripe's secure portal where you can cancel anytime — no charge for the remainder of your current billing period.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Is my pet's data private?</h3>
+        <p>Yes. See our <a class="link" href="/privacy.html">Privacy Policy</a> for full details on how your data is stored and used.</p>
+      </div>
+      <div class="faq-item">
+        <h3>Can I export my pet's records?</h3>
+        <p>Yes — open any pet's profile and tap "Export" to download a complete health summary.</p>
+      </div>
+      <div class="faq-item">
+        <h3>I found a lost pet — how do I see their info?</h3>
+        <p>Scan the QR code on their tag, or visit the sign-in page and tap "Emergency Pet Lookup" — no account required.</p>
+      </div>
+    </div>
+
+    <div class="card" style="text-align:center; background:var(--teal-dk);">
+      <p style="color:#C8E8E4; margin-bottom:8px;">Still need help?</p>
+      <a class="btn" href="mailto:hello@yourpetpass.com" style="background:var(--gold);">Email Us Directly</a>
+    </div>
+
+  </div>
+
+  <footer>
+    &copy; 2026 YourPetPass · RD Marketing LLC &nbsp;·&nbsp;
+    <a href="https://yourpetpass.com" style="color:var(--muted);">yourpetpass.com</a>
+    &nbsp;·&nbsp;
+    <a href="/privacy.html" style="color:var(--muted);">Privacy</a>
+    &nbsp;·&nbsp;
+    <a href="/terms.html" style="color:var(--muted);">Terms</a>
+  </footer>
+
+</body>
+</html>
