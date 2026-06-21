@@ -83,7 +83,18 @@ async function generateWithClaude(promptText) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured');
 
-  const searchInstruction = `Use your web search tool to verify current requirements before answering — pet travel regulations change frequently and your training data may be outdated. Search for the specific country/airline requirements mentioned below, then provide your final answer.\n\n`;
+  const searchInstruction = `You are conducting official regulatory research for pet travel compliance. A real pet owner will rely on this information to avoid their pet being denied boarding, quarantined, or fined — accuracy and source quality are critical.
+
+SOURCE REQUIREMENTS — read carefully before searching:
+- ONLY use official sources: government agency websites (e.g. USDA APHIS, CDC, the destination country's official agriculture/customs ministry site), official airline websites, and IATA (International Air Transport Association).
+- DO NOT use pet travel blogs, forums (Reddit, Quora), "top tips" listicles, or any third-party aggregator site — even if they rank highly in search results and look informative. These are frequently outdated or simply wrong.
+- For each checklist item, the "source_url" field must be the actual official URL you found via search. If no official source exists for a specific requirement, say so explicitly in the "notes" field (e.g. "No official source found — verify directly with airline or embassy") rather than citing a non-official source.
+- Prioritize domains ending in .gov, official country-government TLDs (e.g. .gc.ca, .gov.uk, .gov.au), europa.eu for EU rules, and the relevant country's official customs/agriculture ministry site.
+- For airline-specific requirements, search the airline's own official site directly — not third-party "airline pet policy" comparison sites.
+
+Use your web search tool now to research the specific route below, then provide your final answer in the exact JSON format requested.
+
+`;
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -96,7 +107,7 @@ async function generateWithClaude(promptText) {
       model: 'claude-sonnet-4-6',
       max_tokens: 4096,
       messages: [{ role: 'user', content: searchInstruction + promptText }],
-      tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+      tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 8 }],
     }),
   });
 
@@ -123,9 +134,15 @@ async function verifyWithGPT4o(checklistItems) {
   if (!apiKey) return checklistItems;
 
   try {
-    const verifyPrompt = `You are a pet travel compliance expert reviewing a generated travel checklist.
+    const verifyPrompt = `You are a pet travel compliance expert reviewing a generated travel checklist for accuracy AND source quality.
 
-Review each item in the JSON array below. Pet travel regulations change frequently. For any item where you are NOT fully confident that the specific requirements, deadlines, costs, form numbers, URLs, or agency names are accurate and current, append " (⚠️ Verify before travel)" to that item's "title" field only.
+Review each item in the JSON array below. For each item, check TWO things:
+
+1. ACCURACY: Are you confident the specific requirements, deadlines, costs, form numbers, and agency names are correct and current? Pet travel regulations change frequently.
+
+2. SOURCE QUALITY: Look at the "source_url" field. Is it an official government website (.gov, official ministry/agency site), an official airline website, or IATA? Or does it look like a third-party blog, forum, "top tips" site, or other unofficial/aggregator source?
+
+If an item fails EITHER check — you're not confident it's accurate, OR the source doesn't look official — append " (⚠️ Verify before travel)" to that item's "title" field.
 
 Do not change any other fields. Do not add new items. Do not remove items.
 Return ONLY the complete JSON array. No markdown, no explanation, no backticks.
@@ -219,14 +236,29 @@ export default async function handler(req, res) {
       try {
         checklistItems = JSON.parse(fullText.slice(start, end));
       } catch (e) {
-        // parse failed — fall through, client will handle the raw text
+        // parse failed — checklistItems stays null
       }
     }
 
-    // ── Step 3: GPT-4o verifies (only if we could parse the JSON) ─────────
-    if (Array.isArray(checklistItems)) {
-      checklistItems = await verifyWithGPT4o(checklistItems);
+    // A real result must be a non-empty array — anything else is a failure,
+    // and failures must NOT count against the user's monthly quota.
+    const gotRealResult = Array.isArray(checklistItems) && checklistItems.length > 0;
+
+    if (!gotRealResult) {
+      await logUsage({
+        userId, userEmail, model: 'claude-sonnet-4-6',
+        inputTokens: usage.input_tokens || 0,
+        outputTokens: usage.output_tokens || 0,
+        destination, success: false,
+        error: 'Claude returned no parseable checklist',
+      });
+      return res.status(500).json({
+        error: 'The AI could not generate a checklist for this route. This attempt was NOT counted against your monthly limit — please try again.',
+      });
     }
+
+    // ── Step 3: GPT-4o verifies the real result ───────────────────────────
+    checklistItems = await verifyWithGPT4o(checklistItems);
 
     await logUsage({
       userId, userEmail, model: 'claude-sonnet-4-6',
@@ -238,11 +270,11 @@ export default async function handler(req, res) {
     // Return in the same shape the frontend already expects, so Travel.jsx
     // needs no changes at all.
     return res.status(200).json({
-      choices: [{ message: { content: JSON.stringify(checklistItems || []) } }]
+      choices: [{ message: { content: JSON.stringify(checklistItems) } }]
     });
 
   } catch (err) {
     await logUsage({ userId, userEmail, model: 'claude-sonnet-4-6', inputTokens: 0, outputTokens: 0, destination, success: false, error: err.message });
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: `${err.message} — this attempt was NOT counted against your monthly limit.` });
   }
 }
