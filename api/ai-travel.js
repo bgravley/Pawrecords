@@ -1,14 +1,16 @@
 // api/ai-travel.js
 // Travel checklist generator with dual-LLM verification:
-// - GPT-4o-mini generates the checklist
-// - Claude claude-sonnet-4-20250514 reviews each item and flags uncertain ones
+// - Claude (Sonnet, with native web search) researches and generates the checklist
+// - GPT-4o reviews the checklist and flags any items it's uncertain about
 // Rate limits: Premium: 8 AI generations/month (overridable per user in Admin)
 
 // ── Logging ────────────────────────────────────────────────────────────────
-async function logUsage({ userId, userEmail, feature, model, inputTokens, outputTokens, destination, success, error }) {
+async function logUsage({ userId, userEmail, model, inputTokens, outputTokens, destination, success, error }) {
   try {
-    const costPer1kInput = 0.000150;
-    const costPer1kOutput = 0.000600;
+    // Rough cost estimate — Claude Sonnet token pricing. Web search adds a small
+    // per-search fee on top of this; check current Anthropic pricing for exact figures.
+    const costPer1kInput = 0.003;
+    const costPer1kOutput = 0.015;
     const estimatedCost = (inputTokens / 1000 * costPer1kInput) + (outputTokens / 1000 * costPer1kOutput);
     await fetch(`${process.env.SUPABASE_URL}/rest/v1/ai_usage_log`, {
       method: 'POST',
@@ -74,15 +76,51 @@ async function getUserProfile(userId) {
   };
 }
 
-// ── Claude verification ────────────────────────────────────────────────────
-// Takes the GPT-generated checklist JSON array and asks Claude to flag any
-// items where specific details (deadlines, costs, URLs, form numbers) might
-// be outdated or uncertain. Claude appends " (⚠️ Verify before travel)" to
-// the title of any flagged items. If this step fails, we return the
-// original checklist unchanged — the verification is additive only.
-async function verifyWithClaude(checklistItems) {
-  const anthropicKey = process.env.ANTHROPIC_API_KEY;
-  if (!anthropicKey) return checklistItems; // skip if key not configured
+// ── Claude generates using native web search ───────────────────────────────
+// Returns the full assistant text (Claude interleaves search calls with
+// reasoning, so we concatenate every text block) plus token usage.
+async function generateWithClaude(promptText) {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured');
+
+  const searchInstruction = `Use your web search tool to verify current requirements before answering — pet travel regulations change frequently and your training data may be outdated. Search for the specific country/airline requirements mentioned below, then provide your final answer.\n\n`;
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 4096,
+      messages: [{ role: 'user', content: searchInstruction + promptText }],
+      tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error?.message || `Claude request failed (${response.status})`);
+  }
+
+  const data = await response.json();
+
+  // Claude's response interleaves text blocks with search tool-use blocks.
+  // Concatenate all text blocks — the final JSON answer is typically in the last one.
+  const textBlocks = (data.content || []).filter(b => b.type === 'text').map(b => b.text);
+  const fullText = textBlocks.join('\n');
+
+  return { fullText, usage: data.usage || {} };
+}
+
+// ── GPT-4o verifies ──────────────────────────────────────────────────────
+// Takes the Claude-generated checklist and flags any items it's uncertain
+// about. Falls back to the original checklist unchanged if anything fails.
+async function verifyWithGPT4o(checklistItems) {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) return checklistItems;
 
   try {
     const verifyPrompt = `You are a pet travel compliance expert reviewing a generated travel checklist.
@@ -95,24 +133,21 @@ Return ONLY the complete JSON array. No markdown, no explanation, no backticks.
 CHECKLIST:
 ${JSON.stringify(checklistItems)}`;
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': anthropicKey,
-        'anthropic-version': '2023-06-01',
-      },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 4096,
+        model: 'gpt-4o',
         messages: [{ role: 'user', content: verifyPrompt }],
+        max_tokens: 4096,
+        temperature: 0.1,
       }),
     });
 
-    if (!response.ok) return checklistItems; // fallback on error
+    if (!response.ok) return checklistItems;
 
     const data = await response.json();
-    const text = data.content?.[0]?.text || '';
+    const text = data.choices?.[0]?.message?.content || '';
     const clean = text.replace(/```json|```/g, '').trim();
 
     const start = clean.indexOf('[');
@@ -123,7 +158,7 @@ ${JSON.stringify(checklistItems)}`;
     return Array.isArray(verified) ? verified : checklistItems;
 
   } catch (e) {
-    console.error('Claude verification failed, using original:', e.message);
+    console.error('GPT-4o verification failed, using original:', e.message);
     return checklistItems; // always fall back to original if anything goes wrong
   }
 }
@@ -156,7 +191,6 @@ export default async function handler(req, res) {
     }
 
     const count = await checkRateLimit(userId);
-    // Use per-user override if set, otherwise default 8
     const MONTHLY_LIMIT = travelLimitOverride !== null ? travelLimitOverride : 8;
 
     if (count >= MONTHLY_LIMIT) {
@@ -169,52 +203,46 @@ export default async function handler(req, res) {
     }
   }
 
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return res.status(500).json({ error: 'OpenAI API key not configured' });
-
   try {
-    // ── Step 1: GPT-4o-mini generates the checklist ───────────────────────
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-      body: JSON.stringify({ model: 'gpt-4o-mini', messages, max_tokens: 2000, temperature: 0.1 }),
-    });
+    // The frontend (Travel.jsx) sends one big user message with the full prompt.
+    const promptText = messages[messages.length - 1]?.content || '';
 
-    const data = await response.json();
-    const usage = data.usage || {};
+    // ── Step 1: Claude researches and generates (with web search) ─────────
+    const { fullText, usage } = await generateWithClaude(promptText);
 
-    if (!response.ok) {
-      await logUsage({ userId, userEmail, model: 'gpt-4o-mini', inputTokens: 0, outputTokens: 0, destination, success: false, error: data.error?.message });
-      return res.status(500).json({ error: data.error?.message || 'OpenAI request failed' });
-    }
-
-    // ── Step 2: Parse the JSON checklist ─────────────────────────────────
-    const rawText = data.choices?.[0]?.message?.content || '';
-    const start = rawText.indexOf('[');
-    const end = rawText.lastIndexOf(']') + 1;
+    // ── Step 2: Parse the JSON checklist out of Claude's response ─────────
+    const start = fullText.indexOf('[');
+    const end = fullText.lastIndexOf(']') + 1;
 
     let checklistItems = null;
     if (start !== -1 && end > 0) {
       try {
-        checklistItems = JSON.parse(rawText.slice(start, end));
+        checklistItems = JSON.parse(fullText.slice(start, end));
       } catch (e) {
-        // parse failed — return the original response so client handles it
+        // parse failed — fall through, client will handle the raw text
       }
     }
 
-    // ── Step 3: Claude verifies (only if we could parse the JSON) ─────────
+    // ── Step 3: GPT-4o verifies (only if we could parse the JSON) ─────────
     if (Array.isArray(checklistItems)) {
-      const verified = await verifyWithClaude(checklistItems);
-      // Replace the content in the response with the verified version
-      data.choices[0].message.content = JSON.stringify(verified);
+      checklistItems = await verifyWithGPT4o(checklistItems);
     }
 
-    await logUsage({ userId, userEmail, model: 'gpt-4o-mini', inputTokens: usage.prompt_tokens || 0, outputTokens: usage.completion_tokens || 0, destination, success: true });
+    await logUsage({
+      userId, userEmail, model: 'claude-sonnet-4-6',
+      inputTokens: usage.input_tokens || 0,
+      outputTokens: usage.output_tokens || 0,
+      destination, success: true,
+    });
 
-    return res.status(200).json(data);
+    // Return in the same shape the frontend already expects, so Travel.jsx
+    // needs no changes at all.
+    return res.status(200).json({
+      choices: [{ message: { content: JSON.stringify(checklistItems || []) } }]
+    });
 
   } catch (err) {
-    await logUsage({ userId, userEmail, model: 'gpt-4o-mini', inputTokens: 0, outputTokens: 0, destination, success: false, error: err.message });
+    await logUsage({ userId, userEmail, model: 'claude-sonnet-4-6', inputTokens: 0, outputTokens: 0, destination, success: false, error: err.message });
     return res.status(500).json({ error: err.message });
   }
 }
