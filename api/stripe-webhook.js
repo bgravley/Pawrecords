@@ -3,6 +3,82 @@
 
 export const config = { api: { bodyParser: false } };
 
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
+const FROM_EMAIL = 'YourPetPass <notifications@yourpetpass.com>';
+
+// Shared email wrapper — consistent branding across all transactional emails
+async function sendCustomerEmail({ to, subject, bodyHtml }) {
+  if (!to || !RESEND_API_KEY) return;
+  try {
+    const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #FAF6F0; margin: 0; padding: 20px; }
+  .card { background: #FFFFFF; border-radius: 16px; max-width: 520px; margin: 0 auto; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+  .header { background: #1E5C52; padding: 24px 28px; text-align: center; }
+  .header h1 { color: #FFFFFF; margin: 0; font-size: 22px; font-weight: 700; }
+  .header p { color: #A8D5CE; margin: 4px 0 0; font-size: 13px; font-style: italic; }
+  .body { padding: 28px; color: #5A4535; font-size: 15px; line-height: 1.7; }
+  .body h2 { color: #1E5C52; font-size: 19px; margin: 0 0 12px; }
+  .footer { background: #F4EFE8; padding: 16px 28px; font-size: 12px; color: #8B7355; text-align: center; }
+</style></head>
+<body>
+  <div class="card">
+    <div class="header"><h1>🐾 YourPetPass</h1><p>Your pet's health passport</p></div>
+    <div class="body">${bodyHtml}</div>
+    <div class="footer">YourPetPass · yourpetpass.com · Questions? <a href="https://yourpetpass.com/contact.html" style="color:#2D7D6F;">Contact us</a></div>
+  </div>
+</body>
+</html>`;
+    await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${RESEND_API_KEY}` },
+      body: JSON.stringify({ from: FROM_EMAIL, to, subject, html }),
+    });
+  } catch (e) {
+    console.error('Customer email failed (non-critical):', e.message);
+  }
+}
+
+const sendWelcomeEmail = (email, tierLabel) => sendCustomerEmail({
+  to: email,
+  subject: `🎉 Welcome to YourPetPass ${tierLabel}!`,
+  bodyHtml: `
+    <h2>You're all set! 🐾</h2>
+    <p>Thank you for upgrading to <strong>${tierLabel}</strong>. Here's what's now unlocked on your account:</p>
+    <ul style="padding-left:20px;">
+      <li>AI Document Scanning</li>
+      <li>AI Travel Checklists</li>
+      <li>Weight Tracking with trend charts</li>
+      <li>Document Storage</li>
+      <li>QR Health Card for emergencies</li>
+      <li>Full record exports</li>
+    </ul>
+    <p>You can manage your subscription anytime from <strong>My Account → Billing</strong>.</p>
+    <p>Welcome aboard!</p>`
+});
+
+const sendCancellationEmail = (email) => sendCustomerEmail({
+  to: email,
+  subject: `Your YourPetPass subscription has been cancelled`,
+  bodyHtml: `
+    <h2>We're sorry to see you go</h2>
+    <p>Your YourPetPass Premium subscription has been cancelled. You'll continue to have Premium access through the end of your current billing period — after that, your account moves to the Free plan.</p>
+    <p><strong>Good news:</strong> nothing is deleted. All your pets' records, documents, and history stay safely on your account. If you upgrade again later, everything picks up right where you left off.</p>
+    <p>If this was a mistake or you have any feedback, just reply to this email — we'd love to hear from you.</p>`
+});
+
+const sendRefundEmail = (email, amountCents) => sendCustomerEmail({
+  to: email,
+  subject: `Your YourPetPass refund has been processed`,
+  bodyHtml: `
+    <h2>Refund confirmed</h2>
+    <p>We've processed a refund of <strong>$${(amountCents/100).toFixed(2)}</strong> to your original payment method. It typically takes 5–10 business days to appear on your statement, depending on your bank.</p>
+    <p>Your account has been moved back to the Free plan. As always, none of your pets' data was affected — everything is saved and ready whenever you'd like to upgrade again.</p>
+    <p>If you have any questions about this refund, just reply to this email.</p>`
+});
+
 // One shared stripe instance per request
 let _stripe = null;
 const getStripe = async () => {
@@ -259,8 +335,10 @@ export default async function handler(req, res) {
             stripeInvoiceId: session.id,
             periodMonth: new Date().toISOString().slice(0, 7),
           });
+          if (profile?.email) await sendWelcomeEmail(profile.email, 'Lifetime');
         } else if (mode === 'subscription') {
-          await updateUserTier(customerId, 'premium');
+          const profile = await updateUserTier(customerId, 'premium');
+          if (profile?.email) await sendWelcomeEmail(profile.email, 'Premium');
           // Commission for subscription is recorded on invoice.payment_succeeded
         }
         break;
@@ -286,11 +364,18 @@ export default async function handler(req, res) {
       }
 
       // Subscription cancelled or payment failed
-      case 'customer.subscription.deleted':
+      case 'customer.subscription.deleted': {
+        const sub = event.data.object;
+        const profile = await updateUserTier(sub.customer, 'free');
+        if (profile?.email) await sendCancellationEmail(profile.email);
+        break;
+      }
+
       case 'invoice.payment_failed': {
-        const obj = event.data.object;
-        const customerId = obj.customer;
-        await updateUserTier(customerId, 'free');
+        const invoice = event.data.object;
+        await updateUserTier(invoice.customer, 'free');
+        // Note: no email sent here yet — a "payment failed, update your card"
+        // email would need different messaging than cancellation. Can add later.
         break;
       }
 
@@ -312,7 +397,8 @@ export default async function handler(req, res) {
         const charge = event.data.object;
 
         // Downgrade the user back to free immediately on any refund
-        await updateUserTier(charge.customer, 'free');
+        const profile = await updateUserTier(charge.customer, 'free');
+        if (profile?.email) await sendRefundEmail(profile.email, charge.amount_refunded || 0);
 
         await recordRefund({
           stripeChargeId: charge.id,
