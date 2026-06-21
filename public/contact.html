@@ -12,28 +12,43 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
       --teal: #2D7D6F; --teal-dk: #1E5C52; --cream: #FAF6F0;
-      --brown: #5A4535; --muted: #8B7355; --border: #E8DDD0; --text: #2C2017; --gold: #E8A838;
+      --brown: #5A4535; --muted: #8B7355; --border: #E8DDD0; --text: #2C2017; --gold: #E8A838; --red: #C4714A;
     }
     body { background: var(--cream); color: var(--text); font-family: 'Nunito', sans-serif; font-size: 16px; line-height: 1.7; }
     header { background: var(--teal-dk); padding: 18px 24px; display: flex; align-items: center; gap: 12px; }
     header a { font-family: 'Lora', serif; font-size: 22px; color: #fff; text-decoration: none; font-weight: 600; }
     header a span { color: #A8D5CE; }
     .wrap { max-width: 640px; margin: 0 auto; padding: 56px 24px 80px; }
-    .hero { text-align: center; margin-bottom: 44px; }
+    .hero { text-align: center; margin-bottom: 40px; }
     .hero h1 { font-family: 'Lora', serif; font-size: clamp(28px, 5vw, 40px); font-weight: 600; color: var(--teal-dk); margin-bottom: 10px; }
     .hero p { color: var(--muted); font-size: 16px; }
     .card { background: #fff; border: 1px solid var(--border); border-radius: 16px; padding: 28px; margin-bottom: 20px; }
-    .card h2 { font-family: 'Lora', serif; font-size: 19px; color: var(--teal-dk); margin-bottom: 6px; display: flex; align-items: center; gap: 10px; }
-    .card p { color: var(--brown); margin-bottom: 4px; font-size: 15px; }
-    .card a.btn {
-      display: inline-block; margin-top: 14px; background: var(--teal); color: #fff !important;
-      text-decoration: none; border-radius: 10px; padding: 11px 22px; font-weight: 700; font-size: 14px;
+    .card h2 { font-family: 'Lora', serif; font-size: 19px; color: var(--teal-dk); margin-bottom: 14px; display: flex; align-items: center; gap: 10px; }
+
+    label { display: block; font-size: 12px; font-weight: 700; color: var(--brown); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; }
+    input, textarea {
+      width: 100%; padding: 12px 14px; border-radius: 10px; border: 1.5px solid var(--border);
+      background: var(--cream); color: var(--text); font-family: 'Nunito', sans-serif; font-size: 15px;
+      outline: none; margin-bottom: 16px; box-sizing: border-box;
     }
-    .card a.link { color: var(--teal); font-weight: 700; }
+    textarea { resize: vertical; min-height: 110px; }
+    input:focus, textarea:focus { border-color: var(--teal); }
+
+    button.submit {
+      width: 100%; background: var(--teal); color: #fff; border: none; border-radius: 10px;
+      padding: 14px; font-weight: 700; font-size: 15px; cursor: pointer; font-family: 'Nunito', sans-serif;
+    }
+    button.submit:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .status { border-radius: 10px; padding: 12px 16px; font-size: 14px; margin-bottom: 16px; display: none; }
+    .status.success { background: #2D7D6F14; border: 1px solid #2D7D6F44; color: var(--teal); display: block; }
+    .status.error { background: #C4714A14; border: 1px solid #C4714A44; color: var(--red); display: block; }
+
     .faq-item { border-bottom: 1px solid var(--border); padding: 16px 0; }
     .faq-item:last-child { border-bottom: none; }
     .faq-item h3 { font-size: 15px; color: var(--text); margin-bottom: 6px; font-weight: 700; }
     .faq-item p { color: var(--brown); font-size: 14px; margin: 0; }
+    .link { color: var(--teal); font-weight: 700; text-decoration: none; }
     footer { text-align: center; font-size: 13px; color: var(--muted); padding: 24px; border-top: 1px solid var(--border); margin-top: 20px; }
     .icon { font-size: 22px; }
   </style>
@@ -48,18 +63,34 @@
 
     <div class="hero">
       <h1>We're here to help 🐾</h1>
-      <p>Questions about your account, billing, or a pet's records? Reach out anytime.</p>
+      <p>Questions about your account, billing, or a pet's records? Send us a message.</p>
     </div>
 
     <div class="card">
-      <h2><span class="icon">✉️</span> Email Support</h2>
-      <p>For account issues, billing questions, bug reports, or anything else — email us directly and we'll get back to you, usually within 24 hours.</p>
-      <a class="btn" href="mailto:hello@yourpetpass.com">hello@yourpetpass.com</a>
+      <h2><span class="icon">✉️</span> Send a Message</h2>
+
+      <div id="statusBox" class="status"></div>
+
+      <form id="contactForm">
+        <label for="name">Your Name</label>
+        <input type="text" id="name" required placeholder="Jane Doe" />
+
+        <label for="email">Your Email</label>
+        <input type="email" id="email" required placeholder="jane@example.com" />
+
+        <label for="subject">Subject (optional)</label>
+        <input type="text" id="subject" placeholder="Billing question, bug report, etc." />
+
+        <label for="message">Message</label>
+        <textarea id="message" required placeholder="How can we help?"></textarea>
+
+        <button type="submit" class="submit" id="submitBtn">Send Message</button>
+      </form>
     </div>
 
     <div class="card">
       <h2><span class="icon">💳</span> Billing & Subscriptions</h2>
-      <p>To update your payment method, change plans, or cancel a subscription, sign in and go to <strong>My Account → Billing → Manage Subscription</strong>. This takes you to a secure Stripe-hosted page where you have full control over your plan.</p>
+      <p style="color:var(--brown); font-size:15px;">To update your payment method, change plans, or cancel a subscription, sign in and go to <strong>My Account → Billing → Manage Subscription</strong>. This takes you to a secure Stripe-hosted page where you have full control over your plan.</p>
     </div>
 
     <div class="card">
@@ -82,11 +113,6 @@
       </div>
     </div>
 
-    <div class="card" style="text-align:center; background:var(--teal-dk);">
-      <p style="color:#C8E8E4; margin-bottom:8px;">Still need help?</p>
-      <a class="btn" href="mailto:hello@yourpetpass.com" style="background:var(--gold);">Email Us Directly</a>
-    </div>
-
   </div>
 
   <footer>
@@ -97,6 +123,48 @@
     &nbsp;·&nbsp;
     <a href="/terms.html" style="color:var(--muted);">Terms</a>
   </footer>
+
+  <script>
+    const form = document.getElementById('contactForm');
+    const statusBox = document.getElementById('statusBox');
+    const submitBtn = document.getElementById('submitBtn');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Sending...';
+      statusBox.className = 'status';
+      statusBox.textContent = '';
+
+      const payload = {
+        name: document.getElementById('name').value.trim(),
+        email: document.getElementById('email').value.trim(),
+        subject: document.getElementById('subject').value.trim(),
+        message: document.getElementById('message').value.trim(),
+      };
+
+      try {
+        const res = await fetch('/api/contact-form', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+
+        if (!res.ok || data.error) throw new Error(data.error || 'Something went wrong. Please try again.');
+
+        statusBox.className = 'status success';
+        statusBox.textContent = "✓ Message sent! We'll get back to you soon.";
+        form.reset();
+      } catch (err) {
+        statusBox.className = 'status error';
+        statusBox.textContent = err.message;
+      }
+
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Send Message';
+    });
+  </script>
 
 </body>
 </html>
