@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "./lib/supabase";
 import Auth from "./components/Auth.jsx";
+import Marketing from "./Marketing.jsx";
 import YourPetPass from "./PawRecord.jsx";
 import Admin from "./Admin.jsx";
 import Emergency from "./Emergency.jsx";
@@ -85,6 +86,7 @@ export default function App() {
   const [showPasswordReset, setShowPasswordReset] = useState(false);
   const [paymentToast, setPaymentToast] = useState(null); // 'success' | 'canceled' | null
   const [showAffiliatePortal, setShowAffiliatePortal] = useState(false);
+  const [showAuthScreen, setShowAuthScreen] = useState(false);
   const [isAffiliate, setIsAffiliate] = useState(false);
 
   // Detect Stripe payment redirect (?payment=success or ?payment=canceled)
@@ -177,6 +179,7 @@ export default function App() {
     setProfile(null);
     setShowAdmin(false);
     setShowTravel(false);
+    setShowAuthScreen(false);
   };
 
   // Check for emergency route - no login needed
@@ -199,7 +202,10 @@ export default function App() {
     return <ResetPasswordScreen onDone={() => setShowPasswordReset(false)} />;
   }
 
-  if (!session) return <Auth />;
+  if (!session) {
+    if (showAuthScreen) return <Auth />;
+    return <Marketing onLogin={() => setShowAuthScreen(true)} onSignup={() => setShowAuthScreen(true)} />;
+  }
 
   // Admin route - only for admin email
   const isAdmin = session.user.email === ADMIN_EMAIL || profile?.is_admin === true;
