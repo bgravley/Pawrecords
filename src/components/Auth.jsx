@@ -1,422 +1,282 @@
-// api/stripe-webhook.js
-// Handles Stripe payment events and updates subscription_tier in Supabase profiles
+// src/components/Auth.jsx
+import { useState, useEffect } from "react";
+import { supabase } from "../lib/supabase";
 
-export const config = { api: { bodyParser: false } };
+// ── Emergency Lookup (unchanged functionality) ──────────────────────────────
+const EmergencyLookup = ({ onBack }) => {
+  const [pets, setPets] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const FROM_EMAIL = 'YourPetPass <notifications@yourpetpass.com>';
+  useEffect(() => {
+    supabase
+      .from("dogs")
+      .select("id, name, breed, color, photo_url, emergency_token, pet_type")
+      .not("emergency_token", "is", null)
+      .order("name")
+      .then(({ data }) => { setPets(data || []); setLoading(false); });
+  }, []);
 
-// Shared email wrapper — consistent branding across all transactional emails
-async function sendCustomerEmail({ to, subject, bodyHtml }) {
-  if (!to || !RESEND_API_KEY) return;
-  try {
-    const html = `
-<!DOCTYPE html>
-<html>
-<head><meta charset="UTF-8"><style>
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #FAF6F0; margin: 0; padding: 20px; }
-  .card { background: #FFFFFF; border-radius: 16px; max-width: 520px; margin: 0 auto; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
-  .header { background: #1E5C52; padding: 24px 28px; text-align: center; }
-  .header h1 { color: #FFFFFF; margin: 0; font-size: 22px; font-weight: 700; }
-  .header p { color: #A8D5CE; margin: 4px 0 0; font-size: 13px; font-style: italic; }
-  .body { padding: 28px; color: #5A4535; font-size: 15px; line-height: 1.7; }
-  .body h2 { color: #1E5C52; font-size: 19px; margin: 0 0 12px; }
-  .footer { background: #F4EFE8; padding: 16px 28px; font-size: 12px; color: #8B7355; text-align: center; }
-</style></head>
-<body>
-  <div class="card">
-    <div class="header"><h1>🐾 YourPetPass</h1><p>Your pet's health passport</p></div>
-    <div class="body">${bodyHtml}</div>
-    <div class="footer">YourPetPass · yourpetpass.com · Questions? <a href="https://yourpetpass.com/contact.html" style="color:#2D7D6F;">Contact us</a></div>
-  </div>
-</body>
-</html>`;
-    await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${RESEND_API_KEY}` },
-      body: JSON.stringify({ from: FROM_EMAIL, to, subject, html }),
-    });
-  } catch (e) {
-    console.error('Customer email failed (non-critical):', e.message);
-  }
-}
-
-const sendWelcomeEmail = (email, tierLabel) => sendCustomerEmail({
-  to: email,
-  subject: `🎉 Welcome to YourPetPass ${tierLabel}!`,
-  bodyHtml: `
-    <h2>You're all set! 🐾</h2>
-    <p>Thank you for upgrading to <strong>${tierLabel}</strong>. Here's what's now unlocked on your account:</p>
-    <ul style="padding-left:20px;">
-      <li>AI Document Scanning</li>
-      <li>AI Travel Checklists</li>
-      <li>Weight Tracking with trend charts</li>
-      <li>Document Storage</li>
-      <li>QR Health Card for emergencies</li>
-      <li>Full record exports</li>
-    </ul>
-    <p>You can manage your subscription anytime from <strong>My Account → Billing</strong>.</p>
-    <p>Welcome aboard!</p>`
-});
-
-const sendCancellationEmail = (email) => sendCustomerEmail({
-  to: email,
-  subject: `Your YourPetPass subscription has been cancelled`,
-  bodyHtml: `
-    <h2>We're sorry to see you go</h2>
-    <p>Your YourPetPass Premium subscription has been cancelled. You'll continue to have Premium access through the end of your current billing period — after that, your account moves to the Free plan.</p>
-    <p><strong>Good news:</strong> nothing is deleted. All your pets' records, documents, and history stay safely on your account. If you upgrade again later, everything picks up right where you left off.</p>
-    <p>If this was a mistake or you have any feedback, just reply to this email — we'd love to hear from you.</p>`
-});
-
-const sendRefundEmail = (email, amountCents) => sendCustomerEmail({
-  to: email,
-  subject: `Your YourPetPass refund has been processed`,
-  bodyHtml: `
-    <h2>Refund confirmed</h2>
-    <p>We've processed a refund of <strong>$${(amountCents/100).toFixed(2)}</strong> to your original payment method. It typically takes 5–10 business days to appear on your statement, depending on your bank.</p>
-    <p>Your account has been moved back to the Free plan. As always, none of your pets' data was affected — everything is saved and ready whenever you'd like to upgrade again.</p>
-    <p>If you have any questions about this refund, just reply to this email.</p>`
-});
-
-// One shared stripe instance per request
-let _stripe = null;
-const getStripe = async () => {
-  if (!_stripe) _stripe = (await import('stripe')).default(process.env.STRIPE_SECRET_KEY);
-  return _stripe;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <button onClick={onBack} style={{ background: "none", border: "none", cursor: "pointer", color: "#8B7355", fontSize: 22, alignSelf: "flex-start", lineHeight: 1 }}>←</button>
+      <div style={{ textAlign: "center" }}>
+        <div style={{ fontSize: 36, marginBottom: 8 }}>🚨</div>
+        <div style={{ fontFamily: "'Lora', serif", fontSize: 22, color: "#2C2017", marginBottom: 4 }}>Emergency Pet Lookup</div>
+        <div style={{ fontSize: 13, color: "#8B7355", lineHeight: 1.6 }}>Select the pet to view their health record.</div>
+      </div>
+      {loading
+        ? <div style={{ textAlign: "center", padding: 20, color: "#8B7355" }}>Loading...</div>
+        : pets.length === 0
+          ? <div style={{ textAlign: "center", padding: 20, color: "#8B7355", fontSize: 14 }}>
+              No pets found. Scan the QR code on the pet's tag to access their record.
+            </div>
+          : <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {pets.map(pet => (
+                <button key={pet.id} onClick={() => window.location.href = `/emergency/${pet.emergency_token}`}
+                  style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", background: "#FAF6F0", border: "1px solid #E8DDD0", borderRadius: 14, cursor: "pointer", textAlign: "left", width: "100%" }}>
+                  {pet.photo_url
+                    ? <img src={pet.photo_url} style={{ width: 52, height: 52, borderRadius: "50%", objectFit: "cover", border: "2px solid #2D7D6F", flexShrink: 0 }} />
+                    : <div style={{ width: 52, height: 52, borderRadius: "50%", background: "#2D7D6F22", border: "2px solid #2D7D6F", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0, fontFamily: "'Lora', serif", fontWeight: 700, color: "#2D7D6F" }}>
+                        {pet.name[0]}
+                      </div>}
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 700, fontSize: 15, color: "#2C2017", marginBottom: 2 }}>{pet.name}</div>
+                    <div style={{ fontSize: 13, color: "#5A4535" }}>{pet.breed || "Dog"}{pet.color ? ` · ${pet.color}` : ""}</div>
+                  </div>
+                  <span style={{ fontSize: 18, color: "#8B7355" }}>›</span>
+                </button>
+              ))}
+            </div>}
+    </div>
+  );
 };
 
-async function getRawBody(req) {
-  return new Promise((resolve, reject) => {
-    const chunks = [];
-    req.on('data', chunk => chunks.push(chunk));
-    req.on('end', () => resolve(Buffer.concat(chunks)));
-    req.on('error', reject);
-  });
-}
+// ── Main Auth Component ─────────────────────────────────────────────────────
+export default function Auth() {
+  // mode: "main" | "forgot" | "emergency"
+  const [mode, setMode]           = useState("main");
+  const [authMode, setAuthMode]   = useState("signin"); // "signin" | "signup"
+  const [email, setEmail]         = useState("");
+  const [password, setPassword]   = useState("");
+  const [loading, setLoading]     = useState(false);
+  const [error, setError]         = useState(null);
+  const [success, setSuccess]     = useState(null);
+  const [showPassword, setShowPassword] = useState(false);
 
-// Returns the net amount in cents after Stripe fees for a given charge.
-// This is what you actually receive — what the affiliate commission should be based on.
-// Falls back to estimating (gross - 2.9% - $0.30) if balance transaction unavailable.
-async function getNetCents(chargeId, grossCents) {
-  if (!chargeId) return estimateNet(grossCents);
-  try {
-    const stripe = await getStripe();
-    const charge = await stripe.charges.retrieve(chargeId, { expand: ['balance_transaction'] });
-    const bt = charge.balance_transaction;
-    if (bt && typeof bt === 'object' && bt.net) {
-      console.log(`Net after Stripe fees: $${(bt.net/100).toFixed(2)} (gross $${(grossCents/100).toFixed(2)}, fee $${(bt.fee/100).toFixed(2)})`);
-      return bt.net;
-    }
-  } catch (e) {
-    console.error('Could not retrieve balance transaction, estimating net:', e.message);
-  }
-  return estimateNet(grossCents);
-}
+  const setErr = (e) => {
+    // Handle all error types safely — never show {} or [object Object]
+    if (!e) return setError(null);
+    if (typeof e === "string") return setError(e);
+    setError(e.message || e.error_description || e.msg || "Something went wrong — please try again.");
+  };
+  const clearAll = () => { setError(null); setSuccess(null); };
 
-function estimateNet(grossCents) {
-  // Stripe standard US rate: 2.9% + $0.30
-  // Used as fallback when balance transaction isn't available (e.g. test mode timing)
-  const fee = Math.round(grossCents * 0.029) + 30;
-  return Math.max(0, grossCents - fee);
-}
+  const inp = {
+    width: "100%", padding: "13px 16px", borderRadius: 12, fontSize: 15,
+    border: "1.5px solid #E8DDD0", background: "#FAF6F0", color: "#2C2017",
+    outline: "none", fontFamily: "'Nunito', sans-serif", boxSizing: "border-box",
+  };
 
-async function linkStripeCustomerToProfile(userId, stripeCustomerId) {
-  if (!userId || !stripeCustomerId) return;
-  try {
-    await fetch(
-      `${process.env.SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}`,
-      {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': process.env.SUPABASE_SERVICE_KEY,
-          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
-          'Prefer': 'return=minimal',
-        },
-        body: JSON.stringify({ stripe_customer_id: stripeCustomerId }),
-      }
-    );
-    console.log(`Linked Stripe customer ${stripeCustomerId} to profile ${userId}`);
-  } catch (e) {
-    console.error('Failed to link Stripe customer to profile:', e.message);
-  }
-}
+  const primaryBtn = {
+    width: "100%", padding: 14, borderRadius: 12, fontSize: 15, fontWeight: 700,
+    background: "#2D7D6F", color: "#fff", border: "none", cursor: "pointer",
+    fontFamily: "'Nunito', sans-serif", opacity: loading ? 0.7 : 1,
+  };
 
-async function updateUserTier(stripeCustomerId, tier) {
-  const searchRes = await fetch(
-    `${process.env.SUPABASE_URL}/rest/v1/profiles?stripe_customer_id=eq.${stripeCustomerId}&select=id,email,referral_code_used`,
-    {
-      headers: {
-        'apikey': process.env.SUPABASE_SERVICE_KEY,
-        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
-      }
-    }
-  );
-  const profiles = await searchRes.json();
-  if (!profiles?.length) {
-    console.error('No profile found for Stripe customer:', stripeCustomerId);
-    return null;
-  }
-
-  const profile = profiles[0];
-  await fetch(
-    `${process.env.SUPABASE_URL}/rest/v1/profiles?id=eq.${profile.id}`,
-    {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': process.env.SUPABASE_SERVICE_KEY,
-        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
-        'Prefer': 'return=minimal',
-      },
-      body: JSON.stringify({ subscription_tier: tier })
-    }
-  );
-
-  console.log(`Updated ${profile.email} to tier: ${tier}`);
-  return profile; // return full profile so we can use it for commission calc
-}
-
-async function recordCommission({ profile, grossCents, netCents, stripeInvoiceId, periodMonth }) {
-  // Commission is always on NET (after Stripe fees) — never on gross
-  if (!profile?.referral_code_used || netCents <= 0) return;
-
-  try {
-    const affRes = await fetch(
-      `${process.env.SUPABASE_URL}/rest/v1/affiliates?referral_code=eq.${profile.referral_code_used}&status=eq.active&select=id,commission_rate`,
-      { headers: { 'apikey': process.env.SUPABASE_SERVICE_KEY, 'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}` } }
-    );
-    const affiliates = await affRes.json();
-    if (!affiliates?.length) return;
-
-    const affiliate = affiliates[0];
-    const rate = parseFloat(affiliate.commission_rate) || 20;
-    const commissionCents = Math.round(netCents * (rate / 100));
-
-    await fetch(`${process.env.SUPABASE_URL}/rest/v1/affiliate_commissions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': process.env.SUPABASE_SERVICE_KEY,
-        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
-        'Prefer': 'return=minimal',
-      },
-      body: JSON.stringify({
-        affiliate_id: affiliate.id,
-        referred_user_id: profile.id,
-        stripe_payment_id: stripeInvoiceId,
-        payment_amount_cents: netCents,
-        gross_amount_cents: grossCents,
-        commission_rate: rate,
-        commission_amount_cents: commissionCents,
-        status: 'pending',
-        period_month: periodMonth,
-      }),
+  // ── Google sign-in ────────────────────────────────────────────────────────
+  const signInWithGoogle = async () => {
+    setLoading(true); clearAll();
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { queryParams: { prompt: "select_account" }, redirectTo: window.location.origin },
     });
+    if (error) { setErr(error); setLoading(false); }
+  };
 
-    console.log(`Commission: ${rate}% of net $${(netCents/100).toFixed(2)} = $${(commissionCents/100).toFixed(2)} (gross $${(grossCents/100).toFixed(2)})`);
-  } catch (e) {
-    console.error('Commission recording failed:', e.message);
-  }
-}
+  // ── Email sign-in ─────────────────────────────────────────────────────────
+  const signInWithEmail = async () => {
+    if (!email || !password) return setErr("Please enter your email and password.");
+    setLoading(true); clearAll();
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) setErr(error);
+    setLoading(false);
+  };
 
-async function recordRefund({ stripeChargeId, stripeCustomerId, refundAmountCents, periodMonth }) {
-  if (!refundAmountCents || refundAmountCents <= 0) return;
-  try {
-    // Find the original commission using the stripe_payment_id (charge or invoice)
-    const commRes = await fetch(
-      `${process.env.SUPABASE_URL}/rest/v1/affiliate_commissions?stripe_payment_id=eq.${stripeChargeId}&status=eq.pending&select=*`,
-      { headers: { 'apikey': process.env.SUPABASE_SERVICE_KEY, 'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}` } }
-    );
-    const commissions = await commRes.json();
-
-    // Look up the user profile for this customer (need referral_code_used)
-    const profRes = await fetch(
-      `${process.env.SUPABASE_URL}/rest/v1/profiles?stripe_customer_id=eq.${stripeCustomerId}&select=id,referral_code_used`,
-      { headers: { 'apikey': process.env.SUPABASE_SERVICE_KEY, 'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}` } }
-    );
-    const profiles = await profRes.json();
-    const profile = profiles?.[0];
-
-    if (!profile?.referral_code_used) return; // not a referred user
-
-    // Find affiliate
-    const affRes = await fetch(
-      `${process.env.SUPABASE_URL}/rest/v1/affiliates?referral_code=eq.${profile.referral_code_used}&select=id,commission_rate`,
-      { headers: { 'apikey': process.env.SUPABASE_SERVICE_KEY, 'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}` } }
-    );
-    const affiliates = await affRes.json();
-    if (!affiliates?.length) return;
-
-    const affiliate = affiliates[0];
-    const rate = parseFloat(affiliate.commission_rate) || 20;
-    const refundCommissionCents = Math.round(refundAmountCents * (rate / 100));
-
-    // Insert a NEGATIVE commission entry to represent the refund
-    await fetch(`${process.env.SUPABASE_URL}/rest/v1/affiliate_commissions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': process.env.SUPABASE_SERVICE_KEY,
-        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
-        'Prefer': 'return=minimal',
-      },
-      body: JSON.stringify({
-        affiliate_id: affiliate.id,
-        referred_user_id: profile.id,
-        stripe_payment_id: stripeChargeId,
-        payment_amount_cents: -refundAmountCents,   // negative = refund
-        commission_rate: rate,
-        commission_amount_cents: -refundCommissionCents, // negative = clawback
-        status: 'refund',
-        period_month: periodMonth,
-      }),
-    });
-
-    console.log(`Refund recorded: -$${(refundCommissionCents/100).toFixed(2)} clawback for affiliate ${affiliate.id}`);
-  } catch (e) {
-    console.error('Refund recording failed:', e.message);
-  }
-}
-
-export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).end();
-
-  const sig = req.headers['stripe-signature'];
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-
-  if (!webhookSecret) {
-    console.error('STRIPE_WEBHOOK_SECRET not set');
-    return res.status(500).json({ error: 'Webhook secret not configured' });
-  }
-
-  let rawBody;
-  try {
-    rawBody = await getRawBody(req);
-  } catch (err) {
-    return res.status(400).json({ error: 'Could not read body' });
-  }
-
-  // Verify Stripe signature
-  let event;
-  try {
-    const stripe = (await import('stripe')).default(process.env.STRIPE_SECRET_KEY);
-    event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
-  } catch (err) {
-    console.error('Stripe signature verification failed:', err.message);
-    return res.status(400).json({ error: `Webhook signature invalid: ${err.message}` });
-  }
-
-  console.log('Stripe event received:', event.type);
-
-  try {
-    switch (event.type) {
-      // Payment succeeded — activate subscription
-      case 'checkout.session.completed': {
-        const session = event.data.object;
-        const customerId = session.customer;
-        const mode = session.mode;
-        const userId = session.metadata?.userId;
-
-        // Link this Stripe customer to the Supabase profile so future
-        // lookups (renewals, refunds) can find it by stripe_customer_id
-        await linkStripeCustomerToProfile(userId, customerId);
-
-        if (mode === 'payment') {
-          const profile = await updateUserTier(customerId, 'lifetime');
-          // One-time lifetime payment — get net after Stripe fees
-          const grossCents = session.amount_total || 0;
-          const netCents = await getNetCents(session.payment_intent, grossCents);
-          await recordCommission({
-            profile,
-            grossCents,
-            netCents,
-            stripeInvoiceId: session.id,
-            periodMonth: new Date().toISOString().slice(0, 7),
-          });
-          if (profile?.email) await sendWelcomeEmail(profile.email, 'Lifetime');
-        } else if (mode === 'subscription') {
-          const profile = await updateUserTier(customerId, 'premium');
-          if (profile?.email) await sendWelcomeEmail(profile.email, 'Premium');
-          // Commission for subscription is recorded on invoice.payment_succeeded
-        }
-        break;
-      }
-
-      // Subscription renewed — this fires for every monthly/annual payment
-      case 'invoice.payment_succeeded': {
-        const invoice = event.data.object;
-        if (invoice.subscription) {
-          const profile = await updateUserTier(invoice.customer, 'premium');
-          // Get net after Stripe fees — commission base is what we actually receive
-          const grossCents = invoice.amount_paid || 0;
-          const netCents = await getNetCents(invoice.charge, grossCents);
-          await recordCommission({
-            profile,
-            grossCents,
-            netCents,
-            stripeInvoiceId: invoice.id,
-            periodMonth: new Date(invoice.period_start * 1000).toISOString().slice(0, 7),
-          });
-        }
-        break;
-      }
-
-      // Subscription cancelled or payment failed
-      case 'customer.subscription.deleted': {
-        const sub = event.data.object;
-        const profile = await updateUserTier(sub.customer, 'free');
-        if (profile?.email) await sendCancellationEmail(profile.email);
-        break;
-      }
-
-      case 'invoice.payment_failed': {
-        const invoice = event.data.object;
-        await updateUserTier(invoice.customer, 'free');
-        // Note: no email sent here yet — a "payment failed, update your card"
-        // email would need different messaging than cancellation. Can add later.
-        break;
-      }
-
-      // Subscription updated (e.g. plan change)
-      case 'customer.subscription.updated': {
-        const sub = event.data.object;
-        const status = sub.status;
-        const customerId = sub.customer;
-        if (status === 'active' || status === 'trialing') {
-          await updateUserTier(customerId, 'premium');
-        } else if (status === 'canceled' || status === 'unpaid' || status === 'past_due') {
-          await updateUserTier(customerId, 'free');
-        }
-        break;
-      }
-
-      // Refund issued — downgrade tier AND record a negative commission (clawback)
-      case 'charge.refunded': {
-        const charge = event.data.object;
-
-        // Downgrade the user back to free immediately on any refund
-        const profile = await updateUserTier(charge.customer, 'free');
-        if (profile?.email) await sendRefundEmail(profile.email, charge.amount_refunded || 0);
-
-        await recordRefund({
-          stripeChargeId: charge.id,
-          stripeCustomerId: charge.customer,
-          refundAmountCents: charge.amount_refunded || 0,
-          periodMonth: new Date().toISOString().slice(0, 7),
-        });
-        break;
-      }
-
-      default:
-        console.log('Unhandled event type:', event.type);
+  // ── Email sign-up ─────────────────────────────────────────────────────────
+  const signUpWithEmail = async () => {
+    if (!email || !password) return setErr("Please enter your email and password.");
+    if (password.length < 6) return setErr("Password must be at least 6 characters.");
+    setLoading(true); clearAll();
+    const { data, error } = await supabase.auth.signUp({ email, password });
+    if (error) {
+      setErr(error);
+    } else if (data?.user && data.user.identities?.length === 0) {
+      // Supabase silently returns a user with no identities when email already exists
+      setErr("An account with this email already exists. Try signing in instead.");
+    } else {
+      setSuccess("Account created! Check your email to confirm, then sign in.");
     }
+    setLoading(false);
+  };
 
-    return res.status(200).json({ received: true });
+  // ── Password reset ────────────────────────────────────────────────────────
+  const sendReset = async () => {
+    if (!email) return setErr("Enter your email address.");
+    setLoading(true); clearAll();
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin });
+    if (error) setErr(error);
+    else setSuccess("Reset link sent — check your inbox.");
+    setLoading(false);
+  };
 
-  } catch (err) {
-    console.error('Webhook handler error:', err);
-    return res.status(500).json({ error: err.message });
-  }
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter") authMode === "signin" ? signInWithEmail() : signUpWithEmail();
+  };
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#1E5C52", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: "'Nunito', sans-serif" }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Lora:ital,wght@0,600;1,400;1,600&display=swap'); * { box-sizing: border-box; }`}</style>
+
+      {/* Logo */}
+      <div style={{ textAlign: "center", marginBottom: 24 }}>
+        <div style={{ fontFamily: "'Lora', serif", fontSize: 36, color: "#FFFFFF", marginBottom: 2 }}>
+          🐾 <span style={{ fontWeight: 700 }}>Your</span><span style={{ color: "#F5C45E", fontWeight: 700 }}>Pet</span><span style={{ fontWeight: 700 }}>Pass</span>
+        </div>
+        <div style={{ color: "#F5C45E", fontSize: 14, fontStyle: "italic", fontFamily: "'Lora', serif" }}>
+          Your pet's health passport
+        </div>
+      </div>
+
+      {/* Card */}
+      <div style={{ background: "#FFFFFF", borderRadius: 24, padding: 28, width: "100%", maxWidth: 400, boxShadow: "0 8px 40px rgba(0,0,0,0.2)" }}>
+
+        {/* Error */}
+        {error && (
+          <div style={{ background: "#C4714A10", border: "1px solid #C4714A55", borderRadius: 12, padding: "11px 14px", marginBottom: 16, fontSize: 14, color: "#C4714A", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+            <span>{error}</span>
+            <button onClick={clearAll} style={{ background: "none", border: "none", color: "#C4714A", cursor: "pointer", fontSize: 18, lineHeight: 1, flexShrink: 0 }}>×</button>
+          </div>
+        )}
+
+        {/* Success */}
+        {success && (
+          <div style={{ background: "#2D7D6F10", border: "1px solid #2D7D6F55", borderRadius: 12, padding: "11px 14px", marginBottom: 16, fontSize: 14, color: "#2D7D6F" }}>
+            {success}
+          </div>
+        )}
+
+        {/* ── MAIN: Sign In / Create Account ── */}
+        {mode === "main" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+
+            {/* Toggle */}
+            <div style={{ display: "flex", background: "#FAF6F0", borderRadius: 12, padding: 3, marginBottom: 4 }}>
+              {["signin", "signup"].map(m => (
+                <button key={m} onClick={() => { setAuthMode(m); clearAll(); }}
+                  style={{ flex: 1, padding: "9px 0", borderRadius: 10, border: "none", fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: "'Nunito', sans-serif", transition: "all .15s",
+                    background: authMode === m ? "#2D7D6F" : "transparent",
+                    color: authMode === m ? "#fff" : "#8B7355",
+                    boxShadow: authMode === m ? "0 2px 8px #2D7D6F33" : "none",
+                  }}>
+                  {m === "signin" ? "Sign In" : "Create Account"}
+                </button>
+              ))}
+            </div>
+
+            {/* Google */}
+            <button onClick={signInWithGoogle} disabled={loading}
+              style={{ width: "100%", padding: 13, borderRadius: 12, fontSize: 15, fontWeight: 700, background: "#fff", color: "#2C2017", border: "1.5px solid #E8DDD0", cursor: "pointer", fontFamily: "'Nunito', sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+              <svg width="18" height="18" viewBox="0 0 48 48">
+                <path fill="#4285F4" d="M44.5 20H24v8.5h11.8C34.7 33.9 30.1 37 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 5.1 29.6 3 24 3 12.4 3 3 12.4 3 24s9.4 21 21 21c10.5 0 20-7.6 20-21 0-1.4-.1-2.7-.5-4z"/>
+                <path fill="#34A853" d="M6.3 14.7l7 5.1C15 16.1 19.1 13 24 13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 5.1 29.6 3 24 3c-7.6 0-14.2 4.1-17.7 10.7z"/>
+                <path fill="#FBBC05" d="M24 45c5.9 0 10.9-2 14.5-5.4l-6.7-5.5C29.9 35.9 27.1 37 24 37c-6.1 0-11.2-4.1-13-9.6l-7 5.4C7.7 40.6 15.3 45 24 45z"/>
+                <path fill="#EA4335" d="M44.5 20H24v8.5h11.8c-.9 2.6-2.6 4.8-4.9 6.3l6.7 5.5C42 37.1 45 31 45 24c0-1.4-.2-2.7-.5-4z"/>
+              </svg>
+              Continue with Google
+            </button>
+
+            {/* Divider */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ flex: 1, height: 1, background: "#E8DDD0" }} />
+              <span style={{ fontSize: 12, color: "#8B7355" }}>or with email</span>
+              <div style={{ flex: 1, height: 1, background: "#E8DDD0" }} />
+            </div>
+
+            {/* Email + Password */}
+            <input style={inp} type="email" placeholder="Email address"
+              value={email} onChange={e => setEmail(e.target.value)} onKeyDown={handleKeyDown} autoComplete="email"/>
+            <div style={{ position: "relative" }}>
+              <input style={{ ...inp, paddingRight: 48 }} type={showPassword ? "text" : "password"}
+                placeholder={authMode === "signup" ? "Password (min 6 characters)" : "Password"}
+                value={password} onChange={e => setPassword(e.target.value)} onKeyDown={handleKeyDown}
+                autoComplete={authMode === "signup" ? "new-password" : "current-password"}/>
+              <button onClick={() => setShowPassword(p => !p)}
+                style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#8B7355", fontSize: 13, fontFamily: "'Nunito', sans-serif" }}>
+                {showPassword ? "Hide" : "Show"}
+              </button>
+            </div>
+
+            {/* Primary action */}
+            {!success && (
+              <button onClick={authMode === "signin" ? signInWithEmail : signUpWithEmail} disabled={loading} style={primaryBtn}>
+                {loading ? (authMode === "signin" ? "Signing in..." : "Creating account...") : (authMode === "signin" ? "Sign In" : "Create Account")}
+              </button>
+            )}
+
+            {/* Forgot password — only on sign in */}
+            {authMode === "signin" && (
+              <button onClick={() => { setMode("forgot"); clearAll(); }}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "#2D7D6F", fontSize: 13, fontFamily: "'Nunito', sans-serif", padding: 0, textAlign: "center" }}>
+                Forgot your password?
+              </button>
+            )}
+
+            {/* Legal */}
+            <div style={{ fontSize: 11, color: "#8B7355", textAlign: "center", lineHeight: 1.7 }}>
+              By continuing you agree to our{" "}
+              <a href="/terms.html" style={{ color: "#2D7D6F" }}>Terms of Service</a> and{" "}
+              <a href="/privacy.html" style={{ color: "#2D7D6F" }}>Privacy Policy</a>.
+            </div>
+
+            {/* Emergency lookup — subtle link at bottom */}
+            <div style={{ borderTop: "1px solid #F0E8DC", paddingTop: 14, textAlign: "center" }}>
+              <button onClick={() => { setMode("emergency"); clearAll(); }}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "#C4714A", fontSize: 13, fontWeight: 600, fontFamily: "'Nunito', sans-serif" }}>
+                🚨 Emergency Pet Lookup
+              </button>
+              <div style={{ fontSize: 11, color: "#8B7355", marginTop: 3 }}>Found a lost pet? Access their health record.</div>
+            </div>
+          </div>
+        )}
+
+        {/* ── FORGOT PASSWORD ── */}
+        {mode === "forgot" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <button onClick={() => { setMode("main"); clearAll(); }}
+              style={{ background: "none", border: "none", cursor: "pointer", color: "#8B7355", fontSize: 22, alignSelf: "flex-start", lineHeight: 1 }}>←</button>
+            <div>
+              <div style={{ fontFamily: "'Lora', serif", fontSize: 22, color: "#2C2017", marginBottom: 4 }}>Reset Password</div>
+              <div style={{ fontSize: 14, color: "#8B7355" }}>Enter your email and we'll send a reset link.</div>
+            </div>
+            <input style={inp} type="email" placeholder="Email address"
+              value={email} onChange={e => setEmail(e.target.value)} autoComplete="email"/>
+            {!success && (
+              <button onClick={sendReset} disabled={loading} style={primaryBtn}>
+                {loading ? "Sending..." : "Send Reset Link"}
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* ── EMERGENCY LOOKUP ── */}
+        {mode === "emergency" && (
+          <EmergencyLookup onBack={() => { setMode("main"); clearAll(); }} />
+        )}
+      </div>
+
+      <div style={{ marginTop: 18, fontSize: 12, color: "rgba(255,255,255,0.45)", textAlign: "center" }}>
+        YourPetPass · Secure pet health records for travelers
+      </div>
+    </div>
+  );
 }
