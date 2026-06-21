@@ -234,7 +234,7 @@ export default function Auth() {
             {/* Legal */}
             <div style={{ fontSize: 11, color: "#8B7355", textAlign: "center", lineHeight: 1.7 }}>
               By continuing you agree to our{" "}
-              <a href="/terms" style={{ color: "#2D7D6F" }}>Terms of Service</a> and{" "}
+              <a href="/terms.html" style={{ color: "#2D7D6F" }}>Terms of Service</a> and{" "}
               <a href="/privacy.html" style={{ color: "#2D7D6F" }}>Privacy Policy</a>.
             </div>
 
