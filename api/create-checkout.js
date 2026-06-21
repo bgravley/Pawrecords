@@ -34,14 +34,18 @@ export default async function handler(req, res) {
   // Pre-fill email so the user doesn't have to type it again
   if (userEmail) sessionParams.customer_email = userEmail;
 
-  // Apply coupon if provided — Stripe validates it, we just pass it through
+  // Show Stripe's built-in "Add promotion code" box on the checkout page.
+  // Works for every plan — subscriptions AND the one-time Lifetime payment.
+  // Any promotion code created in the Stripe dashboard works automatically —
+  // no code changes ever needed when adding a new discount for someone.
+  sessionParams.allow_promotion_codes = true;
+
+  // Manual override: if a specific coupon was passed in directly (rare —
+  // used only for auto-applying a discount without the customer typing it),
+  // apply it instead and hide the promo box since one is already applied.
   if (couponCode) {
     sessionParams.discounts = [{ coupon: couponCode }];
-  }
-
-  // For subscriptions, allow promotion codes to be applied at checkout too
-  if (mode === 'subscription') {
-    sessionParams.allow_promotion_codes = !couponCode; // allow if no coupon pre-applied
+    delete sessionParams.allow_promotion_codes; // Stripe doesn't allow both at once
   }
 
   try {
