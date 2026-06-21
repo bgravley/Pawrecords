@@ -5,9 +5,9 @@ import { supabase } from "./lib/supabase";
 import * as db from "./lib/db";
 
 const PRICES = {
-  monthly: "price_1TaiD5BP9MtRr7gKKYeQgZQ8",
-  annual:  "price_1TaiDcBP9MtRr7gK8Iqvj1Gn",
-  lifetime:"price_1TaiENBP9MtRr7gKfqjYXGe3",
+  monthly: "price_1TknmwB5s5OlwZVJsgXTq1JA",
+  annual:  "price_1TknmuB5s5OlwZVJLGQI4rt0",
+  lifetime:"price_1TknmvB5s5OlwZVJU867MMjE",
 }
 // Coupon codes (created in Stripe dashboard)
 // YPPFREE  = 100% off forever (lifetime free)
@@ -332,7 +332,7 @@ const UpgradeModal=({userId,userEmail,onClose})=>{
   const plans=[
     {key:"monthly",mode:"subscription",label:"Monthly",price:"$4.99",period:"/month",desc:"Billed monthly, cancel anytime",color:"#2D7D6F"},
     {key:"annual",mode:"subscription",label:"Annual",price:"$39.99",period:"/year",desc:"Save 33% vs monthly — best value",color:"#2D7D6F",popular:true},
-    {key:"lifetime",mode:"payment",label:"Lifetime",price:"$99",period:"one time",desc:"Pay once, own it forever",color:"#E8A838"},
+    {key:"lifetime",mode:"payment",label:"Lifetime",price:"$89.99",period:"one time",desc:"Pay once, own it forever",color:"#E8A838"},
   ];
 
   return(
