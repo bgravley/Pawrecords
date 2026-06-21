@@ -1,13 +1,23 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    <!-- Google Analytics (GA4) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-GLHNVC9XZV"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag("js", new Date());
+      gtag("config", "G-GLHNVC9XZV");
+    </script>
+
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
     <!-- Primary Meta -->
-    <title>YourPetPass — Your Pet's Health Passport</title>
-    <meta name="description" content="Keep your pet's health records organized, vaccination schedules on track, and every document ready when you travel. YourPetPass is the health passport for your pet." />
+    <title>YourPetPass — Pet Health Records & Travel App for Dog Owners</title>
+    <meta name="description" content="YourPetPass keeps your dog's vaccine records, vet visits, allergies, and medications organized in one place — accessible from any vet, anywhere. Generate AI-powered travel checklists for flying or driving with your dog, scan vet documents automatically, and share an emergency QR health card. Free to start." />
     <meta name="theme-color" content="#1E5C52" />
+    <link rel="canonical" href="https://yourpetpass.com/" />
 
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -17,25 +27,136 @@
     <!-- Open Graph (iMessage, Facebook, WhatsApp previews) -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://yourpetpass.com/" />
-    <meta property="og:title" content="YourPetPass — Your Pet's Health Passport" />
-    <meta property="og:description" content="Health records, vaccination tracking, travel documents, and AI-powered tools for pet owners who are always on the move." />
+    <meta property="og:title" content="YourPetPass — Pet Health Records & Travel App for Dog Owners" />
+    <meta property="og:description" content="One place for your dog's health records, vaccine tracking, and AI-generated travel checklists — built for owners who switch vets, travel, or board their dog." />
     <meta property="og:image" content="https://yourpetpass.com/og-image.png" />
     <meta property="og:site_name" content="YourPetPass" />
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:url" content="https://yourpetpass.com/" />
-    <meta name="twitter:title" content="YourPetPass — Your Pet's Health Passport" />
-    <meta name="twitter:description" content="Health records, vaccination tracking, travel documents, and AI-powered tools for pet owners who are always on the move." />
+    <meta name="twitter:title" content="YourPetPass — Pet Health Records & Travel App for Dog Owners" />
+    <meta name="twitter:description" content="One place for your dog's health records, vaccine tracking, and AI-generated travel checklists — built for owners who switch vets, travel, or board their dog." />
     <meta name="twitter:image" content="https://yourpetpass.com/og-image.png" />
 
     <!-- Apple Web App -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="YourPetPass" />
+
+    <!-- Structured data: helps Google AND AI answer engines (ChatGPT, Perplexity, Claude)
+         understand exactly what this product is, who it's for, and how to cite it. -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "YourPetPass",
+      "applicationCategory": "LifestyleApplication",
+      "operatingSystem": "Web, iOS, Android",
+      "url": "https://yourpetpass.com",
+      "description": "YourPetPass is a pet health records and travel planning app for dog owners. It stores vaccination history, vet visit records, allergies, and medications in one place, generates AI-powered travel requirement checklists for flying or driving with a dog, scans vet documents automatically using AI, and provides a QR-code emergency health card.",
+      "offers": [
+        { "@type": "Offer", "name": "Free Plan", "price": "0", "priceCurrency": "USD" },
+        { "@type": "Offer", "name": "Monthly Premium", "price": "4.99", "priceCurrency": "USD" },
+        { "@type": "Offer", "name": "Annual Premium", "price": "39.99", "priceCurrency": "USD" },
+        { "@type": "Offer", "name": "Lifetime Premium", "price": "89.99", "priceCurrency": "USD" }
+      ],
+      "publisher": {
+        "@type": "Organization",
+        "name": "YourPetPass",
+        "url": "https://yourpetpass.com"
+      }
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is YourPetPass?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "YourPetPass is an app that stores your dog's health records — vaccines, vet visits, allergies, and medications — in one place, accessible no matter which vet you see. It also generates AI-powered travel checklists for flying or driving with your dog internationally or domestically."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does YourPetPass work if I see different vets in different cities?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. YourPetPass is designed specifically for pet owners who move between vets — whether due to travel, relocation, or simply switching providers. All records stay with the pet's profile, not tied to any single clinic."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can YourPetPass help with airline or international pet travel requirements?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. YourPetPass generates a route-specific AI travel checklist covering health certificates, vaccination requirements, and airline pet policies for both domestic and international trips."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is YourPetPass free?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes, YourPetPass has a free plan covering core health record storage. Premium plans starting at $4.99/month add AI document scanning, AI travel checklists, weight tracking, document storage, and a QR emergency health card."
+          }
+        }
+      ]
+    }
+    </script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!--
+        This content is shown only to crawlers/bots that don't execute JavaScript
+        (this includes most AI answer-engine crawlers). Real visitors with JS enabled
+        will see this instantly replaced by the full interactive app. Keep this in
+        sync with the actual Marketing screen content when that copy changes.
+      -->
+      <main>
+        <h1>YourPetPass — Your Dog's Health Records, Organized and Travel-Ready</h1>
+        <p>
+          YourPetPass is a pet health records and travel planning app built for dog owners.
+          It keeps vaccination history, vet visit records, allergies, and medications in one
+          place — accessible no matter which veterinarian you see, in any city.
+        </p>
+        <h2>Built for owners who move</h2>
+        <p>
+          Whether you've switched vets, relocated, or travel frequently with your dog,
+          YourPetPass keeps every health record attached to your pet, not to a single clinic.
+        </p>
+        <h2>AI-powered travel checklists</h2>
+        <p>
+          Generate a route-specific checklist covering health certificates, vaccination
+          requirements, and airline pet policies for both domestic and international travel.
+          YourPetPass uses AI to research current requirements and flags anything that should
+          be double-checked before you fly.
+        </p>
+        <h2>AI document scanning</h2>
+        <p>
+          Take a photo of any vet record, vaccine certificate, or health document and
+          YourPetPass automatically extracts and saves the information to your pet's profile.
+        </p>
+        <h2>Emergency QR health card</h2>
+        <p>
+          Every pet gets a QR code linking to a public emergency health page — no login
+          required — showing allergies, emergency contact info, and vaccination status.
+          Useful for boarding, daycare, pet-sitters, or if a pet is ever lost.
+        </p>
+        <h2>Pricing</h2>
+        <p>
+          YourPetPass offers a free plan for core health record storage. Premium plans start
+          at $4.99/month and include AI document scanning, AI travel checklists, weight
+          tracking, document storage, and the QR emergency health card. Annual plans are
+          $39.99/year and a Lifetime plan is available for $89.99.
+        </p>
+        <p><a href="/privacy.html">Privacy Policy</a> · <a href="/terms.html">Terms of Service</a> · <a href="/contact.html">Contact</a></p>
+      </main>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
