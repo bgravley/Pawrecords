@@ -1,4 +1,9 @@
 {
+  "functions": {
+    "api/ai-travel.js": {
+      "maxDuration": 300
+    }
+  },
   "headers": [
     {
       "source": "/(.*)",
