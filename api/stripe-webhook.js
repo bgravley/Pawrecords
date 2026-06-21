@@ -307,9 +307,13 @@ export default async function handler(req, res) {
         break;
       }
 
-      // Refund issued — record a negative commission (clawback)
+      // Refund issued — downgrade tier AND record a negative commission (clawback)
       case 'charge.refunded': {
         const charge = event.data.object;
+
+        // Downgrade the user back to free immediately on any refund
+        await updateUserTier(charge.customer, 'free');
+
         await recordRefund({
           stripeChargeId: charge.id,
           stripeCustomerId: charge.customer,
