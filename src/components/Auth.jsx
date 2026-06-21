@@ -88,7 +88,7 @@ export default function Auth() {
     setLoading(true); clearAll();
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { queryParams: { prompt: "select_account", access_type: "offline" }, redirectTo: window.location.origin },
+      options: { queryParams: { prompt: "select_account" }, redirectTo: window.location.origin },
     });
     if (error) { setErr(error); setLoading(false); }
   };
