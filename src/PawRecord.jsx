@@ -1736,14 +1736,20 @@ const DogDetail=({dog,state,dispatch,userId,tier,onBack,onUpgrade,userEmail})=>{
 };
 
 const BillingSection=({userId,tier,userEmail})=>{
-  
+  const[loadingPortal,setLoadingPortal]=useState(false);
+  const[portalError,setPortalError]=useState(null);
+
   const tierLabel=tier==='lifetime'?'Lifetime Premium':tier==='premium'?'Premium':'Free';
   const tierColor=tier==='lifetime'?'#E8A838':tier==='premium'?'#2D7D6F':'#8B7355';
 
-  const openPortal=()=>{
-    // Opens Stripe customer portal - requires stripe-webhook setup
-    const stripePortalUrl="https://billing.stripe.com/p/login/test_yourportalid";
-    window.open(stripePortalUrl,"_blank");
+  const openPortal=async()=>{
+    setLoadingPortal(true);setPortalError(null);
+    try{
+      const res=await fetch('/api/create-portal-session',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId})});
+      const data=await res.json();
+      if(!res.ok||data.error)throw new Error(data.error||'Could not open billing portal');
+      window.location.href=data.url;
+    }catch(e){setPortalError(e.message);setLoadingPortal(false);}
   };
 
   return(
@@ -1760,7 +1766,8 @@ const BillingSection=({userId,tier,userEmail})=>{
       </div>
       {tier==='free'
         ?<div style={{fontSize:13,color:"#5A4535"}}>You're on the free plan. Upgrade to unlock AI scanning, travel tools, exports, and more.</div>
-        :tier!=='lifetime'&&<Btn full v="secondary" onClick={openPortal} style={{justifyContent:"center"}}>"Manage Subscription / Cancel"</Btn>}
+        :tier!=='lifetime'&&<Btn full v="secondary" onClick={openPortal} disabled={loadingPortal} style={{justifyContent:"center"}}>{loadingPortal?"Opening...":"Manage Subscription / Cancel"}</Btn>}
+      {portalError&&<div style={{marginTop:10,fontSize:13,color:"#C4714A",background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:10,padding:"10px 14px"}}>{portalError}</div>}
       {tier==='lifetime'&&<div style={{fontSize:13,color:"#2D7D6F",fontWeight:600,textAlign:"center",padding:"8px 0"}}>✓ Lifetime access — no subscription needed</div>}
     </div>
   );
