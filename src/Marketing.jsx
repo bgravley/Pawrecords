@@ -104,7 +104,7 @@ export default function Marketing({ onLogin, onSignup }) {
       {/* HERO */}
       <section style={{ position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
-          <img src="/Images/hero-cuddle.jpg" alt="Dog and cat resting together at home" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <img src="/IMG_1360.jpeg" alt="Dog and cat resting together at home" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(30,92,82,0.85) 0%, rgba(30,92,82,0.93) 55%, rgba(30,92,82,0.97) 100%)' }} />
         </div>
         <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', padding: '72px 20px 56px', maxWidth: 760, margin: '0 auto' }}>
@@ -153,7 +153,7 @@ export default function Marketing({ onLogin, onSignup }) {
             </div>
           </div>
           <div style={{ flex: '0 1 280px', textAlign: 'center' }}>
-            <img src="/Images/howitworks-phone.jpg" alt="Pet health record shown on a phone" style={{ width: '100%', maxWidth: 280, borderRadius: 24, boxShadow: '0 16px 40px rgba(0,0,0,0.18)' }} />
+            <img src="/IMG_1367.jpeg" alt="Pet health record shown on a phone" style={{ width: '100%', maxWidth: 280, borderRadius: 24, boxShadow: '0 16px 40px rgba(0,0,0,0.18)' }} />
           </div>
         </div>
       </section>
@@ -178,20 +178,20 @@ export default function Marketing({ onLogin, onSignup }) {
         <p style={{ textAlign: 'center', color: C.muted, marginBottom: 32, fontSize: 15 }}>Three ways pet owners actually use YourPetPass.</p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 24 }}>
           <UseCaseCard
-            image="/Images/usecase-front-desk.jpg"
+            image="/IMG_1363.jpeg"
             eyebrow="Different Vets, One Record"
             title="You moved. Your vet didn't come with you."
             body="New city, new vet, and they're asking for vaccine history you don't have on hand. With YourPetPass, every record from every vet you've ever seen lives in one place — pull it up on your phone at the front desk, no calling your old clinic, no faxes."
           />
           <UseCaseCard
-            image="/Images/usecase-airport.jpg"
+            image="/IMG_1364.jpeg"
             eyebrow="Traveling With Your Pet"
             title="Flying internationally? Know exactly what you need."
             body="Health certificates, country-specific import rules, airline pet policies — they all change, and missing one document can mean your pet doesn't fly. Generate an AI checklist for your exact route and get a clear, current list of what to handle and when."
           />
           <UseCaseCard
             featured
-            image="/Images/usecase-daycare.jpg"
+            image="/IMG_1365.jpeg"
             eyebrow="The Real-World Story"
             title="Maria & Biscuit: a weekend trip, three states, two vets, one app."
             body="Maria drove from Austin to Denver for a long weekend, boarding Biscuit at a pet hotel for two nights mid-trip. The hotel needed proof of vaccines before check-in — she exported Biscuit's record and emailed it over from the parking lot. A week later, a limp sent them to an unfamiliar vet near Denver; the vet pulled up Biscuit's full history instantly, no guessing on prior treatments. Same trip, same app, two completely different problems solved."
@@ -203,7 +203,7 @@ export default function Marketing({ onLogin, onSignup }) {
       <section style={{ padding: '8px 20px 48px', maxWidth: 1000, margin: '0 auto' }}>
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 18, overflow: 'hidden', display: 'flex', flexWrap: 'wrap', alignItems: 'stretch' }}>
           <div style={{ flex: '1 1 280px', minHeight: 220 }}>
-            <img src="/Images/feature-vet-checkup.jpg" alt="Veterinarian examining a dog" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            <img src="/IMG_1366.jpeg" alt="Veterinarian examining a dog" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
           </div>
           <div style={{ flex: '1 1 280px', padding: 28, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
             <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: C.teal, marginBottom: 8 }}>Walk Into Any Vet, Prepared</div>
