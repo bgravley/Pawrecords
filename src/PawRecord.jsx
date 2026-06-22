@@ -931,6 +931,10 @@ const AIScanModal=({dog,userId,userEmail,dispatch,onSave,onClose,onUpgrade})=>{
       }
 
       setSaved(true);
+      if(userEmail){
+        logActivity(userId,userEmail,'document_scanned',{petName:dog.name,documentType:extracted.documentType});
+        fetch('/api/notify-user-action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({actionType:'document_added',recipientEmail:userEmail,data:{petName:dog.name}})}).catch(()=>{});
+      }
       setTimeout(()=>{onSave();onClose();},1400);
     }catch(e){setError(e.message);}
     setSaving(false);
@@ -1873,6 +1877,10 @@ const OwnerProfileModal=({userId,tier,userEmail,onUpgrade,onClose})=>{
       if(error)throw error;
       setSaved(true);
       setTimeout(()=>setSaved(false),3000);
+      if(userEmail){
+        logActivity(userId,userEmail,'profile_updated',{});
+        fetch('/api/notify-user-action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({actionType:'profile_updated',recipientEmail:userEmail,data:{name:f.fullName}})}).catch(()=>{});
+      }
     }catch(e){alert("Could not save profile: "+e.message);}
     setSaving(false);
   };
