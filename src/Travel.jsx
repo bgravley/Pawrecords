@@ -196,14 +196,25 @@ const generateChecklist = async (trip, pets, userId) => {
     US_CITIES.some(c => destCity.includes(c));
   const usaInvolved = isOriginUSA || isDestUSA;
 
+  const transportLabels = { air: "Flying (airplane)", sea: "By Sea (cruise ship or ferry)", land: "Driving (personal vehicle)", bus: "Bus" };
+  const transportMode = trip.transportation_type || "air";
+
   const prompt = `You are a veterinary travel compliance expert specializing in international pet travel documentation. Generate a COMPLETE, ACCURATE, and ACTIONABLE pet travel checklist for this route.
 
 TRIP DETAILS:
 - Origin: ${trip.origin_city}, ${trip.origin_country}
 - Destination: ${trip.destination_city}, ${trip.destination_country}
 - Departure Date: ${trip.departure_date}
-- Airline: ${trip.airline || "not specified"}
+- Mode of Transportation: ${transportLabels[transportMode] || "Flying"}
+- ${transportMode === "air" ? "Airline" : transportMode === "sea" ? "Cruise Line/Ferry" : transportMode === "bus" ? "Bus Company" : "Carrier"}: ${trip.airline || "not specified"}
 - Pets: ${petList}
+
+===== IMPORTANT: TAILOR REQUIREMENTS TO THE MODE OF TRANSPORTATION =====
+The pet is traveling by ${transportLabels[transportMode] || "air"}. Requirements differ meaningfully by mode:
+${transportMode === "air" ? `- Focus on airline-specific cabin/cargo pet policies, carrier size/weight limits, breed restrictions for brachycephalic breeds, and airport-specific procedures.` : ""}
+${transportMode === "sea" ? `- Focus on the cruise line or ferry company's specific pet policy (many cruise lines do NOT allow pets in cabins — service animals only on most lines), kennel/boarding facilities on board if any, and port-of-call country entry requirements at EACH stop if this is a multi-country cruise.` : ""}
+${transportMode === "land" ? `- Focus on land border crossing requirements specifically — these can differ from air entry requirements at the same border (e.g., different checkpoint hours, different document checks at land crossings vs international airports). Do NOT include airline-specific items.` : ""}
+${transportMode === "bus" ? `- Focus on the specific bus company's pet policy (many intercity bus lines have limited or no pet allowances outside of service animals), and land border crossing requirements if this route crosses an international border. Do NOT include airline-specific items.` : ""}
 
 ===== CRITICAL RULE: USA INVOLVEMENT =====
 ${usaInvolved ? `
@@ -257,14 +268,21 @@ ${trip.destination_country === "Colombia" ? `- ICA import permit — apply onlin
 - Internal and external parasite treatment certificate dated within 15 days of travel` : ""}
 - Any other import requirements specific to ${trip.destination_country}
 
-===== AIRLINE REQUIREMENTS =====
-Always include a checklist item for ${trip.airline || "the airline"} with:
+===== ${transportMode === "air" ? "AIRLINE" : transportMode === "sea" ? "CRUISE/FERRY" : transportMode === "bus" ? "BUS COMPANY" : "CARRIER"} REQUIREMENTS =====
+${transportMode === "air" ? `Always include a checklist item for ${trip.airline || "the airline"} with:
 - Cabin vs cargo policy for pets
 - Carrier/crate size and weight limits
 - Whether breed restrictions apply (especially brachycephalic/snub-nosed breeds)
 - How far in advance to book pet travel
 - Pet fees
-- Source: the airline's official pet policy page
+- Source: the airline's official pet policy page` : transportMode === "sea" ? `Always include a checklist item for ${trip.airline || "the cruise line/ferry company"} with:
+- Whether pets are allowed at all (many cruise lines only allow service animals)
+- Any pet boarding/kennel facilities available on board
+- Required documentation for boarding
+- Source: the cruise line or ferry company's official pet policy page` : transportMode === "bus" ? `Always include a checklist item for ${trip.airline || "the bus company"} with:
+- Whether pets are allowed (many intercity bus lines only allow service animals)
+- Any carrier requirements
+- Source: the bus company's official pet policy page` : `Note: traveling by personal vehicle — no carrier-specific policy applies. Focus entirely on the land border crossing document requirements at this specific border crossing.`}
 
 ===== OUTPUT FORMAT =====
 Return ONLY a valid JSON array. No markdown, no backticks, no explanation text before or after.
@@ -293,6 +311,7 @@ Each item must have these exact fields:
       destination: `${trip.origin_city} to ${trip.destination_city}`,
       originCountry: trip.origin_country,
       destinationCountry: trip.destination_country,
+      transportationType: trip.transportation_type || "air",
     }),
   });
 
@@ -332,12 +351,13 @@ const TripForm = ({ trip, userId, dogs, onSave, onClose }) => {
     destinationCountry: trip.destination_country || "",
     departureDate: trip.departure_date || "",
     returnDate: trip.return_date || "",
+    transportationType: trip.transportation_type || "air",
     airline: trip.airline || "",
     notes: trip.notes || "",
     selectedPets: trip.pet_ids || [],
   } : {
     name: "", originCity: "", originCountry: "United States", destinationCity: "",
-    destinationCountry: "", departureDate: "", returnDate: "",
+    destinationCountry: "", departureDate: "", returnDate: "", transportationType: "air",
     airline: "", notes: "", selectedPets: [],
   });
   const [saving, setSaving] = useState(false);
@@ -361,7 +381,7 @@ const TripForm = ({ trip, userId, dogs, onSave, onClose }) => {
       origin_city: f.originCity, origin_country: f.originCountry,
       destination_city: f.destinationCity, destination_country: f.destinationCountry,
       departure_date: f.departureDate, return_date: f.returnDate || null,
-      airline: f.airline, flight_number: f.flightNumber || null, notes: f.notes, pet_ids: f.selectedPets,
+      transportation_type: f.transportationType, airline: f.airline, flight_number: f.flightNumber || null, notes: f.notes, pet_ids: f.selectedPets,
     };
     let result;
     if (trip) {
@@ -427,14 +447,39 @@ const TripForm = ({ trip, userId, dogs, onSave, onClose }) => {
           <Field label="Return Date (optional)"><input style={inp} type="date" value={f.returnDate} onChange={e => set("returnDate", e.target.value)} /></Field>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-          <Field label="Airline (optional)">
-            <input style={inp} value={f.airline} onChange={e => set("airline", e.target.value)} placeholder="e.g. Copa Airlines" />
-          </Field>
-          <Field label="Flight Number (optional)">
-            <input style={inp} value={f.flightNumber || ""} onChange={e => set("flightNumber", e.target.value)} placeholder="CM205" autoCapitalize="characters" />
-          </Field>
+        <div>
+          <div style={{ fontWeight: 800, fontSize: 12, color: C.sub, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 10 }}>How Are You Traveling?</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
+            {[["air", "✈️", "Flying"], ["sea", "🚢", "By Sea"], ["land", "🚗", "Driving"], ["bus", "🚌", "Bus"]].map(([val, icon, label]) => (
+              <button key={val} onClick={() => set("transportationType", val)} type="button"
+                style={{ padding: "12px 6px", borderRadius: 10, textAlign: "center", cursor: "pointer", border: f.transportationType === val ? `2px solid ${C.accent}` : `1px solid ${C.border}`, background: f.transportationType === val ? `${C.accent}14` : "#fff" }}>
+                <div style={{ fontSize: 20, marginBottom: 4 }}>{icon}</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: f.transportationType === val ? C.accent : C.sub }}>{label}</div>
+              </button>
+            ))}
+          </div>
         </div>
+
+        {f.transportationType === "air" && (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <Field label="Airline (optional)">
+              <input style={inp} value={f.airline} onChange={e => set("airline", e.target.value)} placeholder="e.g. Copa Airlines" />
+            </Field>
+            <Field label="Flight Number (optional)">
+              <input style={inp} value={f.flightNumber || ""} onChange={e => set("flightNumber", e.target.value)} placeholder="CM205" autoCapitalize="characters" />
+            </Field>
+          </div>
+        )}
+        {f.transportationType === "sea" && (
+          <Field label="Cruise Line / Ferry Company (optional)">
+            <input style={inp} value={f.airline} onChange={e => set("airline", e.target.value)} placeholder="e.g. Royal Caribbean" />
+          </Field>
+        )}
+        {f.transportationType === "bus" && (
+          <Field label="Bus Company (optional)">
+            <input style={inp} value={f.airline} onChange={e => set("airline", e.target.value)} placeholder="e.g. Greyhound" />
+          </Field>
+        )}
 
         <div>
           <div style={{ fontWeight: 800, fontSize: 12, color: C.sub, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 10 }}>🐾 Which Pets Are Coming?</div>
@@ -1165,8 +1210,9 @@ export default function Travel({ userId, onBack }) {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, background: "#FAF6F0", borderRadius: 10, padding: "10px 12px", fontSize: 12 }}>
                 <div><span style={{ color: C.muted, fontWeight: 600 }}>Depart </span>{fmt(trip.departure_date)}</div>
                 {trip.return_date && <div><span style={{ color: C.muted, fontWeight: 600 }}>Return </span>{fmt(trip.return_date)}</div>}
-                {trip.airline && <div><span style={{ color: C.muted, fontWeight: 600 }}>Airline </span>{trip.airline}</div>}
-                {trip.flight_number && <div><span style={{ color: C.muted, fontWeight: 600 }}>Flight </span>{trip.flight_number}</div>}
+                <div><span style={{ color: C.muted, fontWeight: 600 }}>Traveling </span>{{air:"✈️ Flying",sea:"🚢 By Sea",land:"🚗 Driving",bus:"🚌 Bus"}[trip.transportation_type]||"✈️ Flying"}</div>
+                {trip.airline && <div><span style={{ color: C.muted, fontWeight: 600 }}>{trip.transportation_type==="sea"?"Cruise/Ferry ":trip.transportation_type==="bus"?"Bus Co. ":"Airline "}</span>{trip.airline}</div>}
+                {trip.flight_number && trip.transportation_type==="air" && <div><span style={{ color: C.muted, fontWeight: 600 }}>Flight </span>{trip.flight_number}</div>}
               </div>
               {tripPets.length > 0 && (
                 <div style={{ fontSize: 13, color: C.muted, marginTop: 8 }}>🐾 {tripPets.map(p => p.name).join(", ")}</div>
