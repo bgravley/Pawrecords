@@ -6,7 +6,7 @@ import { supabase } from "./lib/supabase";
 
 // Stripe Price ID for the "3 extra travel checklists for $2.99" pack.
 // Create this product in Stripe (live mode) and replace this placeholder.
-const TRAVEL_CREDIT_PACK_PRICE_ID = "price_REPLACE_WITH_REAL_ID";
+const TRAVEL_CREDIT_PACK_PRICE_ID = "price_1TkvYNB5s5OlwZVJ737k5nA5";
 
 const COUNTRIES = [
   "Afghanistan","Albania","Algeria","Andorra","Angola","Antigua and Barbuda","Argentina","Armenia","Australia","Austria",
