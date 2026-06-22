@@ -203,7 +203,16 @@ ${vs.length?`<h2>Vet Visits</h2><table><tr><th>Date</th><th>Vet/Clinic</th><th>R
 
 const exportHTML=(dog,state)=>{
   const html=buildRecordHTML(dog,state);
-  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([html],{type:"text/html"}));a.download=`${dog.name.replace(/\s+/g,"_")}_Records.html`;a.click();
+  const container=document.createElement("div");
+  container.innerHTML=html;
+  document.body.appendChild(container);
+  window.html2pdf().set({
+    margin:10,
+    filename:`${dog.name.replace(/\s+/g,"_")}_Records.pdf`,
+    image:{type:"jpeg",quality:0.95},
+    html2canvas:{scale:2,useCORS:true},
+    jsPDF:{unit:"mm",format:"letter",orientation:"portrait"},
+  }).from(container).save().then(()=>document.body.removeChild(container));
 };
 
 class ErrorBoundary extends Component{
@@ -728,10 +737,35 @@ const EmailRecordModal=({dog,state,userEmail,onClose})=>{
     setSending(true);setErr(null);
     try{
       const htmlContent=buildRecordHTML(dog,state);
+
+      // Generate a PDF version client-side and upload it to storage so we
+      // can link to it from the email (Resend attachments add latency/size
+      // limits — a stable link is more reliable for larger records).
+      let pdfUrl=null;
+      try{
+        const container=document.createElement("div");
+        container.innerHTML=htmlContent;
+        document.body.appendChild(container);
+        const pdfBlob=await window.html2pdf().set({
+          margin:10,
+          image:{type:"jpeg",quality:0.95},
+          html2canvas:{scale:2,useCORS:true},
+          jsPDF:{unit:"mm",format:"letter",orientation:"portrait"},
+        }).from(container).outputPdf("blob");
+        document.body.removeChild(container);
+
+        const path=`shared-records/${dog.id}_${Date.now()}.pdf`;
+        await supabase.storage.from("documents").upload(path,pdfBlob,{upsert:true,contentType:"application/pdf"});
+        const{data:urlData}=supabase.storage.from("documents").getPublicUrl(path);
+        pdfUrl=urlData.publicUrl;
+      }catch(pdfErr){
+        console.error("PDF generation failed, sending without it:",pdfErr.message);
+      }
+
       const res=await fetch('/api/email-record',{
         method:'POST',
         headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({recipientEmail,petName:dog.name,htmlContent,note,senderEmail:userEmail})
+        body:JSON.stringify({recipientEmail,petName:dog.name,htmlContent,note,senderEmail:userEmail,pdfUrl})
       });
       const data=await res.json();
       if(!res.ok||data.error)throw new Error(data.error||'Could not send email');
@@ -1591,7 +1625,7 @@ const WeightLogModal=({userId,dog,dispatch,onClose})=>{
   </Modal>);
 };
 
-const MoreTab=({dog,state,dispatch,userId,tier,onUpgrade})=>{
+const MoreTab=({dog,state,dispatch,userId,tier,onUpgrade,onScan})=>{
   const[section,setSection]=useState(null);
   const[modal,setModal]=useState(null);
   const premium=isPremium(tier);
@@ -1789,7 +1823,7 @@ const DogDetail=({dog,state,dispatch,userId,tier,onBack,onUpgrade,userEmail})=>{
       {tab==="vaccines"&&<VaccinesTab dog={dog} state={state} dispatch={dispatch} userId={userId} tier={tier} onUpgrade={upgrade}/>}
       {tab==="health"&&<HealthTab dog={dog} state={state} dispatch={dispatch} userId={userId} tier={tier} onUpgrade={upgrade}/>}
       {tab==="records"&&<RecordsTab dog={dog} state={state} dispatch={dispatch} userId={userId}/>}
-      {tab==="more"&&<MoreTab dog={dog} state={state} dispatch={dispatch} userId={userId} tier={tier} onUpgrade={upgrade}/>}
+      {tab==="more"&&<MoreTab dog={dog} state={state} dispatch={dispatch} userId={userId} tier={tier} onUpgrade={upgrade} onScan={()=>setShowScan(true)}/>}
     </div>
     <BottomNav tab={tab} setTab={setTab} alerts={urgent}/>
     {modal==="editDog"&&<DogForm dog={dog} userId={userId} userEmail={userEmail} onSave={d=>{dispatch({t:"UPD_DOG",d});setModal(null);}} onClose={()=>setModal(null)}/>}
