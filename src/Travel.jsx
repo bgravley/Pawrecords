@@ -4,6 +4,38 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "./lib/supabase";
 
+const logActivity = async (userId, userEmail, action, details = {}) => {
+  try {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token || supabaseKey;
+    await fetch(`${supabaseUrl}/rest/v1/activity_log`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': supabaseKey, 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ user_id: userId, user_email: userEmail, action, details })
+    });
+  } catch (e) { /* silent fail */ }
+};
+
+const logError = async (userId, userEmail, context, errorMessage) => {
+  try {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token || supabaseKey;
+    await fetch(`${supabaseUrl}/rest/v1/error_log`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': supabaseKey,
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ user_id: userId, user_email: userEmail, context, error_message: errorMessage, reviewed: false })
+    });
+  } catch (e) { /* silent fail */ }
+};
+
 // Stripe Price ID for the "3 extra travel checklists for $2.99" pack.
 // Create this product in Stripe (live mode) and replace this placeholder.
 const TRAVEL_CREDIT_PACK_PRICE_ID = "price_1TkvYNB5s5OlwZVJ737k5nA5";
@@ -339,7 +371,21 @@ const TripForm = ({ trip, userId, dogs, onSave, onClose }) => {
       const { data } = await supabase.from('trips').insert(payload).select().single();
       result = data;
     }
-    if (result) onSave(result);
+    if (result) {
+      onSave(result);
+      if (!trip) { // only notify/log on NEW trips, not edits
+        supabase.auth.getUser().then(({ data }) => {
+          const email = data?.user?.email;
+          logActivity(userId, email || null, 'trip_added', { origin: payload.origin_city, destination: payload.destination_city });
+          if (email) {
+            fetch('/api/notify-user-action', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ actionType: 'trip_added', recipientEmail: email, data: { tripName: payload.name, origin: payload.origin_city, destination: payload.destination_city } }),
+            }).catch(() => {});
+          }
+        });
+      }
+    }
     setSaving(false);
   };
 
@@ -626,9 +672,34 @@ const TripDetail = ({ trip, userId, dogs, onBack, onUpdate }) => {
         sort_order: i,
       }));
       const { data } = await supabase.from('trip_checklist_items').insert(toInsert).select();
-      if (data) setChecklist(prev => [...prev, ...data]);
+      if (data) {
+        setChecklist(prev => [...prev, ...data]);
+        logActivity(userId, null, 'checklist_generated', { origin: trip.origin_city, destination: trip.destination_city, itemCount: data.length });
+        // Send confirmation email with current usage, best-effort
+        supabase.auth.getUser().then(async ({ data: userData }) => {
+          const email = userData?.user?.email;
+          if (!email) return;
+          const { data: prof } = await supabase.from('profiles').select('ai_travel_limit_override, travel_credits_balance').eq('id', userId).single();
+          const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0,0,0,0);
+          const { count } = await supabase.from('ai_usage_log').select('id', { count: 'exact', head: true })
+            .eq('user_id', userId).eq('feature', 'travel_checklist').eq('success', true).gte('created_at', monthStart.toISOString());
+          fetch('/api/notify-user-action', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              actionType: 'checklist_generated', recipientEmail: email,
+              data: {
+                origin: trip.origin_city, destination: trip.destination_city,
+                used: count || 0,
+                limit: prof?.ai_travel_limit_override ?? 3,
+                creditsBalance: prof?.travel_credits_balance || 0,
+              },
+            }),
+          }).catch(() => {});
+        });
+      }
     } catch (e) {
       setGenError(e);
+      logError(userId, null, "travel_checklist", e.message || "Unknown error");
     }
     setGenerating(false);
   };
