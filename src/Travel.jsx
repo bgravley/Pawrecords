@@ -615,13 +615,16 @@ const ChecklistItem = ({ item, tripPets, onTogglePet, onToggleAll, onUpload, onD
 };
 
 
-const TripDetail = ({ trip, userId, dogs, onBack, onUpdate }) => {
+const TripDetail = ({ trip, userId, dogs, onBack, onUpdate, onDelete }) => {
   const [checklist, setChecklist] = useState([]);
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState(null);
   const [buyingCredits, setBuyingCredits] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleting, setDeleting] = useState(false);
   const [showAddItem, setShowAddItem] = useState(false);
   const [showUploadEntry, setShowUploadEntry] = useState(false);
   const [newItem, setNewItem] = useState({ title: "", description: "", category: "other", deadline_date: "", notes: "" });
@@ -822,8 +825,45 @@ ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.i
             <div style={{ color: "#F5C45E", fontSize: 13, marginTop: 2 }}>{fmt(trip.departure_date)}{trip.return_date ? ` · Return ${fmt(trip.return_date)}` : ""}</div>
           </div>
           <Badge label={st.label} color={st.color} />
+          <button onClick={() => setShowDeleteConfirm(true)} title="Delete Trip" style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 10, padding: "8px 10px", color: "#fff", cursor: "pointer" }}>🗑</button>
         </div>
       </div>
+
+      {showDeleteConfirm && (
+        <div onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText(""); }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: "#FFFFFF", borderRadius: 18, padding: 28, maxWidth: 400, width: "100%" }}>
+            <div style={{ fontFamily: "'Lora', serif", fontSize: 19, color: "#C4714A", marginBottom: 10 }}>Delete this trip?</div>
+            <div style={{ fontSize: 14, color: "#5A4535", lineHeight: 1.6, marginBottom: 16 }}>
+              This will permanently delete the trip "<strong>{trip.origin_city} → {trip.destination_city}</strong>" along with its entire checklist and uploaded documents. This cannot be undone.
+            </div>
+            <div style={{ fontSize: 13, color: "#5A4535", marginBottom: 8 }}>
+              Type <strong>{trip.origin_city}</strong> to confirm:
+            </div>
+            <input
+              value={deleteConfirmText}
+              onChange={e => setDeleteConfirmText(e.target.value)}
+              placeholder={trip.origin_city}
+              style={{ width: "100%", padding: "11px 14px", borderRadius: 10, border: "1.5px solid #E8DDD0", background: "#FAF6F0", color: "#2C2017", fontSize: 15, marginBottom: 16, boxSizing: "border-box" }}
+            />
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText(""); }} style={{ flex: 1, background: "transparent", border: "1px solid #E8DDD0", borderRadius: 10, padding: 12, color: "#5A4535", cursor: "pointer", fontWeight: 600 }}>Cancel</button>
+              <button
+                onClick={async () => {
+                  setDeleting(true);
+                  await supabase.from('trip_checklist_items').delete().eq('trip_id', trip.id);
+                  await supabase.from('trip_documents').delete().eq('trip_id', trip.id);
+                  await supabase.from('trips').delete().eq('id', trip.id);
+                  setDeleting(false);
+                  onDelete(trip.id);
+                }}
+                disabled={deleteConfirmText !== trip.origin_city || deleting}
+                style={{ flex: 1, background: deleteConfirmText === trip.origin_city ? "#C4714A" : "#E8DDD0", border: "none", borderRadius: 10, padding: 12, color: "#fff", cursor: deleteConfirmText === trip.origin_city ? "pointer" : "not-allowed", fontWeight: 700 }}>
+                {deleting ? "Deleting..." : "Delete Trip"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div style={{ maxWidth: 680, margin: "0 auto", padding: "20px 16px" }}>
         {checklist.length > 0 && (
@@ -1028,6 +1068,7 @@ export default function Travel({ userId, onBack }) {
       <TripDetail trip={trip} userId={userId} dogs={dogs}
         onBack={() => setSelectedTrip(null)}
         onUpdate={updated => { setTrips(prev => prev.map(t => t.id === updated.id ? updated : t)); }}
+        onDelete={deletedId => { setTrips(prev => prev.filter(t => t.id !== deletedId)); setSelectedTrip(null); }}
       />
     );
   }
