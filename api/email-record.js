@@ -13,7 +13,7 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { recipientEmail, petName, htmlContent, note, senderEmail } = req.body;
+  const { recipientEmail, petName, htmlContent, note, senderEmail, pdfUrl } = req.body;
 
   if (!recipientEmail || !petName || !htmlContent) {
     return res.status(400).json({ error: 'recipientEmail, petName, and htmlContent are required.' });
@@ -23,7 +23,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Please enter a valid recipient email address.' });
   }
 
-  // Wrap the exported record HTML with a short intro message
+  // Wrap the exported record HTML with a short intro message + PDF link banner
   const wrapperHtml = `
 <!DOCTYPE html>
 <html>
@@ -34,6 +34,13 @@ export default async function handler(req, res) {
       <div style="color:#fff; font-size:18px; font-weight:700;">🐾 ${petName}'s Health Record</div>
       <div style="color:#A8D5CE; font-size:13px; margin-top:4px;">Shared via YourPetPass${senderEmail ? ' by ' + senderEmail : ''}</div>
     </div>
+    ${pdfUrl ? `
+    <div style="background:#FFF8EC; border-bottom:1px solid #E8DDD0; padding:16px 24px; text-align:center;">
+      <a href="${pdfUrl}" style="display:inline-block; background:#E8A838; color:#1E1408; text-decoration:none; font-weight:800; font-size:14px; padding:12px 24px; border-radius:10px;">
+        📄 Click here for the PDF version
+      </a>
+      <div style="font-size:12px; color:#8B7355; margin-top:8px;">Save it, print it, or share it however you need.</div>
+    </div>` : ''}
     ${note ? `<div style="background:#fff; padding:16px 24px; border-bottom:1px solid #E8DDD0; color:#5A4535; font-size:14px; font-style:italic;">"${note.replace(/</g,'&lt;').replace(/>/g,'&gt;')}"</div>` : ''}
     <div style="background:#fff; padding:0 24px 24px; border-radius:0 0 16px 16px;">
       ${htmlContent}
