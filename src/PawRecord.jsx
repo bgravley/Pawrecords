@@ -829,7 +829,7 @@ const ShareModal=({dog,onClose})=>{
   </Modal>);
 };
 
-const AIScanModal=({dog,userId,userEmail,dispatch,onSave,onClose,onUpgrade})=>{
+const AIScanModal=({dog,state,userId,userEmail,dispatch,onSave,onClose,onUpgrade})=>{
   const[step,setStep]=useState("upload");
   const[images,setImages]=useState([]);
   const[extracted,setExtracted]=useState(null);
@@ -837,9 +837,33 @@ const AIScanModal=({dog,userId,userEmail,dispatch,onSave,onClose,onUpgrade})=>{
   const[saving,setSaving]=useState(false);
   const[saved,setSaved]=useState(false);
   const[include,setInclude]=useState({visit:true,vaccines:true,weight:true,medications:true,allergies:true,classification:true});
+  const[duplicates,setDuplicates]=useState([]); // [{type,key,newItem,existingItem,choice}]
+  const[showDupCheck,setShowDupCheck]=useState(false);
   const fr=useRef();
   const cameraRef=useRef();
   const MAX_IMAGES=4;
+
+  // Compare freshly-extracted vaccines/visits against what's already on file.
+  // Pure date/name matching — no extra AI call, so this costs nothing.
+  const findDuplicates=(ex)=>{
+    const found=[];
+    const daysBetween=(a,b)=>Math.abs((new Date(a)-new Date(b))/86400000);
+    const vv=ex.vetVisit||ex.healthCertificate||{};
+    const newVaccines=(vv.vaccines||ex.healthCertificate?.vaccines||[]).filter(v=>v.name);
+    const existingVax=(state?.vaccinations||[]).filter(v=>v.dog_id===dog.id);
+    newVaccines.forEach((nv,i)=>{
+      const given=nv.dateGiven||vv.visitDate;
+      if(!given)return;
+      const match=existingVax.find(ev=>ev.name.toLowerCase()===nv.name.toLowerCase()&&daysBetween(ev.date_given,given)<=3);
+      if(match)found.push({type:"vaccine",key:`vax-${i}`,newItem:{name:nv.name,date:given},existingItem:{name:match.name,date:match.date_given,id:match.id},choice:"skip"});
+    });
+    if(vv.visitDate&&(vv.reason||vv.diagnosis)){
+      const existingVisits=(state?.visits||[]).filter(v=>v.dog_id===dog.id);
+      const match=existingVisits.find(v=>daysBetween(v.visit_date,vv.visitDate)<=1&&(v.vet_name||"").toLowerCase()===(vv.vetName||"").toLowerCase());
+      if(match)found.push({type:"visit",key:"visit-0",newItem:{date:vv.visitDate,vet:vv.vetName,reason:vv.reason},existingItem:{date:match.visit_date,vet:match.vet_name,reason:match.reason,id:match.id},choice:"skip"});
+    }
+    return found;
+  };
 
   const loadPdfAsImage=async(arrayBuffer)=>{
     await new Promise((resolve,reject)=>{
@@ -901,6 +925,8 @@ const AIScanModal=({dog,userId,userEmail,dispatch,onSave,onClose,onUpgrade})=>{
       const data=await res.json();
       if(data.error)throw new Error(data.error);
       setExtracted(data.extracted);
+      const dups=findDuplicates(data.extracted);
+      if(dups.length>0){setDuplicates(dups);setShowDupCheck(true);}
       setStep("review");
     }catch(err){
       setError("Could not analyze: "+(err.message||"Unknown error"));
@@ -923,14 +949,26 @@ const AIScanModal=({dog,userId,userEmail,dispatch,onSave,onClose,onUpgrade})=>{
         const visitDate=vv.visitDate||today();
         const weight=vv.weight||extracted.healthCertificate?.weight||null;
 
-        if(include.visit&&(vv.reason||vv.visitDate||vv.diagnosis)){
-          await db.addVisit(userId,{dogId:dog.id,date:visitDate,vetName:vv.vetName||"",clinic:vv.clinicName||"",reason:vv.reason||"Vet visit (scanned)",diagnosis:vv.diagnosis||"",treatment:vv.treatment||"",cost:vv.cost||null,notes:vv.notes||""});
+        const visitDupChoice=duplicates.find(d=>d.key==="visit-0")?.choice;
+        if(include.visit&&(vv.reason||vv.visitDate||vv.diagnosis)&&visitDupChoice!=="skip"){
+          if(visitDupChoice==="replace"){
+            const existingId=duplicates.find(d=>d.key==="visit-0").existingItem.id;
+            await db.updateVisit({id:existingId,date:visitDate,vetName:vv.vetName||"",clinic:vv.clinicName||"",reason:vv.reason||"Vet visit (scanned)",diagnosis:vv.diagnosis||"",treatment:vv.treatment||"",cost:vv.cost||null,notes:vv.notes||""});
+          }else{
+            await db.addVisit(userId,{dogId:dog.id,date:visitDate,vetName:vv.vetName||"",clinic:vv.clinicName||"",reason:vv.reason||"Vet visit (scanned)",diagnosis:vv.diagnosis||"",treatment:vv.treatment||"",cost:vv.cost||null,notes:vv.notes||""});
+          }
         }
         if(include.vaccines){
-          for(const v of vaccines.filter(v=>v.name)){
+          for(const[i,v]of vaccines.filter(v=>v.name).entries()){
+            const dup=duplicates.find(d=>d.key===`vax-${i}`);
+            if(dup?.choice==="skip")continue;
             const dur=([...CORE_V,...OPT_V].find(x=>x.name===v.name)?.dur)||12;
             const given=v.dateGiven||visitDate;
-            await db.addVaccination(userId,{dogId:dog.id,name:v.name,type:v.type||"optional",dateGiven:given,nextDue:v.nextDue||addM(given,dur),lotNumber:v.lotNumber||"",vetName:vv.vetName||"",notes:"",durationMonths:dur});
+            if(dup?.choice==="replace"){
+              await db.updateVaccination({id:dup.existingItem.id,name:v.name,type:v.type||"optional",dateGiven:given,nextDue:v.nextDue||addM(given,dur),lotNumber:v.lotNumber||"",vetName:vv.vetName||"",notes:"",durationMonths:dur});
+            }else{
+              await db.addVaccination(userId,{dogId:dog.id,name:v.name,type:v.type||"optional",dateGiven:given,nextDue:v.nextDue||addM(given,dur),lotNumber:v.lotNumber||"",vetName:vv.vetName||"",notes:"",durationMonths:dur});
+            }
           }
         }
         if(include.weight&&weight){
@@ -1085,7 +1123,40 @@ const AIScanModal=({dog,userId,userEmail,dispatch,onSave,onClose,onUpgrade})=>{
         )}
 
         {/* Review */}
-        {step==="review"&&extracted&&(<>
+        {step==="review"&&extracted&&showDupCheck&&(
+          <div style={{display:"flex",flexDirection:"column",gap:14}}>
+            <div style={{background:"#FFF8EC",border:"1px solid #E8A83844",borderRadius:12,padding:"12px 16px"}}>
+              <div style={{fontWeight:700,fontSize:14,color:"#B8821C",marginBottom:4}}>⚠️ Possible duplicate{duplicates.length>1?"s":""} found</div>
+              <div style={{fontSize:13,color:"#5A4535"}}>This looks like it might already be on file. Choose what to do with each item below.</div>
+            </div>
+            {duplicates.map((d,idx)=>(
+              <div key={d.key} style={{background:"#FFFFFF",border:"1px solid #E8DDD0",borderRadius:12,padding:14}}>
+                <div style={{fontWeight:700,fontSize:13,marginBottom:8,color:"#2C2017"}}>{d.type==="vaccine"?`💉 ${d.newItem.name}`:"🩺 Vet Visit"}</div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
+                  <div style={{background:"#FAF6F0",borderRadius:8,padding:10}}>
+                    <div style={{fontSize:11,color:"#8B7355",fontWeight:700,marginBottom:3}}>ALREADY ON FILE</div>
+                    <div style={{fontSize:12,color:"#5A4535"}}>{d.type==="vaccine"?`Given ${fmt(d.existingItem.date)}`:`${fmt(d.existingItem.date)} · ${d.existingItem.vet||"—"}`}</div>
+                  </div>
+                  <div style={{background:"#2D7D6F14",borderRadius:8,padding:10}}>
+                    <div style={{fontSize:11,color:"#2D7D6F",fontWeight:700,marginBottom:3}}>FROM THIS SCAN</div>
+                    <div style={{fontSize:12,color:"#5A4535"}}>{d.type==="vaccine"?`Given ${fmt(d.newItem.date)}`:`${fmt(d.newItem.date)} · ${d.newItem.vet||"—"}`}</div>
+                  </div>
+                </div>
+                <div style={{display:"flex",gap:6}}>
+                  {[["skip","Keep Existing"],["replace","Replace It"],["duplicate","Save Both"]].map(([val,label])=>(
+                    <button key={val} onClick={()=>setDuplicates(prev=>prev.map((x,i)=>i===idx?{...x,choice:val}:x))}
+                      style={{flex:1,padding:"8px 6px",borderRadius:8,fontSize:11.5,fontWeight:700,cursor:"pointer",border:d.choice===val?"1.5px solid #2D7D6F":"1px solid #E8DDD0",background:d.choice===val?"#2D7D6F14":"#FFFFFF",color:d.choice===val?"#2D7D6F":"#5A4535"}}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+            <Btn onClick={()=>setShowDupCheck(false)} full>Continue</Btn>
+          </div>
+        )}
+
+        {step==="review"&&extracted&&!showDupCheck&&(<>
           {/* Document type banner */}
           <div style={{background:(docTypeColor[dt]||"#8B7355")+"15",border:`1px solid ${(docTypeColor[dt]||"#8B7355")}44`,borderRadius:12,padding:"10px 14px",marginBottom:16,display:"flex",alignItems:"center",gap:10}}>
             <div style={{flex:1}}>
@@ -1830,7 +1901,7 @@ const DogDetail=({dog,state,dispatch,userId,tier,onBack,onUpgrade,userEmail})=>{
     {showDelete&&<DeletePetModal dog={dog} onConfirm={handleDeletePet} onClose={()=>setShowDelete(false)}/>}
     {modal==="share"&&<ShareModal dog={dog} onClose={()=>setModal(null)}/>}
     {modal==="emailRecord"&&<EmailRecordModal dog={dog} state={state} userEmail={userEmail} onClose={()=>setModal(null)}/>}
-    {showScan&&<AIScanModal dog={dog} userId={userId} userEmail={userEmail} dispatch={dispatch} onUpgrade={onUpgrade} onSave={async()=>{const[{data:v},{data:m},{data:vis},{data:al}]=await Promise.all([db.getVaccinations(userId),db.getMedications(userId),db.getVisits(userId),db.getAllergies(userId)]);dispatch({t:'LOAD',s:{dogs:state.dogs,vaccinations:v||[],medications:m||[],allergies:al||[],visits:vis||[],weights:state.weights,vets:state.vets,documents:state.documents}});}} onClose={()=>setShowScan(false)}/>}
+    {showScan&&<AIScanModal dog={dog} state={state} userId={userId} userEmail={userEmail} dispatch={dispatch} onUpgrade={onUpgrade} onSave={async()=>{const[{data:v},{data:m},{data:vis},{data:al}]=await Promise.all([db.getVaccinations(userId),db.getMedications(userId),db.getVisits(userId),db.getAllergies(userId)]);dispatch({t:'LOAD',s:{dogs:state.dogs,vaccinations:v||[],medications:m||[],allergies:al||[],visits:vis||[],weights:state.weights,vets:state.vets,documents:state.documents}});}} onClose={()=>setShowScan(false)}/>}
     {showUpgrade&&<UpgradeModal userId={userId} userEmail={userEmail} onClose={()=>setShowUpgrade(false)}/>}
   </div>);
 };
