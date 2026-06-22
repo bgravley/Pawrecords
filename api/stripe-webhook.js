@@ -79,6 +79,15 @@ const sendRefundEmail = (email, amountCents) => sendCustomerEmail({
     <p>If you have any questions about this refund, just reply to this email.</p>`
 });
 
+const sendCreditPackEmail = (email, creditAmount) => sendCustomerEmail({
+  to: email,
+  subject: `🎉 ${creditAmount} more travel checklists added to your account`,
+  bodyHtml: `
+    <h2>You're all set!</h2>
+    <p>We've added <strong>${creditAmount} extra travel checklist generations</strong> to your account — these don't expire and are used automatically once your monthly included checklists run out.</p>
+    <p>Plan your next trip anytime from the Travel tab.</p>`
+});
+
 // One shared stripe instance per request
 let _stripe = null;
 const getStripe = async () => {
@@ -140,6 +149,38 @@ async function linkStripeCustomerToProfile(userId, stripeCustomerId) {
     console.log(`Linked Stripe customer ${stripeCustomerId} to profile ${userId}`);
   } catch (e) {
     console.error('Failed to link Stripe customer to profile:', e.message);
+  }
+}
+
+async function addTravelCredits(userId, creditAmount) {
+  if (!userId || !creditAmount) return null;
+  try {
+    // Get current balance + email so we can return the email for the receipt
+    const profRes = await fetch(
+      `${process.env.SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=id,email,travel_credits_balance`,
+      { headers: { 'apikey': process.env.SUPABASE_SERVICE_KEY, 'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}` } }
+    );
+    const profiles = await profRes.json();
+    const profile = profiles?.[0];
+    if (!profile) return null;
+
+    const newBalance = (profile.travel_credits_balance || 0) + creditAmount;
+    await fetch(`${process.env.SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': process.env.SUPABASE_SERVICE_KEY,
+        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
+        'Prefer': 'return=minimal',
+      },
+      body: JSON.stringify({ travel_credits_balance: newBalance }),
+    });
+
+    console.log(`Added ${creditAmount} travel credits to ${profile.email} (new balance: ${newBalance})`);
+    return profile;
+  } catch (e) {
+    console.error('Failed to add travel credits:', e.message);
+    return null;
   }
 }
 
@@ -318,12 +359,26 @@ export default async function handler(req, res) {
         const customerId = session.customer;
         const mode = session.mode;
         const userId = session.metadata?.userId;
+        const purchaseType = session.metadata?.purchaseType;
+        const creditAmount = parseInt(session.metadata?.creditAmount) || 0;
 
         // Link this Stripe customer to the Supabase profile so future
         // lookups (renewals, refunds) can find it by stripe_customer_id
         await linkStripeCustomerToProfile(userId, customerId);
 
-        if (mode === 'payment') {
+        if (purchaseType === 'travel_credits' && creditAmount > 0) {
+          // Add purchased checklist credits — does NOT touch subscription tier
+          const profile = await addTravelCredits(userId, creditAmount);
+          if (profile?.email) await sendCreditPackEmail(profile.email, creditAmount);
+          // Still record commission for affiliates on this purchase
+          const grossCents = session.amount_total || 0;
+          const netCents = await getNetCents(session.payment_intent, grossCents);
+          await recordCommission({
+            profile, grossCents, netCents,
+            stripeInvoiceId: session.id,
+            periodMonth: new Date().toISOString().slice(0, 7),
+          });
+        } else if (mode === 'payment') {
           const profile = await updateUserTier(customerId, 'lifetime');
           // One-time lifetime payment — get net after Stripe fees
           const grossCents = session.amount_total || 0;
