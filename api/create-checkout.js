@@ -15,7 +15,7 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { priceId, userId, userEmail, mode, couponCode } = req.body;
+  const { priceId, userId, userEmail, mode, couponCode, purchaseType, creditAmount } = req.body;
 
   if (!priceId) return res.status(400).json({ error: 'priceId is required' });
   if (!mode)    return res.status(400).json({ error: 'mode is required (subscription or payment)' });
@@ -28,7 +28,11 @@ export default async function handler(req, res) {
     mode,                                              // 'subscription' or 'payment'
     success_url: `${BASE_URL}?payment=success`,
     cancel_url:  `${BASE_URL}?payment=canceled`,
-    metadata: { userId: userId || '' },
+    metadata: {
+      userId: userId || '',
+      purchaseType: purchaseType || 'subscription', // 'subscription' | 'lifetime' | 'travel_credits'
+      creditAmount: creditAmount ? String(creditAmount) : '',
+    },
   };
 
   // Pre-fill email so the user doesn't have to type it again
