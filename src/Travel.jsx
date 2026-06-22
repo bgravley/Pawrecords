@@ -4,6 +4,10 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "./lib/supabase";
 
+// Stripe Price ID for the "3 extra travel checklists for $2.99" pack.
+// Create this product in Stripe (live mode) and replace this placeholder.
+const TRAVEL_CREDIT_PACK_PRICE_ID = "price_REPLACE_WITH_REAL_ID";
+
 const COUNTRIES = [
   "Afghanistan","Albania","Algeria","Andorra","Angola","Antigua and Barbuda","Argentina","Armenia","Australia","Austria",
   "Azerbaijan","Bahamas","Bahrain","Bangladesh","Barbados","Belarus","Belgium","Belize","Benin","Bhutan",
@@ -255,12 +259,20 @@ Each item must have these exact fields:
       userId: userId,
       userEmail: null,
       destination: `${trip.origin_city} to ${trip.destination_city}`,
+      originCountry: trip.origin_country,
+      destinationCountry: trip.destination_country,
     }),
   });
 
   if (!response.ok) {
-    const err = await response.text();
-    throw new Error(`OpenAI error ${response.status}: ${err}`);
+    let errBody = {};
+    try { errBody = await response.json(); } catch (e) { /* not JSON */ }
+    const error = new Error(errBody.error || `Request failed (${response.status})`);
+    error.rateLimitExceeded = errBody.rateLimitExceeded || false;
+    error.creditsBalance = errBody.creditsBalance || 0;
+    error.generationsUsed = errBody.generationsUsed;
+    error.generationsLimit = errBody.generationsLimit;
+    throw error;
   }
 
   const data = await response.json();
@@ -563,6 +575,7 @@ const TripDetail = ({ trip, userId, dogs, onBack, onUpdate }) => {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState(null);
+  const [buyingCredits, setBuyingCredits] = useState(false);
   const [showAddItem, setShowAddItem] = useState(false);
   const [showUploadEntry, setShowUploadEntry] = useState(false);
   const [newItem, setNewItem] = useState({ title: "", description: "", category: "other", deadline_date: "", notes: "" });
@@ -615,7 +628,7 @@ const TripDetail = ({ trip, userId, dogs, onBack, onUpdate }) => {
       const { data } = await supabase.from('trip_checklist_items').insert(toInsert).select();
       if (data) setChecklist(prev => [...prev, ...data]);
     } catch (e) {
-      setGenError(e.message);
+      setGenError(e);
     }
     setGenerating(false);
   };
@@ -788,8 +801,39 @@ ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.i
           </div>
 
           {genError && (
-            <div style={{ background: C.dangerDim, border: `1px solid ${C.danger}44`, borderRadius: 12, padding: 14, marginBottom: 12, fontSize: 13, color: C.danger }}>
-              ⚠ {genError}. Try again or add requirements manually.
+            <div style={{ background: C.dangerDim, border: `1px solid ${C.danger}44`, borderRadius: 12, padding: 14, marginBottom: 12 }}>
+              <div style={{ fontSize: 13, color: C.danger, marginBottom: genError.rateLimitExceeded ? 10 : 0 }}>
+                ⚠ {genError.message}{!genError.rateLimitExceeded && ". Try again or add requirements manually."}
+              </div>
+              {genError.rateLimitExceeded && (
+                <button
+                  onClick={async () => {
+                    setBuyingCredits(true);
+                    try {
+                      const res = await fetch('/api/create-checkout', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          priceId: TRAVEL_CREDIT_PACK_PRICE_ID,
+                          userId,
+                          mode: 'payment',
+                          purchaseType: 'travel_credits',
+                          creditAmount: 3,
+                        }),
+                      });
+                      const data = await res.json();
+                      if (!res.ok || data.error) throw new Error(data.error || 'Could not start checkout');
+                      window.location.href = data.url;
+                    } catch (e) {
+                      setGenError({ message: e.message });
+                    }
+                    setBuyingCredits(false);
+                  }}
+                  disabled={buyingCredits}
+                  style={{ background: '#E8A838', color: '#1E1408', border: 'none', borderRadius: 10, padding: '10px 18px', fontWeight: 800, fontSize: 14, cursor: 'pointer', fontFamily: "'Nunito', sans-serif" }}>
+                  {buyingCredits ? 'Loading...' : '🎫 Buy 3 More Checklists — $2.99'}
+                </button>
+              )}
             </div>
           )}
 
