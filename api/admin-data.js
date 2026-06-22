@@ -116,14 +116,79 @@ export default async function handler(req, res) {
       return res.status(200).json({ data });
     }
 
+    if (type === 'delete_user') {
+      const { targetUserId } = req.body;
+      if (!targetUserId) return res.status(400).json({ error: 'targetUserId required' });
+
+      try {
+        // Get this user's pet IDs first — vaccinations/visits/etc. are keyed by dog_id, not user_id
+        const dogsRes = await fetch(`${supabaseUrl}/rest/v1/dogs?user_id=eq.${targetUserId}&select=id`, { headers });
+        const dogs = await dogsRes.json();
+        const dogIds = (dogs || []).map(d => d.id);
+
+        // Delete pet-keyed records for every pet this user owns
+        for (const dogId of dogIds) {
+          await Promise.all([
+            fetch(`${supabaseUrl}/rest/v1/vaccinations?dog_id=eq.${dogId}`, { method: 'DELETE', headers }),
+            fetch(`${supabaseUrl}/rest/v1/medications?dog_id=eq.${dogId}`, { method: 'DELETE', headers }),
+            fetch(`${supabaseUrl}/rest/v1/allergies?dog_id=eq.${dogId}`, { method: 'DELETE', headers }),
+            fetch(`${supabaseUrl}/rest/v1/vet_visits?dog_id=eq.${dogId}`, { method: 'DELETE', headers }),
+            fetch(`${supabaseUrl}/rest/v1/weights?dog_id=eq.${dogId}`, { method: 'DELETE', headers }),
+            fetch(`${supabaseUrl}/rest/v1/documents?dog_id=eq.${dogId}`, { method: 'DELETE', headers }),
+            fetch(`${supabaseUrl}/rest/v1/emergency_contacts?dog_id=eq.${dogId}`, { method: 'DELETE', headers }),
+          ]);
+        }
+
+        // Delete user-keyed records
+        const tripsRes = await fetch(`${supabaseUrl}/rest/v1/trips?user_id=eq.${targetUserId}&select=id`, { headers });
+        const trips = await tripsRes.json();
+        for (const trip of (trips || [])) {
+          await Promise.all([
+            fetch(`${supabaseUrl}/rest/v1/trip_checklist_items?trip_id=eq.${trip.id}`, { method: 'DELETE', headers }),
+            fetch(`${supabaseUrl}/rest/v1/trip_documents?trip_id=eq.${trip.id}`, { method: 'DELETE', headers }),
+          ]);
+        }
+        await Promise.all([
+          fetch(`${supabaseUrl}/rest/v1/trips?user_id=eq.${targetUserId}`, { method: 'DELETE', headers }),
+          fetch(`${supabaseUrl}/rest/v1/dogs?user_id=eq.${targetUserId}`, { method: 'DELETE', headers }),
+          fetch(`${supabaseUrl}/rest/v1/vets?user_id=eq.${targetUserId}`, { method: 'DELETE', headers }),
+        ]);
+
+        // If they were an affiliate, deactivate rather than delete (keep commission history intact)
+        await fetch(`${supabaseUrl}/rest/v1/affiliates?user_id=eq.${targetUserId}`, {
+          method: 'PATCH', headers, body: JSON.stringify({ status: 'cancelled', user_id: null }),
+        });
+
+        // Delete the profile row
+        await fetch(`${supabaseUrl}/rest/v1/profiles?id=eq.${targetUserId}`, { method: 'DELETE', headers });
+
+        // Finally, delete the actual auth user — this is what makes the email re-usable for signup again
+        const authDeleteRes = await fetch(`${supabaseUrl}/auth/v1/admin/users/${targetUserId}`, {
+          method: 'DELETE',
+          headers: { 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}` },
+        });
+
+        if (!authDeleteRes.ok && authDeleteRes.status !== 404) {
+          const errText = await authDeleteRes.text();
+          console.error('Auth user deletion failed:', errText);
+          return res.status(200).json({ data: { partial: true, warning: 'Account data deleted, but the auth login itself could not be removed. Contact Supabase support if this persists.' } });
+        }
+
+        return res.status(200).json({ data: { deleted: true } });
+      } catch (err) {
+        console.error('delete_user failed:', err.message);
+        return res.status(500).json({ error: err.message });
+      }
+    }
+
     if (type === 'mark_error_reviewed') {
-      const { errorId } = req.body;
+      const { errorId, reviewed } = req.body; // reviewed: true|false — caller controls direction
       const r = await fetch(
         `${supabaseUrl}/rest/v1/error_log?id=eq.${errorId}`,
         {
           method: 'PATCH',
           headers: { ...headers, 'Prefer': 'return=representation' },
-          body: JSON.stringify({ reviewed: true }),
+          body: JSON.stringify({ reviewed: reviewed !== false }), // defaults to true if not specified
         }
       );
       const data = await r.json();
