@@ -59,6 +59,8 @@ function StepCard({ num, icon, title, desc }) {
 }
 
 export default function Marketing({ onLogin, onSignup }) {
+  const [newsletterEmail, setNewsletterEmail] = useState("");
+  const [newsletterStatus, setNewsletterStatus] = useState(null); // null | 'sending' | 'done' | 'error'
   const [installPrompt, setInstallPrompt] = useState(null);
   const [showIOSHelp, setShowIOSHelp] = useState(false);
 
@@ -96,7 +98,7 @@ export default function Marketing({ onLogin, onSignup }) {
           <a href="#features" style={{ ...navBtn, color: '#D4E8E4', textDecoration: 'none' }}>Features</a>
           <a href="#use-cases" style={{ ...navBtn, color: '#D4E8E4', textDecoration: 'none' }}>Use Cases</a>
           <a href="#store" style={{ ...navBtn, color: '#D4E8E4', textDecoration: 'none' }}>Store</a>
-          <button onClick={onLogin} style={{ ...navBtn, color: '#FFFFFF' }}>Login</button>
+          <button onClick={onLogin} style={{ background: 'rgba(255,255,255,0.12)', color: '#FFFFFF', border: '1.5px solid rgba(255,255,255,0.5)', borderRadius: 10, padding: '8px 18px', fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: "'Nunito', sans-serif" }}>Login</button>
           <button onClick={onSignup} style={{ background: C.amber, color: '#1E1408', border: 'none', borderRadius: 10, padding: '9px 18px', fontWeight: 800, fontSize: 14, cursor: 'pointer', fontFamily: "'Nunito', sans-serif" }}>Sign Up Free</button>
         </div>
       </nav>
@@ -233,6 +235,48 @@ export default function Marketing({ onLogin, onSignup }) {
         <FAQItem q="Does it work if I see different vets in different cities?" a="Yes — that's exactly the problem it's built to solve. Records stay attached to your pet's profile, not to any single clinic." />
         <FAQItem q="Can it help with airline or international travel requirements?" a="Yes. Generate a route-specific checklist covering health certificates, vaccination requirements, and airline pet policies." />
         <FAQItem q="Is YourPetPass free?" a="Yes, the free plan covers core health record storage. Premium adds AI scanning, AI travel checklists, weight tracking, document storage, and the QR emergency card, starting at $4.99/month." />
+      </section>
+
+      {/* NEWSLETTER SIGNUP */}
+      <section style={{ padding: '20px 20px 48px', maxWidth: 560, margin: '0 auto', textAlign: 'center' }}>
+        <div style={{ background: C.tealDk, borderRadius: 18, padding: 32 }}>
+          <div style={{ fontSize: 28, marginBottom: 8 }}>📬</div>
+          <div style={{ fontFamily: "'Lora', serif", fontSize: 21, color: '#FFFFFF', marginBottom: 8 }}>Stay in the loop</div>
+          <div style={{ fontSize: 14, color: '#D4E8E4', marginBottom: 18, lineHeight: 1.6 }}>
+            New features, travel tips, and pet care info — no spam, unsubscribe anytime.
+          </div>
+          {newsletterStatus === 'done' ? (
+            <div style={{ color: '#F5C45E', fontWeight: 700, fontSize: 15 }}>✓ You're signed up!</div>
+          ) : (
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              setNewsletterStatus('sending');
+              try {
+                const res = await fetch('/api/newsletter-signup', {
+                  method: 'POST', headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ email: newsletterEmail }),
+                });
+                const data = await res.json();
+                if (!res.ok || data.error) throw new Error(data.error || 'Could not sign up');
+                setNewsletterStatus('done');
+              } catch (err) {
+                setNewsletterStatus('error');
+              }
+            }} style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
+              <input
+                type="email" required value={newsletterEmail}
+                onChange={e => setNewsletterEmail(e.target.value)}
+                placeholder="your@email.com"
+                style={{ flex: '1 1 220px', padding: '12px 16px', borderRadius: 10, border: 'none', fontSize: 14, fontFamily: "'Nunito', sans-serif" }}
+              />
+              <button type="submit" disabled={newsletterStatus === 'sending'}
+                style={{ background: '#E8A838', color: '#1E1408', border: 'none', borderRadius: 10, padding: '12px 22px', fontWeight: 800, fontSize: 14, cursor: 'pointer', fontFamily: "'Nunito', sans-serif" }}>
+                {newsletterStatus === 'sending' ? 'Signing up...' : 'Sign Up'}
+              </button>
+            </form>
+          )}
+          {newsletterStatus === 'error' && <div style={{ color: '#F5A38C', fontSize: 13, marginTop: 10 }}>Something went wrong — please try again.</div>}
+        </div>
       </section>
 
       {/* FOOTER */}
