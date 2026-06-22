@@ -56,6 +56,9 @@ export default function Admin({ onBack }) {
   const [newAffiliate, setNewAffiliate] = useState({ userId: '', commissionRate: 20, notes: '' });
   const [loading, setLoading] = useState(true);
   const [editUser, setEditUser] = useState(null);
+  const [showDeleteUserConfirm, setShowDeleteUserConfirm] = useState(false);
+  const [deleteUserConfirmText, setDeleteUserConfirmText] = useState('');
+  const [deletingUser, setDeletingUser] = useState(false);
   const [search, setSearch] = useState("");
   const [selectedUser, setSelectedUser] = useState(null);
   const [userPets, setUserPets] = useState([]);
@@ -360,14 +363,13 @@ export default function Admin({ onBack }) {
                     </div>
                     <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                       <span style={{ fontSize: 12, color: C.sub }}>{fmtTime(err.created_at)}</span>
-                      {!err.reviewed && (
-                        <button onClick={async () => {
-                          await adminFetch('mark_error_reviewed', { errorId: err.id });
-                          setErrorLogs(p => p.map(e => e.id === err.id ? { ...e, reviewed: true } : e));
-                        }} style={{ background: "#2D7D6F22", color: "#2D7D6F", border: "1px solid #2D7D6F44", borderRadius: 7, padding: "3px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-                          Mark Reviewed
-                        </button>
-                      )}
+                      <button onClick={async () => {
+                        const newState = !err.reviewed;
+                        await adminFetch('mark_error_reviewed', { errorId: err.id, reviewed: newState });
+                        setErrorLogs(p => p.map(e => e.id === err.id ? { ...e, reviewed: newState } : e));
+                      }} style={{ background: err.reviewed ? "#8B735522" : "#2D7D6F22", color: err.reviewed ? "#8B7355" : "#2D7D6F", border: `1px solid ${err.reviewed ? "#8B735544" : "#2D7D6F44"}`, borderRadius: 7, padding: "3px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                        {err.reviewed ? "Mark Unreviewed" : "Mark Reviewed"}
+                      </button>
                     </div>
                   </div>
                   <div style={{ fontSize: 13, color: C.sub, marginBottom: 4 }}>User: {err.user_email || users.find(u => u.id === err.user_id)?.email || err.user_id?.slice(0,8) || "unknown"}</div>
@@ -707,16 +709,25 @@ export default function Admin({ onBack }) {
                 <div>
                   <label style={{ fontSize: 11, color: C.sub, textTransform: 'uppercase', letterSpacing: '.05em', display: 'block', marginBottom: 6 }}>
                     Travel Limit / Month
-                    <span style={{ color: C.warn, marginLeft: 4, fontWeight: 400, textTransform: 'none' }}>(default: 8)</span>
+                    <span style={{ color: C.warn, marginLeft: 4, fontWeight: 400, textTransform: 'none' }}>(default: 3)</span>
                   </label>
                   <input id="travel-limit-input" type="number" min="0" max="999"
                     defaultValue={editUser.ai_travel_limit_override !== null && editUser.ai_travel_limit_override !== undefined ? editUser.ai_travel_limit_override : ''}
-                    placeholder="8 (default)"
+                    placeholder="3 (default)"
                     style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '9px 12px', color: C.text, fontSize: 14, width: '100%', outline: 'none' }} />
                 </div>
               </div>
+              <div>
+                <label style={{ fontSize: 11, color: C.sub, textTransform: 'uppercase', letterSpacing: '.05em', display: 'block', marginBottom: 6 }}>
+                  Travel Credit Balance
+                  <span style={{ color: C.warn, marginLeft: 4, fontWeight: 400, textTransform: 'none' }}>(purchased checklists, separate from monthly limit)</span>
+                </label>
+                <input id="credits-balance-input" type="number" min="0" max="999"
+                  defaultValue={editUser.travel_credits_balance ?? 0}
+                  style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '9px 12px', color: C.text, fontSize: 14, width: '100%', outline: 'none' }} />
+              </div>
               <div style={{ fontSize: 12, color: C.sub, marginTop: -6 }}>
-                Leave blank to use the default. Set to a high number (e.g. 999) to give unlimited access to testers or affiliates.
+                Leave the limit fields blank to use the default. Set to a high number (e.g. 999) to give unlimited access to testers or affiliates.
               </div>
               <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
                 <button onClick={() => setEditUser(null)}
@@ -726,20 +737,65 @@ export default function Admin({ onBack }) {
                 <button onClick={() => {
                   const scanVal = document.getElementById('scan-limit-input').value;
                   const travelVal = document.getElementById('travel-limit-input').value;
+                  const creditsVal = document.getElementById('credits-balance-input').value;
                   updateUser(editUser.id, {
                     subscription_tier: document.getElementById('tier-select').value,
                     full_name: document.getElementById('name-input').value,
                     ai_scan_limit_override: scanVal !== '' ? parseInt(scanVal) : null,
                     ai_travel_limit_override: travelVal !== '' ? parseInt(travelVal) : null,
+                    travel_credits_balance: creditsVal !== '' ? parseInt(creditsVal) : 0,
                   });
                 }}
                   style={{ flex: 1, background: C.accent, border: "none", borderRadius: 8, padding: "10px", color: "#fff", cursor: "pointer", fontWeight: 600 }}>
                   Save Changes
                 </button>
               </div>
+
+              <div style={{ borderTop: `1px solid ${C.border}`, marginTop: 16, paddingTop: 16 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: C.danger, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '.05em' }}>Danger Zone</div>
+                <button onClick={() => { setShowDeleteUserConfirm(true); setDeleteUserConfirmText(''); }}
+                  style={{ width: '100%', background: 'transparent', border: `1px solid ${C.danger}66`, borderRadius: 8, padding: '10px', color: C.danger, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
+                  🗑 Delete Account Permanently
+                </button>
+              </div>
+
               <div style={{ fontSize: 12, color: C.sub, textAlign: "center" }}>
                 User ID: {editUser.id}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeleteUserConfirm && editUser && (
+        <div onClick={() => setShowDeleteUserConfirm(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: C.card, borderRadius: 16, padding: 28, maxWidth: 420, width: '100%', border: `1px solid ${C.danger}66` }}>
+            <div style={{ fontSize: 18, fontWeight: 700, color: C.danger, marginBottom: 10 }}>Delete this account permanently?</div>
+            <div style={{ fontSize: 14, color: C.sub, lineHeight: 1.6, marginBottom: 16 }}>
+              This permanently deletes <strong style={{ color: C.text }}>{editUser.email}</strong> — all their pets, records, trips, and login access. This cannot be undone. Their email becomes available for signup again.
+            </div>
+            <div style={{ fontSize: 13, color: C.sub, marginBottom: 8 }}>Type <strong style={{ color: C.text }}>DELETE</strong> to confirm:</div>
+            <input value={deleteUserConfirmText} onChange={e => setDeleteUserConfirmText(e.target.value)} placeholder="DELETE"
+              style={{ width: '100%', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '10px 12px', color: C.text, fontSize: 14, marginBottom: 16, boxSizing: 'border-box' }} />
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => setShowDeleteUserConfirm(false)}
+                style={{ flex: 1, background: 'transparent', border: `1px solid ${C.border}`, borderRadius: 8, padding: 10, color: C.sub, cursor: 'pointer', fontWeight: 600 }}>
+                Cancel
+              </button>
+              <button
+                disabled={deleteUserConfirmText !== 'DELETE' || deletingUser}
+                onClick={async () => {
+                  setDeletingUser(true);
+                  const res = await adminFetch('delete_user', { targetUserId: editUser.id });
+                  setDeletingUser(false);
+                  if (res?.error) { alert('Delete failed: ' + res.error); return; }
+                  setUsers(p => p.filter(u => u.id !== editUser.id));
+                  setShowDeleteUserConfirm(false);
+                  setEditUser(null);
+                }}
+                style={{ flex: 1, background: deleteUserConfirmText === 'DELETE' ? C.danger : C.border, border: 'none', borderRadius: 8, padding: 10, color: '#fff', cursor: deleteUserConfirmText === 'DELETE' ? 'pointer' : 'not-allowed', fontWeight: 700 }}>
+                {deletingUser ? 'Deleting...' : 'Delete Permanently'}
+              </button>
             </div>
           </div>
         </div>
