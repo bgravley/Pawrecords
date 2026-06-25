@@ -173,8 +173,9 @@ const inp = {
 
 // ── AI REQUIREMENTS ENGINE — calls OpenAI directly ───────
 const generateChecklist = async (trip, pets, userId) => {
+  const speciesInvolved = [...new Set(pets.map(p => p.species || 'dog'))]; // ['dog'] | ['cat'] | ['dog','cat']
   const petList = pets.map(p =>
-    `${p.name} (${p.breed || 'mixed'}${p.is_service_animal ? ', SERVICE ANIMAL' : ''}${p.is_esa ? ', ESA' : ''})`
+    `${p.name} (${p.species === 'cat' ? 'Cat' : 'Dog'}, ${p.breed || 'mixed'}${p.is_service_animal ? ', SERVICE ANIMAL' : ''}${p.is_esa ? ', ESA' : ''})`
   ).join('; ');
 
   // US territories count as USA for all federal pet travel requirements
@@ -209,9 +210,18 @@ TRIP DETAILS:
 - ${transportMode === "air" ? "Airline" : transportMode === "sea" ? "Cruise Line/Ferry" : transportMode === "bus" ? "Bus Company" : "Carrier"}: ${trip.airline || "not specified"}
 - Pets: ${petList}
 
+===== CRITICAL: TAG EVERY ITEM BY SPECIES =====
+This trip involves: ${speciesInvolved.join(' and ')}.
+Dog and cat travel requirements are NOT always identical, even on the same route — for example, some countries require FeLV/FIV testing for cats but not dogs, and some require different parasite treatments. Research each species' requirements independently where they could plausibly differ (do not assume they're identical just because the route is the same).
+
+For EVERY checklist item, you MUST include an "applies_to" field set to exactly "dog" or "cat" — every item belongs to one species or the other, no exceptions.
+- If a requirement genuinely applies identically to both species (e.g., a generic customs form that doesn't differ by species), include it TWICE as two separate items — once tagged "dog", once tagged "cat".
+- If a requirement differs by species (e.g., FeLV/FIV testing for cats, different vaccination rules), tag each version with the correct, specific species.
+- Research dog and cat requirements independently for this route — do not assume one species' rules automatically apply to the other.
+
 ===== IMPORTANT: TAILOR REQUIREMENTS TO THE MODE OF TRANSPORTATION =====
 The pet is traveling by ${transportLabels[transportMode] || "air"}. Requirements differ meaningfully by mode:
-${transportMode === "air" ? `- Focus on airline-specific cabin/cargo pet policies, carrier size/weight limits, breed restrictions for brachycephalic breeds, and airport-specific procedures.` : ""}
+${transportMode === "air" ? `- Focus on airline-specific cabin/cargo pet policies, carrier size/weight limits, breed restrictions for brachycephalic breeds (this applies to both flat-faced dog breeds like Bulldogs AND flat-faced cat breeds like Persians/Himalayans), and airport-specific procedures.` : ""}
 ${transportMode === "sea" ? `- Focus on the cruise line or ferry company's specific pet policy (many cruise lines do NOT allow pets in cabins — service animals only on most lines), kennel/boarding facilities on board if any, and port-of-call country entry requirements at EACH stop if this is a multi-country cruise.` : ""}
 ${transportMode === "land" ? `- Focus on land border crossing requirements specifically — these can differ from air entry requirements at the same border (e.g., different checkpoint hours, different document checks at land crossings vs international airports). Do NOT include airline-specific items.` : ""}
 ${transportMode === "bus" ? `- Focus on the specific bus company's pet policy (many intercity bus lines have limited or no pet allowances outside of service animals), and land border crossing requirements if this route crosses an international border. Do NOT include airline-specific items.` : ""}
@@ -290,6 +300,7 @@ Each item must have these exact fields:
 - title: string (clear, specific title)
 - description: string (step-by-step numbered instructions, include contacts, costs, timing)
 - category: one of: health_certificate, vaccination, treatment, documentation, airline, government_form, entry_document, other
+- applies_to: exactly "dog" or "cat" — every item belongs to one species or the other. This field is REQUIRED on every item. If a requirement applies to both species, output it as two separate items.
 - deadline_days_before: number (days before USA departure date that this must be completed)
 - window_start_days: number (how many days before travel the document becomes valid)
 - window_end_days: number (0 means must be valid on travel day)
@@ -361,6 +372,7 @@ const TripForm = ({ trip, userId, dogs, onSave, onClose }) => {
     airline: "", notes: "", selectedPets: [],
   });
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState(null);
   const set = (k, v) => setF(p => ({ ...p, [k]: v }));
 
   const togglePet = (id) => {
@@ -375,6 +387,7 @@ const TripForm = ({ trip, userId, dogs, onSave, onClose }) => {
   const save = async () => {
     if (!f.originCity || !f.destinationCity || !f.departureDate) return;
     setSaving(true);
+    setSaveError(null);
     const payload = {
       user_id: userId,
       name: f.name || `${f.originCity} → ${f.destinationCity}`,
@@ -383,13 +396,19 @@ const TripForm = ({ trip, userId, dogs, onSave, onClose }) => {
       departure_date: f.departureDate, return_date: f.returnDate || null,
       transportation_type: f.transportationType, airline: f.airline, flight_number: f.flightNumber || null, notes: f.notes, pet_ids: f.selectedPets,
     };
-    let result;
+    let result, error;
     if (trip) {
-      const { data } = await supabase.from('trips').update(payload).eq('id', trip.id).select().single();
-      result = data;
+      const res = await supabase.from('trips').update(payload).eq('id', trip.id).select().single();
+      result = res.data; error = res.error;
     } else {
-      const { data } = await supabase.from('trips').insert(payload).select().single();
-      result = data;
+      const res = await supabase.from('trips').insert(payload).select().single();
+      result = res.data; error = res.error;
+    }
+    if (error) {
+      console.error('Trip save failed:', error);
+      setSaveError(error.message || 'Could not save this trip. Please try again.');
+      setSaving(false);
+      return;
     }
     if (result) {
       onSave(result);
@@ -501,6 +520,12 @@ const TripForm = ({ trip, userId, dogs, onSave, onClose }) => {
         <Field label="Notes">
           <textarea style={{ ...inp, minHeight: 60 }} value={f.notes} onChange={e => set("notes", e.target.value)} placeholder="Any special notes about this trip..." />
         </Field>
+
+        {saveError && (
+          <div style={{ background: "#C4714A14", border: "1px solid #C4714A44", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#C4714A" }}>
+            ⚠ {saveError}
+          </div>
+        )}
 
         <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
           <Btn v="secondary" onClick={onClose} full>Cancel</Btn>
@@ -675,6 +700,7 @@ const TripDetail = ({ trip, userId, dogs, onBack, onUpdate, onDelete }) => {
   const [newItem, setNewItem] = useState({ title: "", description: "", category: "other", deadline_date: "", notes: "" });
   const [entryDoc, setEntryDoc] = useState({ name: "", notes: "", file: null });
   const fr = useRef();
+  const cameraRef = useRef();
 
   const tripPets = dogs.filter(d => (trip.pet_ids || []).includes(d.id));
   const st = tripStatus(trip);
@@ -697,6 +723,14 @@ const TripDetail = ({ trip, userId, dogs, onBack, onUpdate, onDelete }) => {
     setGenerating(true); setGenError(null);
     try {
       const items = await generateChecklist(trip, tripPets, userId);
+
+      // Filter by the ACTUAL species on this trip — this is what guarantees
+      // a dog-only trip never shows a cat item even if the underlying cache
+      // entry (shared across species for cost reasons) contains both.
+      // Every item is tagged unambiguously "dog" or "cat" — no middle category.
+      const tripSpecies = new Set(tripPets.map(p => p.species || 'dog'));
+      const filteredItems = items.filter(item => tripSpecies.has(item.applies_to || 'dog'));
+
       const now = new Date().toISOString();
       const depDate = new Date(trip.departure_date + 'T12:00:00');
       const daysToDate = (days) => {
@@ -705,7 +739,7 @@ const TripDetail = ({ trip, userId, dogs, onBack, onUpdate, onDelete }) => {
         return d.toISOString().slice(0, 10);
       };
 
-      const toInsert = items.map((item, i) => ({
+      const toInsert = filteredItems.map((item, i) => ({
         trip_id: trip.id, user_id: userId,
         title: item.title || 'Requirement',
         description: item.description || null,
@@ -756,26 +790,28 @@ const TripDetail = ({ trip, userId, dogs, onBack, onUpdate, onDelete }) => {
     const current = item.pet_completions || {};
     const updated = { ...current, [petId]: done };
     const allDone = tripPets.every(p => updated[p.id] === true);
-    const { data } = await supabase.from('trip_checklist_items')
+    const { data, error } = await supabase.from('trip_checklist_items')
       .update({
         pet_completions: updated,
         is_completed: allDone,
         completed_date: allDone ? today() : null
       })
       .eq('id', item.id).select().single();
+    if (error) { console.error('Toggle pet failed:', error); setGenError({ message: 'Could not update — please try again.' }); return; }
     if (data) setChecklist(prev => prev.map(x => x.id === item.id ? data : x));
   };
 
   const toggleAll = async (item, done) => {
     const updated = {};
     tripPets.forEach(p => updated[p.id] = done);
-    const { data } = await supabase.from('trip_checklist_items')
+    const { data, error } = await supabase.from('trip_checklist_items')
       .update({
         pet_completions: updated,
         is_completed: done,
         completed_date: done ? today() : null
       })
       .eq('id', item.id).select().single();
+    if (error) { console.error('Toggle all failed:', error); setGenError({ message: 'Could not update — please try again.' }); return; }
     if (data) setChecklist(prev => prev.map(x => x.id === item.id ? data : x));
   };
 
@@ -785,34 +821,39 @@ const TripDetail = ({ trip, userId, dogs, onBack, onUpdate, onDelete }) => {
       toggleAll(item, !item.is_completed);
       return;
     }
-    const { data } = await supabase.from('trip_checklist_items')
+    const { data, error } = await supabase.from('trip_checklist_items')
       .update({ is_completed: !item.is_completed, completed_date: !item.is_completed ? today() : null })
       .eq('id', item.id).select().single();
+    if (error) { console.error('Toggle item failed:', error); setGenError({ message: 'Could not update — please try again.' }); return; }
     if (data) setChecklist(prev => prev.map(x => x.id === item.id ? data : x));
   };
 
   const uploadDoc = async (item, file) => {
     if (!file) return;
     const path = `${userId}/trips/${trip.id}/${item.id}_${file.name}`;
-    await supabase.storage.from('documents').upload(path, file, { upsert: true });
-    const { data } = await supabase.from('trip_documents').insert({
+    const { error: uploadErr } = await supabase.storage.from('documents').upload(path, file, { upsert: true });
+    if (uploadErr) { console.error('Document upload failed:', uploadErr); setGenError({ message: 'Could not upload that file — please try again.' }); return; }
+    const { data, error } = await supabase.from('trip_documents').insert({
       trip_id: trip.id, user_id: userId, checklist_item_id: item.id,
       name: `${item.title} — ${file.name}`, doc_date: today(),
       file_path: path, is_entry_document: false,
     }).select().single();
+    if (error) { console.error('Document record save failed:', error); setGenError({ message: 'File uploaded but could not be saved to this item — please try again.' }); return; }
     if (data) { setDocuments(prev => [...prev, data]); await toggleItem(item); }
   };
 
   const deleteItem = async (id) => {
-    await supabase.from('trip_checklist_items').delete().eq('id', id);
+    const { error } = await supabase.from('trip_checklist_items').delete().eq('id', id);
+    if (error) { console.error('Delete item failed:', error); setGenError({ message: 'Could not delete that item — please try again.' }); return; }
     setChecklist(prev => prev.filter(x => x.id !== id));
   };
 
   const addManualItem = async () => {
     if (!newItem.title) return;
-    const { data } = await supabase.from('trip_checklist_items').insert({
+    const { data, error } = await supabase.from('trip_checklist_items').insert({
       trip_id: trip.id, user_id: userId, ...newItem, sort_order: checklist.length,
     }).select().single();
+    if (error) { console.error('Add manual item failed:', error); setGenError({ message: 'Could not add that item — please try again.' }); return; }
     if (data) { setChecklist(prev => [...prev, data]); setShowAddItem(false); setNewItem({ title: "", description: "", category: "other", deadline_date: "", notes: "" }); }
   };
 
@@ -821,12 +862,14 @@ const TripDetail = ({ trip, userId, dogs, onBack, onUpdate, onDelete }) => {
     let path = null;
     if (entryDoc.file) {
       path = `${userId}/trips/${trip.id}/entry_${entryDoc.file.name}`;
-      await supabase.storage.from('documents').upload(path, entryDoc.file, { upsert: true });
+      const { error: uploadErr } = await supabase.storage.from('documents').upload(path, entryDoc.file, { upsert: true });
+      if (uploadErr) { console.error('Entry document upload failed:', uploadErr); setGenError({ message: 'Could not upload that file — please try again.' }); return; }
     }
-    const { data } = await supabase.from('trip_documents').insert({
+    const { data, error } = await supabase.from('trip_documents').insert({
       trip_id: trip.id, user_id: userId, name: entryDoc.name,
       notes: entryDoc.notes, doc_date: today(), file_path: path, is_entry_document: true,
     }).select().single();
+    if (error) { console.error('Entry document save failed:', error); setGenError({ message: 'Could not save this document — please try again.' }); return; }
     if (data) { setDocuments(prev => [...prev, data]); setShowUploadEntry(false); setEntryDoc({ name: "", notes: "", file: null }); }
   };
 
@@ -913,13 +956,39 @@ ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.i
       <div style={{ maxWidth: 680, margin: "0 auto", padding: "20px 16px" }}>
         {checklist.length > 0 && (
           <Card style={{ marginBottom: 16 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-              <span style={{ fontWeight: 700 }}>Checklist Progress</span>
-              <span style={{ fontWeight: 800, color: completed === checklist.length ? "#4CAF50" : C.accent }}>{completed}/{checklist.length} complete</span>
-            </div>
-            <div style={{ background: C.border, borderRadius: 20, height: 8, overflow: "hidden" }}>
-              <div style={{ background: completed === checklist.length ? "#4CAF50" : C.accent, height: "100%", borderRadius: 20, width: `${checklist.length > 0 ? (completed / checklist.length) * 100 : 0}%`, transition: "width .3s" }} />
-            </div>
+            <div style={{ fontWeight: 700, marginBottom: 12 }}>Checklist Progress</div>
+            {tripPets.length > 1 ? (
+              // Multiple pets — show one progress bar per pet, since each pet
+              // needs their own documents completed (e.g. separate health certificates).
+              tripPets.map(pet => {
+                const relevantItems = checklist.filter(i => (i.applies_to || 'dog') === (pet.species || 'dog'));
+                const petDone = relevantItems.filter(i => (i.pet_completions || {})[pet.id] === true).length;
+                const petTotal = relevantItems.length;
+                const petAllDone = petTotal > 0 && petDone === petTotal;
+                return (
+                  <div key={pet.id} style={{ marginBottom: 10 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
+                      <span style={{ fontSize: 13, fontWeight: 600 }}>{pet.species === 'cat' ? '🐈' : '🐕'} {pet.name}</span>
+                      <span style={{ fontWeight: 800, fontSize: 13, color: petAllDone ? "#4CAF50" : C.accent }}>{petDone}/{petTotal} complete</span>
+                    </div>
+                    <div style={{ background: C.border, borderRadius: 20, height: 7, overflow: "hidden" }}>
+                      <div style={{ background: petAllDone ? "#4CAF50" : C.accent, height: "100%", borderRadius: 20, width: `${petTotal > 0 ? (petDone / petTotal) * 100 : 0}%`, transition: "width .3s" }} />
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              // Single pet — keep the simple aggregate bar
+              <>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                  <span style={{ fontWeight: 700 }}>&nbsp;</span>
+                  <span style={{ fontWeight: 800, color: completed === checklist.length ? "#4CAF50" : C.accent }}>{completed}/{checklist.length} complete</span>
+                </div>
+                <div style={{ background: C.border, borderRadius: 20, height: 8, overflow: "hidden" }}>
+                  <div style={{ background: completed === checklist.length ? "#4CAF50" : C.accent, height: "100%", borderRadius: 20, width: `${checklist.length > 0 ? (completed / checklist.length) * 100 : 0}%`, transition: "width .3s" }} />
+                </div>
+              </>
+            )}
           </Card>
         )}
 
@@ -1069,9 +1138,25 @@ ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.i
             <Field label="Document Name"><input style={inp} value={entryDoc.name} onChange={e => setEntryDoc(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Panama Import Receipt" /></Field>
             <Field label="Notes"><input style={inp} value={entryDoc.notes} onChange={e => setEntryDoc(p => ({ ...p, notes: e.target.value }))} /></Field>
             <input ref={fr} type="file" accept="image/*,.pdf" style={{ display: "none" }} onChange={e => setEntryDoc(p => ({ ...p, file: e.target.files[0] }))} />
-            <div style={{ border: `2px dashed ${C.border}`, borderRadius: 12, padding: 20, textAlign: "center", cursor: "pointer" }} onClick={() => fr.current.click()}>
-              {entryDoc.file ? <div style={{ color: C.accent }}>✓ {entryDoc.file.name}</div> : <div style={{ color: C.muted }}>📷 Tap to upload photo or PDF</div>}
-            </div>
+            <input ref={cameraRef} type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={e => setEntryDoc(p => ({ ...p, file: e.target.files[0] }))} />
+            {entryDoc.file ? (
+              <div style={{ border: `2px solid ${C.accent}`, borderRadius: 12, padding: 16, textAlign: "center", color: C.accent, fontWeight: 600 }}>
+                ✓ {entryDoc.file.name}
+                <button onClick={() => setEntryDoc(p => ({ ...p, file: null }))} style={{ display: "block", margin: "8px auto 0", background: "none", border: "none", color: C.sub, fontSize: 12, cursor: "pointer", textDecoration: "underline" }}>Remove</button>
+              </div>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                <button onClick={() => cameraRef.current.click()} style={{ background: `${C.accent}14`, color: C.accent, borderRadius: 10, padding: "14px 6px", fontWeight: 600, fontSize: 12, border: `1px solid ${C.accent}44`, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 5 }}>
+                  <span style={{ fontSize: 20 }}>📷</span>Take Photo
+                </button>
+                <button onClick={() => { fr.current.accept = "image/*"; fr.current.click(); }} style={{ background: C.bg, color: C.text, borderRadius: 10, padding: "14px 6px", fontWeight: 600, fontSize: 12, border: `1px solid ${C.border}`, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 5 }}>
+                  <span style={{ fontSize: 20 }}>🖼️</span>Photo Library
+                </button>
+                <button onClick={() => { fr.current.accept = "image/*,.pdf"; fr.current.click(); }} style={{ background: C.bg, color: C.text, borderRadius: 10, padding: "14px 6px", fontWeight: 600, fontSize: 12, border: `1px solid ${C.border}`, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 5 }}>
+                  <span style={{ fontSize: 20 }}>📁</span>Choose File
+                </button>
+              </div>
+            )}
             <div style={{ display: "flex", gap: 10 }}>
               <Btn v="secondary" onClick={() => setShowUploadEntry(false)} full>Cancel</Btn>
               <Btn onClick={uploadEntryDoc} disabled={!entryDoc.name} full>Save Document</Btn>
@@ -1096,13 +1181,15 @@ export default function Travel({ userId, onBack }) {
   useEffect(() => { loadTrips(); loadDogs(); }, [userId]);
 
   const loadDogs = async () => {
-    const { data } = await supabase.from("dogs").select("*").eq("user_id", userId).order("name");
+    const { data, error } = await supabase.from("dogs").select("*").eq("user_id", userId).order("name");
+    if (error) console.error('Failed to load pets:', error);
     setDogs(data || []);
   };
 
   const loadTrips = async () => {
     setLoading(true);
-    const { data } = await supabase.from('trips').select('*').eq('user_id', userId).order('departure_date');
+    const { data, error } = await supabase.from('trips').select('*').eq('user_id', userId).order('departure_date');
+    if (error) console.error('Failed to load trips:', error);
     setTrips(data || []);
     setLoading(false);
   };
