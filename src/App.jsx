@@ -165,7 +165,8 @@ export default function App() {
   }, []);
 
   const loadProfile = async (userId) => {
-    const { data } = await supabase.from("profiles").select("*").eq("id", userId).single();
+    const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).single();
+    if (error) console.error("Failed to load profile:", error);
     setProfile(data);
     setLoading(false);
     // Check if this user is an affiliate (uses RLS — only returns their own record if exists)
