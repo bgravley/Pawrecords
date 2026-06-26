@@ -292,11 +292,11 @@ export default function AffiliatePortal({ userId, userEmail, onClose }) {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
             <div>
               <label style={{ fontSize: 12, fontWeight: 700, color: C.brown, textTransform: 'uppercase', letterSpacing: '.05em', display: 'block', marginBottom: 6 }}>PayPal Email</label>
-              <input value={paypal} onChange={e => setPaypal(e.target.value)} placeholder="you@paypal.com" style={inp}/>
+              <input maxLength={150} value={paypal} onChange={e => setPaypal(e.target.value)} placeholder="you@paypal.com" style={inp}/>
             </div>
             <div>
               <label style={{ fontSize: 12, fontWeight: 700, color: C.brown, textTransform: 'uppercase', letterSpacing: '.05em', display: 'block', marginBottom: 6 }}>Stripe Email</label>
-              <input value={stripeEmail} onChange={e => setStripeEmail(e.target.value)} placeholder="you@email.com" style={inp}/>
+              <input maxLength={150} value={stripeEmail} onChange={e => setStripeEmail(e.target.value)} placeholder="you@email.com" style={inp}/>
             </div>
           </div>
           <button onClick={savePayoutInfo} disabled={savingPayout}
