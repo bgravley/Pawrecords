@@ -200,7 +200,7 @@ export default function Admin({ onBack }) {
         {/* USERS TAB */}
         {tab === "users" && <>
           <div style={{ marginBottom: 16 }}>
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by email or name..."
+            <input maxLength={150} value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by email or name..."
               style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 16px", color: C.text, fontSize: 14, width: "100%", maxWidth: 400, outline: "none" }} />
           </div>
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, overflow: "hidden" }}>
@@ -550,8 +550,8 @@ export default function Admin({ onBack }) {
                             <span style={{ color: C.green }}><b>${(paid/100).toFixed(2)}</b> <span style={{ color: C.sub }}>paid</span></span>
                           </div>
                           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                            <input defaultValue={aff.payout_paypal || ''} onBlur={e => savePayoutInfo(aff.id, { payout_paypal: e.target.value })} placeholder="PayPal email" style={{ fontSize: 12, padding: '4px 8px', borderRadius: 6, border: '1px solid ' + C.border, background: C.bg, color: C.text, flex: 1, minWidth: 160 }}/>
-                            <input defaultValue={aff.payout_stripe_email || ''} onBlur={e => savePayoutInfo(aff.id, { payout_stripe_email: e.target.value })} placeholder="Stripe email" style={{ fontSize: 12, padding: '4px 8px', borderRadius: 6, border: '1px solid ' + C.border, background: C.bg, color: C.text, flex: 1, minWidth: 160 }}/>
+                            <input maxLength={150} defaultValue={aff.payout_paypal || ''} onBlur={e => savePayoutInfo(aff.id, { payout_paypal: e.target.value })} placeholder="PayPal email" style={{ fontSize: 12, padding: '4px 8px', borderRadius: 6, border: '1px solid ' + C.border, background: C.bg, color: C.text, flex: 1, minWidth: 160 }}/>
+                            <input maxLength={150} defaultValue={aff.payout_stripe_email || ''} onBlur={e => savePayoutInfo(aff.id, { payout_stripe_email: e.target.value })} placeholder="Stripe email" style={{ fontSize: 12, padding: '4px 8px', borderRadius: 6, border: '1px solid ' + C.border, background: C.bg, color: C.text, flex: 1, minWidth: 160 }}/>
                           </div>
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
@@ -647,7 +647,7 @@ export default function Admin({ onBack }) {
                     </div>
                     <div>
                       <label style={{ fontSize: 11, color: C.sub, textTransform: 'uppercase', letterSpacing: '.05em', display: 'block', marginBottom: 6 }}>Notes (optional)</label>
-                      <input value={newAffiliate.notes} onChange={e => setNewAffiliate(p => ({ ...p, notes: e.target.value }))}
+                      <input maxLength={150} value={newAffiliate.notes} onChange={e => setNewAffiliate(p => ({ ...p, notes: e.target.value }))}
                         placeholder="e.g. Instagram @handle, deal terms"
                         style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '9px 12px', color: C.text, fontSize: 14, width: '100%', outline: 'none' }} />
                     </div>
@@ -692,7 +692,7 @@ export default function Admin({ onBack }) {
               </div>
               <div>
                 <label style={{ fontSize: 11, color: C.sub, textTransform: 'uppercase', letterSpacing: '.05em', display: 'block', marginBottom: 6 }}>Full Name</label>
-                <input id="name-input" defaultValue={editUser.full_name || ''}
+                <input maxLength={150} id="name-input" defaultValue={editUser.full_name || ''}
                   style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '9px 12px', color: C.text, fontSize: 14, width: '100%', outline: 'none' }} />
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -775,7 +775,7 @@ export default function Admin({ onBack }) {
               This permanently deletes <strong style={{ color: C.text }}>{editUser.email}</strong> — all their pets, records, trips, and login access. This cannot be undone. Their email becomes available for signup again.
             </div>
             <div style={{ fontSize: 13, color: C.sub, marginBottom: 8 }}>Type <strong style={{ color: C.text }}>DELETE</strong> to confirm:</div>
-            <input value={deleteUserConfirmText} onChange={e => setDeleteUserConfirmText(e.target.value)} placeholder="DELETE"
+            <input maxLength={150} value={deleteUserConfirmText} onChange={e => setDeleteUserConfirmText(e.target.value)} placeholder="DELETE"
               style={{ width: '100%', background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '10px 12px', color: C.text, fontSize: 14, marginBottom: 16, boxSizing: 'border-box' }} />
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={() => setShowDeleteUserConfirm(false)}
