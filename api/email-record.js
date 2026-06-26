@@ -23,6 +23,10 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Please enter a valid recipient email address.' });
   }
 
+  if (note && note.length > 1000) {
+    return res.status(400).json({ error: 'Note is too long (max 1000 characters).' });
+  }
+
   // Wrap the exported record HTML with a short intro message + PDF link banner
   const wrapperHtml = `
 <!DOCTYPE html>
