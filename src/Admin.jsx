@@ -51,6 +51,7 @@ export default function Admin({ onBack }) {
   const [prewarmStatus, setPrewarmStatus] = useState(null);
   const [activityLogs, setActivityLogs] = useState([]);
   const [errorLogs, setErrorLogs] = useState([]);
+  const [bugReports, setBugReports] = useState([]);
   const [affiliates, setAffiliates] = useState([]);
   const [affiliateCommissions, setAffiliateCommissions] = useState([]);
   const [showCreateAffiliate, setShowCreateAffiliate] = useState(false);
@@ -78,13 +79,14 @@ export default function Admin({ onBack }) {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [usersRes, aiRes, actRes, errRes, affRes, commRes] = await Promise.all([
+      const [usersRes, aiRes, actRes, errRes, affRes, commRes, bugRes] = await Promise.all([
         adminFetch('users'),
         adminFetch('ai_logs'),
         adminFetch('activity'),
         adminFetch('errors'),
         adminFetch('affiliates'),
         adminFetch('affiliate_commissions'),
+        adminFetch('bug_reports'),
       ]);
       setUsers(usersRes.data || []);
       setAiLogs(aiRes.data || []);
@@ -92,6 +94,7 @@ export default function Admin({ onBack }) {
       setErrorLogs(errRes.data || []);
       setAffiliates(affRes.data || []);
       setAffiliateCommissions(commRes.data || []);
+      setBugReports(bugRes.data || []);
     } catch(e) {
       console.error('Admin load error:', e);
     }
@@ -164,6 +167,7 @@ export default function Admin({ onBack }) {
           { id: "ai", label: `AI Usage (${aiLogs.length})` },
           { id: "activity", label: `Activity (${activityLogs.length})` },
           { id: "errors", label: `Errors (${errorLogs.filter(e=>!e.reviewed).length})`, alert: errorLogs.filter(e=>!e.reviewed).length > 0 },
+          { id: "bugs", label: `Bug Reports (${bugReports.filter(b=>b.status==='pending').length})`, alert: bugReports.filter(b=>b.status==='pending').length > 0 },
           { id: "affiliates", label: `Affiliates (${affiliates.length})` },
         ].map(t => (
             <Tab key={t.id} id={t.id} label={t.label} active={tab === t.id} onClick={() => setTab(t.id)} />
@@ -443,6 +447,56 @@ export default function Admin({ onBack }) {
                   <div style={{ background: "#0F1117", borderRadius: 8, padding: 10, fontSize: 12, color: "#FF6B6B", fontFamily: "monospace" }}>
                     {err.error_message}
                   </div>
+                </div>
+              ))}
+          </div>
+        )}
+
+        {tab === "bugs" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ fontWeight: 700, fontSize: 16 }}>Bug Reports</div>
+              <div style={{ fontSize: 13, color: C.sub }}>{bugReports.filter(b=>b.status==='pending').length} pending review</div>
+            </div>
+            {bugReports.length === 0
+              ? <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 40, textAlign: "center", color: C.sub }}>No bug reports yet</div>
+              : bugReports.map(report => (
+                <div key={report.id} style={{ background: C.card, border: `1px solid ${report.status === 'pending' ? "#E8A83844" : C.border}`, borderRadius: 12, padding: 16 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{
+                        background: report.status === 'pending' ? "#E8A83822" : report.status === 'approved' ? "#2D7D6F22" : "#8B735522",
+                        color: report.status === 'pending' ? "#E8A838" : report.status === 'approved' ? "#2D7D6F" : "#8B7355",
+                        borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 700, textTransform: "uppercase",
+                      }}>{report.status}</span>
+                      <span style={{ fontSize: 13, color: C.sub }}>{report.user_email || "unknown"}</span>
+                    </div>
+                    <span style={{ fontSize: 12, color: C.sub }}>{fmtTime(report.created_at)}</span>
+                  </div>
+                  <div style={{ background: C.bg, borderRadius: 8, padding: 12, fontSize: 13, color: C.text, marginBottom: report.status === 'pending' ? 12 : (report.reward_type ? 8 : 0), whiteSpace: "pre-wrap" }}>
+                    {report.description}
+                  </div>
+                  {report.reward_type && (
+                    <div style={{ fontSize: 12, color: C.sub, marginBottom: 0 }}>
+                      Reward: <strong style={{ color: C.text }}>{report.reward_type.replace(/_/g, ' ')}</strong>
+                    </div>
+                  )}
+                  {report.status === 'pending' && (
+                    <div style={{ display: "flex", gap: 10 }}>
+                      <button onClick={async () => {
+                        const res = await adminFetch('approve_bug_report', { reportId: report.id });
+                        setBugReports(p => p.map(b => b.id === report.id ? { ...b, status: 'approved', reward_type: res?.data?.rewardType } : b));
+                      }} style={{ flex: 1, background: "#2D7D6F", color: "#fff", border: "none", borderRadius: 8, padding: "9px 0", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                        ✓ Approve & Reward
+                      </button>
+                      <button onClick={async () => {
+                        await adminFetch('reject_bug_report', { reportId: report.id });
+                        setBugReports(p => p.map(b => b.id === report.id ? { ...b, status: 'rejected' } : b));
+                      }} style={{ flex: 1, background: "transparent", color: C.sub, border: `1px solid ${C.border}`, borderRadius: 8, padding: "9px 0", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
+                        ✗ Reject
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
           </div>
