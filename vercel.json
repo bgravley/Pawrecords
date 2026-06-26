@@ -2,6 +2,9 @@
   "functions": {
     "api/ai-travel.js": {
       "maxDuration": 300
+    },
+    "api/prewarm-cache.js": {
+      "maxDuration": 300
     }
   },
   "headers": [
@@ -30,6 +33,10 @@
     {
       "path": "/api/send-notifications",
       "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/prewarm-cache",
+      "schedule": "0 6 * * 1"
     }
   ]
 }
