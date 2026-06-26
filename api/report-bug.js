@@ -1,0 +1,77 @@
+// api/report-bug.js
+// Receives bug report submissions, saves to the database, and notifies Brandon.
+// Rewards are NOT automatic — every report requires manual approval in Admin
+// before any subscription credit is applied (prevents abuse/repeat submissions).
+
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
+const FROM_EMAIL = 'YourPetPass <notifications@yourpetpass.com>';
+const ADMIN_EMAIL = 'bgravley@rdmarketingllc.com';
+
+export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'POST') return res.status(405).end();
+
+  const { userId, userEmail, description } = req.body;
+
+  if (!description || description.trim().length === 0) {
+    return res.status(400).json({ error: 'Please describe the bug.' });
+  }
+  if (description.length > 2000) {
+    return res.status(400).json({ error: 'Description is too long (max 2000 characters).' });
+  }
+
+  try {
+    const insertRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/bug_reports`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': process.env.SUPABASE_SERVICE_KEY,
+        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
+        'Prefer': 'return=representation',
+      },
+      body: JSON.stringify({
+        user_id: userId || null,
+        user_email: userEmail || null,
+        description: description.trim(),
+        status: 'pending',
+      }),
+    });
+
+    if (!insertRes.ok) {
+      const errText = await insertRes.text();
+      console.error('Bug report insert failed:', errText);
+      return res.status(500).json({ error: 'Could not submit report. Please try again.' });
+    }
+
+    // Notify Brandon immediately so he can review/approve
+    try {
+      await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${RESEND_API_KEY}` },
+        body: JSON.stringify({
+          from: FROM_EMAIL,
+          to: ADMIN_EMAIL,
+          subject: `🐛 New bug report from ${userEmail || 'a user'}`,
+          html: `<div style="font-family:sans-serif;padding:20px;">
+            <h2>New Bug Report</h2>
+            <p><strong>From:</strong> ${userEmail || 'unknown'}</p>
+            <p><strong>Description:</strong></p>
+            <p style="background:#f4f4f4;padding:12px;border-radius:8px;white-space:pre-wrap;">${description.replace(/</g,'&lt;')}</p>
+            <p><a href="https://yourpetpass.com/admin">Review in Admin →</a></p>
+          </div>`,
+        }),
+      });
+    } catch (emailErr) {
+      console.error('Bug report admin notification failed (non-critical):', emailErr.message);
+    }
+
+    return res.status(200).json({ submitted: true });
+
+  } catch (err) {
+    console.error('report-bug error:', err.message);
+    return res.status(500).json({ error: err.message });
+  }
+}
