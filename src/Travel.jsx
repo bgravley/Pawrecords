@@ -753,7 +753,8 @@ const TripDetail = ({ trip, userId, dogs, onBack, onUpdate, onDelete }) => {
         notes: item.notes || null,
         sort_order: i,
       }));
-      const { data } = await supabase.from('trip_checklist_items').insert(toInsert).select();
+      const { data, error: insertErr } = await supabase.from('trip_checklist_items').insert(toInsert).select();
+      if (insertErr) { console.error('Checklist save failed:', insertErr); setGenError({ message: 'The checklist was generated but could not be saved — please try again.' }); setGenerating(false); return; }
       if (data) {
         setChecklist(prev => [...prev, ...data]);
         logActivity(userId, null, 'checklist_generated', { origin: trip.origin_city, destination: trip.destination_city, itemCount: data.length });
