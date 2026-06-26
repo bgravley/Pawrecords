@@ -1978,6 +1978,53 @@ const BillingSection=({userId,tier,userEmail})=>{
   );
 };
 
+const BugReportModal=({userId,userEmail,onClose})=>{
+  const[description,setDescription]=useState("");
+  const[sending,setSending]=useState(false);
+  const[sent,setSent]=useState(false);
+  const[err,setErr]=useState(null);
+
+  const submit=async()=>{
+    if(!description.trim())return setErr("Please describe the bug before submitting.");
+    setSending(true);setErr(null);
+    try{
+      const res=await fetch('/api/report-bug',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({userId,userEmail,description:description.trim()})
+      });
+      const data=await res.json();
+      if(!res.ok||data.error)throw new Error(data.error||'Could not submit report');
+      setSent(true);
+    }catch(e){setErr(e.message);}
+    setSending(false);
+  };
+
+  return(<Modal title="🐛 Report a Bug" onClose={onClose}>
+    {sent?(
+      <div style={{textAlign:"center",padding:"20px 0"}}>
+        <div style={{fontSize:40,marginBottom:12}}>✅</div>
+        <div style={{fontFamily:"'Lora',serif",fontSize:18,marginBottom:8}}>Thanks for the report!</div>
+        <div style={{fontSize:14,color:"#5A4535",lineHeight:1.6,marginBottom:8}}>We'll take a look. If it's a real bug, we'll add a free month to your account as a thank-you.</div>
+        <Btn onClick={onClose} style={{margin:"0 auto",justifyContent:"center"}}>Done</Btn>
+      </div>
+    ):(
+      <div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <div style={{fontSize:13,color:"#5A4535",lineHeight:1.6}}>
+          Found something broken? Tell us what happened and what you expected instead. Real bugs get a free month added to your account once we confirm it.
+        </div>
+        <Field label="What went wrong?">
+          <textarea maxLength={2000} value={description} onChange={e=>setDescription(e.target.value)} placeholder="e.g. When I tap Export on Biscuit's page, nothing happens..." style={{minHeight:120}}/>
+        </Field>
+        {err&&<div style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:10,padding:"10px 14px",fontSize:13,color:"#C4714A"}}>{err}</div>}
+        <div style={{display:"flex",gap:10}}>
+          <Btn v="secondary" onClick={onClose} full>Cancel</Btn>
+          <Btn onClick={submit} disabled={sending||!description.trim()} full>{sending?"Sending...":"Submit Report"}</Btn>
+        </div>
+      </div>
+    )}
+  </Modal>);
+};
+
 const OwnerProfileModal=({userId,tier,userEmail,onUpgrade,onClose})=>{
   const[f,setF]=useState({fullName:"",phoneCode:"+1",phone:"",whatsapp:"",whatsappCode:"+1",country:"",city:"",state:"",zip:"",address:"",instagram:"",facebook:"",twitter:"",photo:""});
   const[contacts,setContacts]=useState([]);
@@ -2210,6 +2257,7 @@ const Home=({state,dispatch,userId,tier,userEmail,onSignOut,isAdmin,onOpenAdmin,
   const[selDog,setSelDog]=useState(null);
   const[showUpgrade,setShowUpgrade]=useState(false);
   const[showProfile,setShowProfile]=useState(false);
+  const[showBugReport,setShowBugReport]=useState(false);
   const[showAlerts,setShowAlerts]=useState(false);
   const[errorCount,setErrorCount]=useState(0);
   const[upcomingTrips,setUpcomingTrips]=useState([]);
@@ -2260,6 +2308,7 @@ const Home=({state,dispatch,userId,tier,userEmail,onSignOut,isAdmin,onOpenAdmin,
           {!premium&&<button onClick={()=>setShowUpgrade(true)} style={{background:"#E8A83820",border:"1px solid #E8A83844",borderRadius:10,padding:"7px 12px",color:"#E8A838",fontWeight:600,fontSize:12,display:"flex",alignItems:"center",gap:5,cursor:"pointer"}}><Ic n="crown" s={13} c="#E8A838"/>Premium</button>}
           {totalAlerts>0&&<button onClick={()=>setShowAlerts(true)} style={{background:"#E8A83814",border:"1px solid #E8A83844",borderRadius:10,padding:"7px 12px",display:"flex",alignItems:"center",gap:5,color:"#E8A838",fontSize:13,cursor:"pointer"}}><Ic n="alert" s={14} c="#E8A838"/>{totalAlerts}</button>}
           <button onClick={onOpenTravel} title="Travel" style={{background:"#FFFFFF",border:"1px solid #E8DDD0",borderRadius:10,padding:"7px 10px",color:"#5A4535",cursor:"pointer"}}><Ic n="map" s={16} c="#5A4535"/></button>
+          <button onClick={()=>setShowBugReport(true)} title="Report a Bug" style={{background:"#FFFFFF",border:"1px solid #E8DDD0",borderRadius:10,padding:"7px 10px",color:"#5A4535",cursor:"pointer",fontSize:15}}>🐛</button>
           <button onClick={()=>setShowProfile(true)} title="My Account" style={{background:"#FFFFFF",border:"1px solid #E8DDD0",borderRadius:10,padding:"7px 10px",color:"#5A4535",cursor:"pointer"}}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5A4535" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
@@ -2354,6 +2403,7 @@ const Home=({state,dispatch,userId,tier,userEmail,onSignOut,isAdmin,onOpenAdmin,
     {addDog&&<DogForm userId={userId} userEmail={userEmail} onSave={d=>{dispatch({t:"ADD_DOG",d});setAddDog(false);}} onClose={()=>setAddDog(false)}/>}
     {showUpgrade&&<UpgradeModal userId={userId} userEmail={userEmail} onClose={()=>setShowUpgrade(false)}/>}
     {showProfile&&<OwnerProfileModal userId={userId} tier={tier} userEmail={userEmail} onUpgrade={()=>{setShowProfile(false);setShowUpgrade(true);}} onClose={()=>setShowProfile(false)}/>}
+    {showBugReport&&<BugReportModal userId={userId} userEmail={userEmail} onClose={()=>setShowBugReport(false)}/>}
     {showAlerts&&<AlertsModal state={state} onClose={()=>setShowAlerts(false)} onSelectDog={(id)=>setSelDog(id)}/>}
     {/* Bottom nav */}
     <div style={{position:"fixed",bottom:0,left:0,right:0,background:"#FFFFFF",borderTop:"1px solid #E8DDD0",display:"flex",zIndex:200,paddingBottom:"env(safe-area-inset-bottom)"}}>
