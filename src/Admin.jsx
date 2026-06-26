@@ -48,6 +48,7 @@ export default function Admin({ onBack }) {
   const [tab, setTab] = useState("overview");
   const [users, setUsers] = useState([]);
   const [aiLogs, setAiLogs] = useState([]);
+  const [prewarmStatus, setPrewarmStatus] = useState(null);
   const [activityLogs, setActivityLogs] = useState([]);
   const [errorLogs, setErrorLogs] = useState([]);
   const [affiliates, setAffiliates] = useState([]);
@@ -113,6 +114,23 @@ export default function Admin({ onBack }) {
   const scanLogs = aiLogs.filter(l => l.feature === "document_scan");
   const travelLogs = aiLogs.filter(l => l.feature === "travel_checklist");
 
+  // Group cost/tokens by provider, inferred from the model string
+  const providerOf = (model) => {
+    if (!model) return "Unknown";
+    if (model.startsWith("claude")) return "Anthropic (Claude)";
+    if (model.startsWith("gpt")) return "OpenAI (GPT)";
+    return model;
+  };
+  const byProvider = aiLogs.reduce((acc, l) => {
+    const p = providerOf(l.model);
+    if (!acc[p]) acc[p] = { cost: 0, tokens: 0, requests: 0, models: {} };
+    acc[p].cost += Number(l.estimated_cost_usd || 0);
+    acc[p].tokens += Number(l.total_tokens || 0);
+    acc[p].requests += 1;
+    acc[p].models[l.model] = (acc[p].models[l.model] || 0) + 1;
+    return acc;
+  }, {});
+
   const filteredUsers = users.filter(u =>
     !search || u.email?.toLowerCase().includes(search.toLowerCase()) ||
     u.full_name?.toLowerCase().includes(search.toLowerCase())
@@ -161,6 +179,55 @@ export default function Admin({ onBack }) {
             <Stat label="Today's AI Cost" value={`$${todayCost.toFixed(4)}`} sub={`${todayLogs.length} requests today`} color={todayCost > 1 ? C.danger : C.green} />
             <Stat label="Doc Scans" value={scanLogs.length} sub={`$${scanLogs.reduce((s, l) => s + Number(l.estimated_cost_usd || 0), 0).toFixed(4)} total`} />
             <Stat label="Travel Checklists" value={travelLogs.length} sub={`$${travelLogs.reduce((s, l) => s + Number(l.estimated_cost_usd || 0), 0).toFixed(4)} total`} />
+          </div>
+
+          {/* Pre-warm route cache */}
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 20, marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>Pre-warm Route Cache</div>
+              <div style={{ fontSize: 12, color: C.sub, marginTop: 2 }}>Runs automatically every Monday. Use this to trigger it on demand.</div>
+            </div>
+            <button onClick={async () => {
+              setPrewarmStatus('running');
+              try {
+                const { data: { session } } = await supabase.auth.getSession();
+                const r = await fetch('/api/prewarm-cache', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
+                  body: JSON.stringify({}),
+                });
+                const data = await r.json();
+                setPrewarmStatus(data.summary ? `Done — ${data.summary.newlyWarmed} generated, ${data.summary.alreadyCached} already cached, ${data.summary.failed} failed` : (data.error || 'Failed'));
+              } catch (e) {
+                setPrewarmStatus('Failed: ' + e.message);
+              }
+            }} disabled={prewarmStatus === 'running'} style={{ background: C.accent, color: "#fff", border: "none", borderRadius: 8, padding: "10px 18px", fontWeight: 600, cursor: "pointer", fontSize: 13 }}>
+              {prewarmStatus === 'running' ? 'Running (this can take a minute)...' : '🔥 Run Pre-warm Now'}
+            </button>
+            {prewarmStatus && prewarmStatus !== 'running' && (
+              <div style={{ fontSize: 12, color: C.sub, width: "100%" }}>{prewarmStatus}</div>
+            )}
+          </div>
+
+          {/* Cost breakdown by provider */}
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 20, marginBottom: 20 }}>
+            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>AI Cost by Provider</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14 }}>
+              {Object.entries(byProvider).map(([provider, d]) => (
+                <div key={provider} style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 12, padding: 16 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 8, color: provider.includes("Claude") ? "#D97757" : provider.includes("GPT") ? "#74AA9C" : C.text }}>{provider}</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: C.warn, marginBottom: 4 }}>${d.cost.toFixed(4)}</div>
+                  <div style={{ fontSize: 12, color: C.sub, marginBottom: 8 }}>{d.requests} requests · {d.tokens.toLocaleString()} tokens</div>
+                  <div style={{ fontSize: 11, color: C.sub, borderTop: `1px solid ${C.border}`, paddingTop: 8 }}>
+                    {Object.entries(d.models).map(([m, count]) => (
+                      <div key={m} style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
+                        <span>{m}</span><span>{count}×</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Recent AI activity */}
