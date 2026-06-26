@@ -18,6 +18,12 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Name, email, and message are required.' });
   }
 
+  // Length limits — the real protection boundary, independent of any client-side limit
+  if (name.length > 100) return res.status(400).json({ error: 'Name is too long (max 100 characters).' });
+  if (email.length > 200) return res.status(400).json({ error: 'Email is too long.' });
+  if (subject && subject.length > 200) return res.status(400).json({ error: 'Subject is too long (max 200 characters).' });
+  if (message.length > 5000) return res.status(400).json({ error: 'Message is too long (max 5000 characters).' });
+
   // Basic email format check
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return res.status(400).json({ error: 'Please enter a valid email address.' });
