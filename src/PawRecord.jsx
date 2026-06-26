@@ -396,7 +396,7 @@ const UpgradeModal=({userId,userEmail,onClose})=>{
               <button onClick={()=>{setCouponApplied(false);setCoupon("");}} style={{marginLeft:"auto",background:"none",border:"none",color:"#8B7355",fontSize:12,cursor:"pointer",textDecoration:"underline"}}>Remove</button>
             </div>
             :<div style={{display:"flex",gap:8}}>
-              <input value={coupon} onChange={e=>setCoupon(e.target.value.toUpperCase())} placeholder="Enter code" style={{flex:1,background:"#FAF6F0",border:"1.5px solid #E8DDD0",borderRadius:10,padding:"9px 14px",fontSize:14,color:"#2C2017",outline:"none",fontFamily:"'Nunito',sans-serif",letterSpacing:".05em"}}/>
+              <input maxLength={150} value={coupon} onChange={e=>setCoupon(e.target.value.toUpperCase())} placeholder="Enter code" style={{flex:1,background:"#FAF6F0",border:"1.5px solid #E8DDD0",borderRadius:10,padding:"9px 14px",fontSize:14,color:"#2C2017",outline:"none",fontFamily:"'Nunito',sans-serif",letterSpacing:".05em"}}/>
               <Btn sm onClick={applyCoupon} disabled={couponLoading||!coupon.trim()}>{couponLoading?"...":"Apply"}</Btn>
             </div>}
         </div>
@@ -451,7 +451,7 @@ const DeletePetModal=({dog,onConfirm,onClose})=>{
             <div style={{fontSize:14,color:"#5A4535",lineHeight:1.7,marginBottom:16}}>
               Type <b>{dog.name}</b> below to confirm deletion.
             </div>
-            <input
+            <input maxLength={150}
               value={typing}
               onChange={e=>setTyping(e.target.value)}
               placeholder={`Type "${dog.name}" to confirm`}
@@ -569,17 +569,17 @@ const DogForm=({dog,userId,userEmail,onSave,onClose})=>{
             ))}
           </div>
         </div>
-        <Field label="Name" col="1/-1"><input value={f.name} onChange={e=>set("name",e.target.value)} placeholder="Buddy"/></Field>
-        <Field label="Breed"><input value={f.breed} onChange={e=>set("breed",e.target.value)} placeholder="Golden Retriever"/></Field>
+        <Field label="Name" col="1/-1"><input maxLength={150} value={f.name} onChange={e=>set("name",e.target.value)} placeholder="Buddy"/></Field>
+        <Field label="Breed"><input maxLength={150} value={f.breed} onChange={e=>set("breed",e.target.value)} placeholder="Golden Retriever"/></Field>
         <Field label="Date of Birth"><input type="date" value={f.dob} onChange={e=>set("dob",e.target.value)}/></Field>
         <Field label="Weight (lbs)"><input type="number" value={f.weight} onChange={e=>set("weight",e.target.value)}/></Field>
-        <Field label="Color"><input value={f.color} onChange={e=>set("color",e.target.value)} placeholder="Golden"/></Field>
+        <Field label="Color"><input maxLength={150} value={f.color} onChange={e=>set("color",e.target.value)} placeholder="Golden"/></Field>
         <Field label="Gender"><select value={f.gender} onChange={e=>set("gender",e.target.value)}><option value="male">Male</option><option value="female">Female</option></select></Field>
         <Field label="Neutered/Spayed"><select value={f.neutered?"yes":"no"} onChange={e=>set("neutered",e.target.value==="yes")}><option value="no">No</option><option value="yes">Yes</option></select></Field>
-        <Field label="Microchip ID" col="1/-1"><input value={f.microchip} onChange={e=>set("microchip",e.target.value)} placeholder="985..."/></Field>
+        <Field label="Microchip ID" col="1/-1"><input maxLength={150} value={f.microchip} onChange={e=>set("microchip",e.target.value)} placeholder="985..."/></Field>
         <Field label="Emergency Contact" col="1/-1">
           <div style={{display:"flex",gap:8,alignItems:"flex-start"}}>
-            <input value={f.emergencyContact} onChange={e=>set("emergencyContact",e.target.value)} placeholder="Jane Smith" style={{flex:1}}/>
+            <input maxLength={150} value={f.emergencyContact} onChange={e=>set("emergencyContact",e.target.value)} placeholder="Jane Smith" style={{flex:1}}/>
             <button type="button" onClick={async()=>{
               const{data,error:profErr}=await supabase.from("profiles").select("full_name,phone,phone_country_code,whatsapp").eq("id",userId).single();
               if(profErr)console.error("Failed to load profile contact info:",profErr);
@@ -595,14 +595,14 @@ const DogForm=({dog,userId,userEmail,onSave,onClose})=>{
           </select>
         </Field>
         <Field label="Emergency Phone Number">
-          <input value={f.emergencyPhone} onChange={e=>set("emergencyPhone",e.target.value)} placeholder="555-0100"/>
+          <input maxLength={150} value={f.emergencyPhone} onChange={e=>set("emergencyPhone",e.target.value)} placeholder="555-0100"/>
         </Field>
         <Field label="Emergency WhatsApp" col="1/-1">
           <div style={{display:"flex",gap:8}}>
             <select value={f.emergencyWhatsappCode||"+1"} onChange={e=>set("emergencyWhatsappCode",e.target.value)} style={{width:"auto",flexShrink:0}}>
               {COUNTRY_CODES.map(c=><option key={c.code} value={c.code}>{c.flag} {c.code}</option>)}
             </select>
-            <input value={f.emergencyWhatsapp||""} onChange={e=>set("emergencyWhatsapp",e.target.value)} placeholder="WhatsApp number (if different)"/>
+            <input maxLength={150} value={f.emergencyWhatsapp||""} onChange={e=>set("emergencyWhatsapp",e.target.value)} placeholder="WhatsApp number (if different)"/>
           </div>
         </Field>
       </div>
@@ -627,7 +627,7 @@ const DogForm=({dog,userId,userEmail,onSave,onClose})=>{
           </div>
         )}
       </div>
-      <Field label="Notes"><textarea value={f.notes} onChange={e=>set("notes",e.target.value)} rows={2}/></Field>
+      <Field label="Notes"><textarea maxLength={1000} value={f.notes} onChange={e=>set("notes",e.target.value)} rows={2}/></Field>
       <div style={{display:"flex",gap:10,marginTop:4}}><Btn v="secondary" onClick={onClose} full>Cancel</Btn><Btn onClick={save} disabled={saving} full>{saving?"Saving...":"Save Pet"}</Btn></div>
     </div>
   </Modal>);
@@ -653,16 +653,16 @@ const VaccineForm=({vacc,dogId,species,userId,onSave,onClose})=>{
   return(<Modal title={vacc?"Edit Vaccination":"Record Vaccination"} onClose={onClose}>
     <div style={{display:"flex",flexDirection:"column",gap:12}}>
       <Field label="Select Vaccine"><select value={f.name} onChange={e=>{const found=all.find(v=>v.name===e.target.value);setF(p=>({...p,name:e.target.value,type:coreList.find(v=>v.name===e.target.value)?"core":"optional",durationMonths:found?found.dur:p.durationMonths}));}}><option value="">— Select or enter below —</option><optgroup label="Core (Required)">{coreList.map(v=><option key={v.name} value={v.name}>{v.name}</option>)}</optgroup><optgroup label="Optional">{optList.map(v=><option key={v.name} value={v.name}>{v.name}</option>)}</optgroup></select></Field>
-      <Field label="Custom Name"><input value={f.name} onChange={e=>set("name",e.target.value)} placeholder="Vaccine name"/></Field>
+      <Field label="Custom Name"><input maxLength={150} value={f.name} onChange={e=>set("name",e.target.value)} placeholder="Vaccine name"/></Field>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
         <Field label="Type"><select value={f.type} onChange={e=>set("type",e.target.value)}><option value="core">Core</option><option value="optional">Optional</option></select></Field>
         <Field label="Duration (months)"><input type="number" value={f.durationMonths} onChange={e=>set("durationMonths",e.target.value)}/></Field>
         <Field label="Date Given"><input type="date" value={f.dateGiven} onChange={e=>set("dateGiven",e.target.value)}/></Field>
         <Field label="Next Due (auto)"><input type="date" value={f.nextDue} onChange={e=>set("nextDue",e.target.value)} style={{borderColor:"#2D7D6F66"}}/></Field>
-        <Field label="Lot #"><input value={f.lotNumber} onChange={e=>set("lotNumber",e.target.value)} placeholder="ABC123"/></Field>
-        <Field label="Vet"><input value={f.vetName} onChange={e=>set("vetName",e.target.value)} placeholder="Dr. Smith"/></Field>
+        <Field label="Lot #"><input maxLength={150} value={f.lotNumber} onChange={e=>set("lotNumber",e.target.value)} placeholder="ABC123"/></Field>
+        <Field label="Vet"><input maxLength={150} value={f.vetName} onChange={e=>set("vetName",e.target.value)} placeholder="Dr. Smith"/></Field>
       </div>
-      <Field label="Notes"><textarea value={f.notes} onChange={e=>set("notes",e.target.value)} rows={2}/></Field>
+      <Field label="Notes"><textarea maxLength={1000} value={f.notes} onChange={e=>set("notes",e.target.value)} rows={2}/></Field>
       <div style={{display:"flex",gap:10}}><Btn v="secondary" onClick={onClose} full>Cancel</Btn><Btn onClick={save} disabled={saving} full>{saving?"Saving...":"Save"}</Btn></div>
     </div>
   </Modal>);
@@ -684,16 +684,16 @@ const MedForm=({med,dogId,userId,onSave,onClose})=>{
   return(<Modal title={med?"Edit Medication":"Add Medication"} onClose={onClose}>
     <div style={{display:"flex",flexDirection:"column",gap:12}}>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-        <Field label="Name" col="1/-1"><input value={f.name} onChange={e=>set("name",e.target.value)} placeholder="Heartgard Plus"/></Field>
-        <Field label="Dosage"><input value={f.dosage} onChange={e=>set("dosage",e.target.value)} placeholder="25mg"/></Field>
-        <Field label="Frequency"><input value={f.frequency} onChange={e=>set("frequency",e.target.value)} placeholder="Once daily"/></Field>
+        <Field label="Name" col="1/-1"><input maxLength={150} value={f.name} onChange={e=>set("name",e.target.value)} placeholder="Heartgard Plus"/></Field>
+        <Field label="Dosage"><input maxLength={150} value={f.dosage} onChange={e=>set("dosage",e.target.value)} placeholder="25mg"/></Field>
+        <Field label="Frequency"><input maxLength={150} value={f.frequency} onChange={e=>set("frequency",e.target.value)} placeholder="Once daily"/></Field>
         <Field label="Start Date"><input type="date" value={f.startDate} onChange={e=>set("startDate",e.target.value)}/></Field>
         <Field label="End Date"><input type="date" value={f.endDate} onChange={e=>set("endDate",e.target.value)}/></Field>
-        <Field label="Prescribing Vet" col="1/-1"><input value={f.prescribingVet} onChange={e=>set("prescribingVet",e.target.value)}/></Field>
-        <Field label="Reason" col="1/-1"><input value={f.reason} onChange={e=>set("reason",e.target.value)} placeholder="Heartworm prevention"/></Field>
+        <Field label="Prescribing Vet" col="1/-1"><input maxLength={150} value={f.prescribingVet} onChange={e=>set("prescribingVet",e.target.value)}/></Field>
+        <Field label="Reason" col="1/-1"><input maxLength={150} value={f.reason} onChange={e=>set("reason",e.target.value)} placeholder="Heartworm prevention"/></Field>
         <Field label="Status"><select value={f.active?"active":"inactive"} onChange={e=>set("active",e.target.value==="active")}><option value="active">Active</option><option value="inactive">Completed</option></select></Field>
       </div>
-      <Field label="Notes"><textarea value={f.notes} onChange={e=>set("notes",e.target.value)} rows={2}/></Field>
+      <Field label="Notes"><textarea maxLength={1000} value={f.notes} onChange={e=>set("notes",e.target.value)} rows={2}/></Field>
       <div style={{display:"flex",gap:10}}><Btn v="secondary" onClick={onClose} full>Cancel</Btn><Btn onClick={save} disabled={saving} full>{saving?"Saving...":"Save"}</Btn></div>
     </div>
   </Modal>);
@@ -715,12 +715,12 @@ const AllergyForm=({allergy,dogId,userId,onSave,onClose})=>{
   return(<Modal title={allergy?"Edit Allergy":"Add Allergy"} onClose={onClose}>
     <div style={{display:"flex",flexDirection:"column",gap:12}}>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-        <Field label="Allergen" col="1/-1"><input value={f.allergen} onChange={e=>set("allergen",e.target.value)} placeholder="Chicken, pollen..."/></Field>
-        <Field label="Reaction" col="1/-1"><input value={f.reaction} onChange={e=>set("reaction",e.target.value)} placeholder="Skin rash, vomiting..."/></Field>
+        <Field label="Allergen" col="1/-1"><input maxLength={150} value={f.allergen} onChange={e=>set("allergen",e.target.value)} placeholder="Chicken, pollen..."/></Field>
+        <Field label="Reaction" col="1/-1"><input maxLength={150} value={f.reaction} onChange={e=>set("reaction",e.target.value)} placeholder="Skin rash, vomiting..."/></Field>
         <Field label="Severity"><select value={f.severity} onChange={e=>set("severity",e.target.value)}><option value="mild">Mild</option><option value="moderate">Moderate</option><option value="severe">Severe</option></select></Field>
         <Field label="Date Discovered"><input type="date" value={f.dateDiscovered} onChange={e=>set("dateDiscovered",e.target.value)}/></Field>
       </div>
-      <Field label="Notes"><textarea value={f.notes} onChange={e=>set("notes",e.target.value)} rows={2}/></Field>
+      <Field label="Notes"><textarea maxLength={1000} value={f.notes} onChange={e=>set("notes",e.target.value)} rows={2}/></Field>
       <div style={{display:"flex",gap:10}}><Btn v="secondary" onClick={onClose} full>Cancel</Btn><Btn onClick={save} disabled={saving} full>{saving?"Saving...":"Save"}</Btn></div>
     </div>
   </Modal>);
@@ -743,14 +743,14 @@ const VisitForm=({visit,dogId,userId,onSave,onClose})=>{
     <div style={{display:"flex",flexDirection:"column",gap:12}}>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
         <Field label="Date" col="1/-1"><input type="date" value={f.date} onChange={e=>set("date",e.target.value)}/></Field>
-        <Field label="Vet Name"><input value={f.vetName} onChange={e=>set("vetName",e.target.value)} placeholder="Dr. Williams"/></Field>
-        <Field label="Clinic"><input value={f.clinic} onChange={e=>set("clinic",e.target.value)} placeholder="Sunrise Animal Hospital"/></Field>
-        <Field label="Reason" col="1/-1"><input value={f.reason} onChange={e=>set("reason",e.target.value)} placeholder="Annual checkup, illness..."/></Field>
-        <Field label="Diagnosis" col="1/-1"><input value={f.diagnosis} onChange={e=>set("diagnosis",e.target.value)}/></Field>
-        <Field label="Treatment" col="1/-1"><input value={f.treatment} onChange={e=>set("treatment",e.target.value)}/></Field>
+        <Field label="Vet Name"><input maxLength={150} value={f.vetName} onChange={e=>set("vetName",e.target.value)} placeholder="Dr. Williams"/></Field>
+        <Field label="Clinic"><input maxLength={150} value={f.clinic} onChange={e=>set("clinic",e.target.value)} placeholder="Sunrise Animal Hospital"/></Field>
+        <Field label="Reason" col="1/-1"><input maxLength={150} value={f.reason} onChange={e=>set("reason",e.target.value)} placeholder="Annual checkup, illness..."/></Field>
+        <Field label="Diagnosis" col="1/-1"><input maxLength={150} value={f.diagnosis} onChange={e=>set("diagnosis",e.target.value)}/></Field>
+        <Field label="Treatment" col="1/-1"><input maxLength={150} value={f.treatment} onChange={e=>set("treatment",e.target.value)}/></Field>
         <Field label="Cost ($)"><input type="number" value={f.cost} onChange={e=>set("cost",e.target.value)}/></Field>
       </div>
-      <Field label="Notes"><textarea value={f.notes} onChange={e=>set("notes",e.target.value)} rows={2}/></Field>
+      <Field label="Notes"><textarea maxLength={1000} value={f.notes} onChange={e=>set("notes",e.target.value)} rows={2}/></Field>
       <div style={{display:"flex",gap:10}}><Btn v="secondary" onClick={onClose} full>Cancel</Btn><Btn onClick={save} disabled={saving} full>{saving?"Saving...":"Save"}</Btn></div>
     </div>
   </Modal>);
@@ -824,7 +824,7 @@ const EmailRecordModal=({dog,state,userEmail,onClose})=>{
           <input type="email" value={recipientEmail} onChange={e=>setRecipientEmail(e.target.value)} placeholder="vet@clinic.com" autoComplete="off"/>
         </Field>
         <Field label="Note (optional)">
-          <input value={note} onChange={e=>setNote(e.target.value)} placeholder="e.g. Here's Biscuit's records ahead of check-in"/>
+          <input maxLength={150} value={note} onChange={e=>setNote(e.target.value)} placeholder="e.g. Here's Biscuit's records ahead of check-in"/>
         </Field>
         {err&&<div style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:10,padding:"10px 14px",fontSize:13,color:"#C4714A"}}>{err}</div>}
         <div style={{display:"flex",gap:10}}>
@@ -1473,7 +1473,7 @@ const VaccinesTab=({dog,state,dispatch,userId,tier,onUpgrade})=>{
       <Btn sm onClick={()=>setModal({type:"add"})}><Ic n="plus" s={14}/> Add</Btn>
     </div>
     {vaccines.length>2&&(
-      <input value={filter} onChange={e=>setFilter(e.target.value)} placeholder="Search vaccines..."
+      <input maxLength={150} value={filter} onChange={e=>setFilter(e.target.value)} placeholder="Search vaccines..."
         style={{background:"#FAF6F0",border:"1.5px solid #E8DDD0",borderRadius:10,padding:"9px 14px",fontSize:14,color:"#2C2017",outline:"none",fontFamily:"'Nunito',sans-serif"}}/>
     )}
     {vaccines.length===0
@@ -1615,7 +1615,7 @@ const RecordsTab=({dog,state,dispatch,userId})=>{
     </div>
 
     {visits.length>2&&(
-      <input value={filter} onChange={e=>setFilter(e.target.value)} placeholder="Search visits by reason, vet, or diagnosis..."
+      <input maxLength={150} value={filter} onChange={e=>setFilter(e.target.value)} placeholder="Search visits by reason, vet, or diagnosis..."
         style={{background:"#FAF6F0",border:"1.5px solid #E8DDD0",borderRadius:10,padding:"9px 14px",fontSize:14,color:"#2C2017",outline:"none",fontFamily:"'Nunito',sans-serif"}}/>
     )}
 
@@ -1679,11 +1679,11 @@ const VetForm=({userId,onSave,onClose})=>{
   return(
     <Modal title="Save Vet Contact" onClose={onClose}>
       <div style={{display:"flex",flexDirection:"column",gap:12}} autoComplete="off">
-        <Field label="Vet Name *"><input autoComplete="off" style={inp} value={vf.name} onChange={e=>set("name",e.target.value)} placeholder="Dr. Johnson"/></Field>
-        <Field label="Clinic"><input autoComplete="off" style={inp} value={vf.clinic} onChange={e=>set("clinic",e.target.value)} placeholder="City Animal Hospital"/></Field>
-        <Field label="Phone"><input autoComplete="off" style={inp} value={vf.phone} onChange={e=>set("phone",e.target.value)} placeholder="(305) 555-0100"/></Field>
-        <Field label="Email"><input autoComplete="off" style={inp} value={vf.email} onChange={e=>set("email",e.target.value)} placeholder="vet@clinic.com"/></Field>
-        <Field label="Address"><input autoComplete="off" style={inp} value={vf.address} onChange={e=>set("address",e.target.value)} placeholder="123 Main St, Miami, FL"/></Field>
+        <Field label="Vet Name *"><input maxLength={150} autoComplete="off" style={inp} value={vf.name} onChange={e=>set("name",e.target.value)} placeholder="Dr. Johnson"/></Field>
+        <Field label="Clinic"><input maxLength={150} autoComplete="off" style={inp} value={vf.clinic} onChange={e=>set("clinic",e.target.value)} placeholder="City Animal Hospital"/></Field>
+        <Field label="Phone"><input maxLength={150} autoComplete="off" style={inp} value={vf.phone} onChange={e=>set("phone",e.target.value)} placeholder="(305) 555-0100"/></Field>
+        <Field label="Email"><input maxLength={150} autoComplete="off" style={inp} value={vf.email} onChange={e=>set("email",e.target.value)} placeholder="vet@clinic.com"/></Field>
+        <Field label="Address"><input maxLength={150} autoComplete="off" style={inp} value={vf.address} onChange={e=>set("address",e.target.value)} placeholder="123 Main St, Miami, FL"/></Field>
         <div style={{display:"flex",gap:10}}>
           <Btn v="secondary" onClick={onClose} full>Cancel</Btn>
           <Btn onClick={save} disabled={saving||!vf.name} full>{saving?"Saving...":"Save Vet"}</Btn>
@@ -1720,7 +1720,7 @@ const WeightLogModal=({userId,dog,dispatch,onClose})=>{
     <div style={{display:"flex",flexDirection:"column",gap:12}}>
       <Field label="Date"><input type="date" value={wf.date} onChange={e=>setWf(p=>({...p,date:e.target.value}))}/></Field>
       <Field label="Weight (lbs)"><input type="number" step="0.1" value={wf.weight} onChange={e=>setWf(p=>({...p,weight:e.target.value}))} placeholder="55.2"/></Field>
-      <Field label="Notes (optional)"><input value={wf.notes} onChange={e=>setWf(p=>({...p,notes:e.target.value}))} placeholder="After vet visit"/></Field>
+      <Field label="Notes (optional)"><input maxLength={150} value={wf.notes} onChange={e=>setWf(p=>({...p,notes:e.target.value}))} placeholder="After vet visit"/></Field>
       {err&&<div style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:10,padding:"10px 14px",fontSize:13,color:"#C4714A"}}>{err}</div>}
       <div style={{display:"flex",gap:10}}>
         <Btn v="secondary" onClick={onClose} full>Cancel</Btn>
@@ -2074,14 +2074,14 @@ const OwnerProfileModal=({userId,tier,userEmail,onUpgrade,onClose})=>{
           <input ref={profPhotoRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=ev=>set("photo",ev.target.result);r.readAsDataURL(file);}}/>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-          <Field label="Full Name" col="1/-1"><input value={f.fullName} onChange={e=>set("fullName",e.target.value)} placeholder="Jane Smith"/></Field>
+          <Field label="Full Name" col="1/-1"><input maxLength={150} value={f.fullName} onChange={e=>set("fullName",e.target.value)} placeholder="Jane Smith"/></Field>
           <Field label="Phone Country Code">
             <select value={f.phoneCode} onChange={e=>set("phoneCode",e.target.value)}>
               {COUNTRY_CODES.map(c=><option key={c.code} value={c.code}>{c.flag} {c.name} ({c.code})</option>)}
             </select>
           </Field>
           <Field label="Phone Number">
-            <input value={f.phone} onChange={e=>set("phone",e.target.value)} placeholder="555-0100"/>
+            <input maxLength={150} value={f.phone} onChange={e=>set("phone",e.target.value)} placeholder="555-0100"/>
           </Field>
           <Field label="WhatsApp Country Code">
             <select value={f.whatsappCode} onChange={e=>set("whatsappCode",e.target.value)}>
@@ -2089,19 +2089,19 @@ const OwnerProfileModal=({userId,tier,userEmail,onUpgrade,onClose})=>{
             </select>
           </Field>
           <Field label="WhatsApp Number">
-            <input value={f.whatsapp} onChange={e=>set("whatsapp",e.target.value)} placeholder="Same or different number"/>
+            <input maxLength={150} value={f.whatsapp} onChange={e=>set("whatsapp",e.target.value)} placeholder="Same or different number"/>
           </Field>
-          <Field label="Country"><input value={f.country} onChange={e=>set("country",e.target.value)} placeholder="United States"/></Field>
-          <Field label="Address" col="1/-1"><input value={f.address} onChange={e=>set("address",e.target.value)} placeholder="123 Main St"/></Field>
-          <Field label="City"><input value={f.city} onChange={e=>set("city",e.target.value)} placeholder="Miami"/></Field>
-          <Field label="ZIP / Postal Code"><input value={f.zip||""} onChange={e=>set("zip",e.target.value)} placeholder="33101"/></Field>
+          <Field label="Country"><input maxLength={150} value={f.country} onChange={e=>set("country",e.target.value)} placeholder="United States"/></Field>
+          <Field label="Address" col="1/-1"><input maxLength={150} value={f.address} onChange={e=>set("address",e.target.value)} placeholder="123 Main St"/></Field>
+          <Field label="City"><input maxLength={150} value={f.city} onChange={e=>set("city",e.target.value)} placeholder="Miami"/></Field>
+          <Field label="ZIP / Postal Code"><input maxLength={150} value={f.zip||""} onChange={e=>set("zip",e.target.value)} placeholder="33101"/></Field>
           <Field label="State/Province" col="1/-1">
             {f.country===""||f.country==="United States"||f.country==="USA"||f.country==="US"
               ?<select value={f.state} onChange={e=>set("state",e.target.value)}>
                 <option value="">Select state...</option>
                 {US_STATES.map(s=><option key={s} value={s}>{s}</option>)}
               </select>
-              :<input value={f.state} onChange={e=>set("state",e.target.value)} placeholder="State / Province / Region"/>}
+              :<input maxLength={150} value={f.state} onChange={e=>set("state",e.target.value)} placeholder="State / Province / Region"/>}
           </Field>
         </div>
       </div>
@@ -2109,9 +2109,9 @@ const OwnerProfileModal=({userId,tier,userEmail,onUpgrade,onClose})=>{
       <div>
         <div style={{fontWeight:800,fontSize:12,color:"#5A4535",textTransform:"uppercase",letterSpacing:".08em",marginBottom:12}}>📱 Social Media</div>
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
-          <div style={{display:"flex",alignItems:"center",gap:10}}><span style={{fontSize:20,width:28}}>📸</span><input value={f.instagram} onChange={e=>set("instagram",e.target.value)} placeholder="Instagram (@yourhandle)"/></div>
-          <div style={{display:"flex",alignItems:"center",gap:10}}><span style={{fontSize:20,width:28}}>👤</span><input value={f.facebook} onChange={e=>set("facebook",e.target.value)} placeholder="Facebook profile URL"/></div>
-          <div style={{display:"flex",alignItems:"center",gap:10}}><span style={{fontSize:20,width:28}}>🐦</span><input value={f.twitter} onChange={e=>set("twitter",e.target.value)} placeholder="X/Twitter (@yourhandle)"/></div>
+          <div style={{display:"flex",alignItems:"center",gap:10}}><span style={{fontSize:20,width:28}}>📸</span><input maxLength={150} value={f.instagram} onChange={e=>set("instagram",e.target.value)} placeholder="Instagram (@yourhandle)"/></div>
+          <div style={{display:"flex",alignItems:"center",gap:10}}><span style={{fontSize:20,width:28}}>👤</span><input maxLength={150} value={f.facebook} onChange={e=>set("facebook",e.target.value)} placeholder="Facebook profile URL"/></div>
+          <div style={{display:"flex",alignItems:"center",gap:10}}><span style={{fontSize:20,width:28}}>🐦</span><input maxLength={150} value={f.twitter} onChange={e=>set("twitter",e.target.value)} placeholder="X/Twitter (@yourhandle)"/></div>
         </div>
       </div>
       <div style={{background:"#FAF6F0",borderRadius:12,padding:"14px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
@@ -2143,21 +2143,21 @@ const OwnerProfileModal=({userId,tier,userEmail,onUpgrade,onClose})=>{
         </div>))}
         {addingContact&&(<div style={{background:"#FAF6F0",border:"1.5px solid #2D7D6F44",borderRadius:12,padding:16,marginTop:8}}>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
-            <Field label="Name" col="1/-1"><input value={newContact.name} onChange={e=>setNewContact(p=>({...p,name:e.target.value}))} placeholder="Jane Doe"/></Field>
+            <Field label="Name" col="1/-1"><input maxLength={150} value={newContact.name} onChange={e=>setNewContact(p=>({...p,name:e.target.value}))} placeholder="Jane Doe"/></Field>
             <Field label="Phone Code">
               <select value={newContact.phoneCode||"+1"} onChange={e=>setNewContact(p=>({...p,phoneCode:e.target.value}))}>
                 {COUNTRY_CODES.map(c=><option key={c.code} value={c.code}>{c.flag} {c.code}</option>)}
               </select>
             </Field>
-            <Field label="Phone Number"><input value={newContact.phone} onChange={e=>setNewContact(p=>({...p,phone:e.target.value}))} placeholder="555-0100"/></Field>
-            <Field label="Relationship"><input value={newContact.relationship} onChange={e=>setNewContact(p=>({...p,relationship:e.target.value}))} placeholder="Sister, Vet, Friend"/></Field>
+            <Field label="Phone Number"><input maxLength={150} value={newContact.phone} onChange={e=>setNewContact(p=>({...p,phone:e.target.value}))} placeholder="555-0100"/></Field>
+            <Field label="Relationship"><input maxLength={150} value={newContact.relationship} onChange={e=>setNewContact(p=>({...p,relationship:e.target.value}))} placeholder="Sister, Vet, Friend"/></Field>
             <Field label="WhatsApp Code">
               <select value={newContact.whatsappCode||"+1"} onChange={e=>setNewContact(p=>({...p,whatsappCode:e.target.value}))}>
                 {COUNTRY_CODES.map(c=><option key={c.code} value={c.code}>{c.flag} {c.code}</option>)}
               </select>
             </Field>
-            <Field label="WhatsApp"><input value={newContact.whatsapp||""} onChange={e=>setNewContact(p=>({...p,whatsapp:e.target.value}))} placeholder="WhatsApp number"/></Field>
-            <Field label="Email" col="1/-1"><input value={newContact.email} onChange={e=>setNewContact(p=>({...p,email:e.target.value}))} placeholder="jane@email.com"/></Field>
+            <Field label="WhatsApp"><input maxLength={150} value={newContact.whatsapp||""} onChange={e=>setNewContact(p=>({...p,whatsapp:e.target.value}))} placeholder="WhatsApp number"/></Field>
+            <Field label="Email" col="1/-1"><input maxLength={150} value={newContact.email} onChange={e=>setNewContact(p=>({...p,email:e.target.value}))} placeholder="jane@email.com"/></Field>
           </div>
           <div style={{display:"flex",gap:8}}><Btn v="secondary" sm onClick={()=>setAddingContact(false)} full>Cancel</Btn><Btn sm onClick={addContact} full>Save Contact</Btn></div>
         </div>)}
