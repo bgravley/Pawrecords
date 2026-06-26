@@ -432,13 +432,13 @@ const TripForm = ({ trip, userId, dogs, onSave, onClose }) => {
     <Modal title={trip ? "Edit Trip" : "Plan New Trip"} onClose={onClose} wide>
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         <Field label="Trip Name (optional)">
-          <input style={inp} value={f.name} onChange={e => set("name", e.target.value)} placeholder="e.g. Panama to Miami Summer 2026" />
+          <input maxLength={150} style={inp} value={f.name} onChange={e => set("name", e.target.value)} placeholder="e.g. Panama to Miami Summer 2026" />
         </Field>
 
         <div style={{ background: C.bg, borderRadius: 12, padding: 16 }}>
           <div style={{ fontWeight: 800, fontSize: 12, color: C.sub, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 12 }}>📍 Origin</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <Field label="City"><input style={inp} value={f.originCity} onChange={e => set("originCity", e.target.value)} placeholder="Panama City" /></Field>
+            <Field label="City"><input maxLength={150} style={inp} value={f.originCity} onChange={e => set("originCity", e.target.value)} placeholder="Panama City" /></Field>
             <Field label="Country">
               <select style={{...inp, appearance:"none"}} value={f.originCountry} onChange={e => set("originCountry", e.target.value)}>
                 <option value="">Select country...</option>
@@ -451,7 +451,7 @@ const TripForm = ({ trip, userId, dogs, onSave, onClose }) => {
         <div style={{ background: C.bg, borderRadius: 12, padding: 16 }}>
           <div style={{ fontWeight: 800, fontSize: 12, color: C.sub, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 12 }}>🛬 Destination</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <Field label="City"><input style={inp} value={f.destinationCity} onChange={e => set("destinationCity", e.target.value)} placeholder="Miami" /></Field>
+            <Field label="City"><input maxLength={150} style={inp} value={f.destinationCity} onChange={e => set("destinationCity", e.target.value)} placeholder="Miami" /></Field>
             <Field label="Country">
               <select style={{...inp, appearance:"none"}} value={f.destinationCountry} onChange={e => set("destinationCountry", e.target.value)}>
                 <option value="">Select country...</option>
@@ -482,21 +482,21 @@ const TripForm = ({ trip, userId, dogs, onSave, onClose }) => {
         {f.transportationType === "air" && (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <Field label="Airline (optional)">
-              <input style={inp} value={f.airline} onChange={e => set("airline", e.target.value)} placeholder="e.g. Copa Airlines" />
+              <input maxLength={150} style={inp} value={f.airline} onChange={e => set("airline", e.target.value)} placeholder="e.g. Copa Airlines" />
             </Field>
             <Field label="Flight Number (optional)">
-              <input style={inp} value={f.flightNumber || ""} onChange={e => set("flightNumber", e.target.value)} placeholder="CM205" autoCapitalize="characters" />
+              <input maxLength={150} style={inp} value={f.flightNumber || ""} onChange={e => set("flightNumber", e.target.value)} placeholder="CM205" autoCapitalize="characters" />
             </Field>
           </div>
         )}
         {f.transportationType === "sea" && (
           <Field label="Cruise Line / Ferry Company (optional)">
-            <input style={inp} value={f.airline} onChange={e => set("airline", e.target.value)} placeholder="e.g. Royal Caribbean" />
+            <input maxLength={150} style={inp} value={f.airline} onChange={e => set("airline", e.target.value)} placeholder="e.g. Royal Caribbean" />
           </Field>
         )}
         {f.transportationType === "bus" && (
           <Field label="Bus Company (optional)">
-            <input style={inp} value={f.airline} onChange={e => set("airline", e.target.value)} placeholder="e.g. Greyhound" />
+            <input maxLength={150} style={inp} value={f.airline} onChange={e => set("airline", e.target.value)} placeholder="e.g. Greyhound" />
           </Field>
         )}
 
@@ -518,7 +518,7 @@ const TripForm = ({ trip, userId, dogs, onSave, onClose }) => {
         </div>
 
         <Field label="Notes">
-          <textarea style={{ ...inp, minHeight: 60 }} value={f.notes} onChange={e => set("notes", e.target.value)} placeholder="Any special notes about this trip..." />
+          <textarea maxLength={1000} style={{ ...inp, minHeight: 60 }} value={f.notes} onChange={e => set("notes", e.target.value)} placeholder="Any special notes about this trip..." />
         </Field>
 
         {saveError && (
@@ -928,7 +928,7 @@ ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.i
             <div style={{ fontSize: 13, color: "#5A4535", marginBottom: 8 }}>
               Type <strong>{trip.origin_city}</strong> to confirm:
             </div>
-            <input
+            <input maxLength={150}
               value={deleteConfirmText}
               onChange={e => setDeleteConfirmText(e.target.value)}
               placeholder={trip.origin_city}
@@ -1115,15 +1115,15 @@ ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.i
       {showAddItem && (
         <Modal title="Add Requirement" onClose={() => setShowAddItem(false)}>
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <Field label="Title"><input style={inp} value={newItem.title} onChange={e => setNewItem(p => ({ ...p, title: e.target.value }))} placeholder="e.g. Health Certificate" /></Field>
+            <Field label="Title"><input maxLength={150} style={inp} value={newItem.title} onChange={e => setNewItem(p => ({ ...p, title: e.target.value }))} placeholder="e.g. Health Certificate" /></Field>
             <Field label="Category">
               <select style={inp} value={newItem.category} onChange={e => setNewItem(p => ({ ...p, category: e.target.value }))}>
                 {categories.map(c => <option key={c} value={c}>{c.replace(/_/g, ' ')}</option>)}
               </select>
             </Field>
-            <Field label="Description"><textarea style={{ ...inp, minHeight: 60 }} value={newItem.description} onChange={e => setNewItem(p => ({ ...p, description: e.target.value }))} /></Field>
+            <Field label="Description"><textarea maxLength={1000} style={{ ...inp, minHeight: 60 }} value={newItem.description} onChange={e => setNewItem(p => ({ ...p, description: e.target.value }))} /></Field>
             <Field label="Deadline Date"><input style={inp} type="date" value={newItem.deadline_date} onChange={e => setNewItem(p => ({ ...p, deadline_date: e.target.value }))} /></Field>
-            <Field label="Notes / Warnings"><input style={inp} value={newItem.notes} onChange={e => setNewItem(p => ({ ...p, notes: e.target.value }))} /></Field>
+            <Field label="Notes / Warnings"><input maxLength={150} style={inp} value={newItem.notes} onChange={e => setNewItem(p => ({ ...p, notes: e.target.value }))} /></Field>
             <div style={{ display: "flex", gap: 10 }}>
               <Btn v="secondary" onClick={() => setShowAddItem(false)} full>Cancel</Btn>
               <Btn onClick={addManualItem} full>Add Requirement</Btn>
@@ -1136,8 +1136,8 @@ ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.i
         <Modal title="Upload Entry Document" onClose={() => setShowUploadEntry(false)}>
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <p style={{ color: C.sub, fontSize: 14 }}>Upload forms received on arrival — entry permits, import receipts, border stamps, etc.</p>
-            <Field label="Document Name"><input style={inp} value={entryDoc.name} onChange={e => setEntryDoc(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Panama Import Receipt" /></Field>
-            <Field label="Notes"><input style={inp} value={entryDoc.notes} onChange={e => setEntryDoc(p => ({ ...p, notes: e.target.value }))} /></Field>
+            <Field label="Document Name"><input maxLength={150} style={inp} value={entryDoc.name} onChange={e => setEntryDoc(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Panama Import Receipt" /></Field>
+            <Field label="Notes"><input maxLength={150} style={inp} value={entryDoc.notes} onChange={e => setEntryDoc(p => ({ ...p, notes: e.target.value }))} /></Field>
             <input ref={fr} type="file" accept="image/*,.pdf" style={{ display: "none" }} onChange={e => setEntryDoc(p => ({ ...p, file: e.target.files[0] }))} />
             <input ref={cameraRef} type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={e => setEntryDoc(p => ({ ...p, file: e.target.files[0] }))} />
             {entryDoc.file ? (
