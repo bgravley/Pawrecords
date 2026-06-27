@@ -1,0 +1,37 @@
+# YourPetPass
+
+> YourPetPass is a pet health records and travel planning app for dog and cat parents.
+> It stores vaccination history, vet visit records, allergies, and medications
+> in one place, generates AI-powered travel requirement checklists for flying
+> , driving, or any trip with a dog or cat, scans vet documents automatically using AI, and
+> provides a QR-code emergency health card.
+
+YourPetPass is built for dog and cat parents who:
+- See multiple veterinarians across different cities or after relocating
+- Travel domestically or internationally with their dog or cat
+- Board, use daycare, or use pet-sitting services and need to share health records quickly
+- Want a single source of truth for their pet's health history
+
+## Key Features
+
+- Health records: vaccines, vet visits, allergies, medications — tied to the pet, not a single clinic
+- AI document scanning: photograph any vet record or vaccine card to auto-extract and save data
+- AI travel checklists: route-specific requirements for flying, driving, or any trip with a dog or cat, including health certificates and airline pet policies
+- QR emergency health card: a public, no-login page for sitters, boarding facilities, or lost-pet situations
+- Export and share: generate a complete health summary and email it to a vet, hotel, or daycare
+
+## Pricing
+
+- Free plan: core health record storage
+- Premium Monthly: $4.99/month
+- Premium Annual: $39.99/year
+- Premium Lifetime: $89.99 one-time
+
+Premium unlocks AI document scanning, AI travel checklists, weight tracking, document storage, and the QR emergency health card.
+
+## Links
+
+- Homepage: https://yourpetpass.com
+- Privacy Policy: https://yourpetpass.com/privacy.html
+- Terms of Service: https://yourpetpass.com/terms.html
+- Contact: https://yourpetpass.com/contact.html
