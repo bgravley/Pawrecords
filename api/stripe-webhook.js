@@ -133,7 +133,7 @@ function estimateNet(grossCents) {
 async function linkStripeCustomerToProfile(userId, stripeCustomerId) {
   if (!userId || !stripeCustomerId) return;
   try {
-    await fetch(
+    const r = await fetch(
       `${process.env.SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}`,
       {
         method: 'PATCH',
@@ -146,6 +146,10 @@ async function linkStripeCustomerToProfile(userId, stripeCustomerId) {
         body: JSON.stringify({ stripe_customer_id: stripeCustomerId }),
       }
     );
+    if (!r.ok) {
+      console.error('Failed to link Stripe customer to profile:', r.status, await r.text().catch(() => ''));
+      return;
+    }
     console.log(`Linked Stripe customer ${stripeCustomerId} to profile ${userId}`);
   } catch (e) {
     console.error('Failed to link Stripe customer to profile:', e.message);
@@ -155,17 +159,20 @@ async function linkStripeCustomerToProfile(userId, stripeCustomerId) {
 async function addTravelCredits(userId, creditAmount) {
   if (!userId || !creditAmount) return null;
   try {
-    // Get current balance + email so we can return the email for the receipt
     const profRes = await fetch(
       `${process.env.SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=id,email,travel_credits_balance`,
       { headers: { 'apikey': process.env.SUPABASE_SERVICE_KEY, 'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}` } }
     );
+    if (!profRes.ok) {
+      console.error('Failed to look up profile for travel credits:', profRes.status, await profRes.text().catch(() => ''));
+      return null;
+    }
     const profiles = await profRes.json();
     const profile = profiles?.[0];
     if (!profile) return null;
 
     const newBalance = (profile.travel_credits_balance || 0) + creditAmount;
-    await fetch(`${process.env.SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}`, {
+    const patchRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
@@ -175,6 +182,10 @@ async function addTravelCredits(userId, creditAmount) {
       },
       body: JSON.stringify({ travel_credits_balance: newBalance }),
     });
+    if (!patchRes.ok) {
+      console.error('Failed to save new travel credit balance:', patchRes.status, await patchRes.text().catch(() => ''));
+      return null;
+    }
 
     console.log(`Added ${creditAmount} travel credits to ${profile.email} (new balance: ${newBalance})`);
     return profile;
@@ -184,6 +195,10 @@ async function addTravelCredits(userId, creditAmount) {
   }
 }
 
+// THROWS on failure (rather than silently continuing) so the outer webhook
+// handler's catch block returns a 500 and Stripe retries the delivery —
+// this is billing-critical, a silent no-op here would mean a paying
+// customer's tier never actually updates.
 async function updateUserTier(stripeCustomerId, tier) {
   const searchRes = await fetch(
     `${process.env.SUPABASE_URL}/rest/v1/profiles?stripe_customer_id=eq.${stripeCustomerId}&select=id,email,referral_code_used`,
@@ -194,6 +209,11 @@ async function updateUserTier(stripeCustomerId, tier) {
       }
     }
   );
+  if (!searchRes.ok) {
+    const errText = await searchRes.text().catch(() => '');
+    console.error('Profile lookup by Stripe customer failed:', searchRes.status, errText);
+    throw new Error(`Profile lookup failed for Stripe customer ${stripeCustomerId}`);
+  }
   const profiles = await searchRes.json();
   if (!profiles?.length) {
     console.error('No profile found for Stripe customer:', stripeCustomerId);
@@ -201,7 +221,7 @@ async function updateUserTier(stripeCustomerId, tier) {
   }
 
   const profile = profiles[0];
-  await fetch(
+  const patchRes = await fetch(
     `${process.env.SUPABASE_URL}/rest/v1/profiles?id=eq.${profile.id}`,
     {
       method: 'PATCH',
@@ -214,13 +234,17 @@ async function updateUserTier(stripeCustomerId, tier) {
       body: JSON.stringify({ subscription_tier: tier })
     }
   );
+  if (!patchRes.ok) {
+    const errText = await patchRes.text().catch(() => '');
+    console.error('Tier update failed:', patchRes.status, errText);
+    throw new Error(`Failed to update tier to ${tier} for profile ${profile.id}`);
+  }
 
   console.log(`Updated ${profile.email} to tier: ${tier}`);
-  return profile; // return full profile so we can use it for commission calc
+  return profile;
 }
 
 async function recordCommission({ profile, grossCents, netCents, stripeInvoiceId, periodMonth }) {
-  // Commission is always on NET (after Stripe fees) — never on gross
   if (!profile?.referral_code_used || netCents <= 0) return;
 
   try {
@@ -228,6 +252,10 @@ async function recordCommission({ profile, grossCents, netCents, stripeInvoiceId
       `${process.env.SUPABASE_URL}/rest/v1/affiliates?referral_code=eq.${profile.referral_code_used}&status=eq.active&select=id,commission_rate`,
       { headers: { 'apikey': process.env.SUPABASE_SERVICE_KEY, 'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}` } }
     );
+    if (!affRes.ok) {
+      console.error('Affiliate lookup failed for commission:', affRes.status, await affRes.text().catch(() => ''));
+      return;
+    }
     const affiliates = await affRes.json();
     if (!affiliates?.length) return;
 
@@ -235,7 +263,7 @@ async function recordCommission({ profile, grossCents, netCents, stripeInvoiceId
     const rate = parseFloat(affiliate.commission_rate) || 20;
     const commissionCents = Math.round(netCents * (rate / 100));
 
-    await fetch(`${process.env.SUPABASE_URL}/rest/v1/affiliate_commissions`, {
+    const insertRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/affiliate_commissions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -255,6 +283,10 @@ async function recordCommission({ profile, grossCents, netCents, stripeInvoiceId
         period_month: periodMonth,
       }),
     });
+    if (!insertRes.ok) {
+      console.error('Commission insert failed:', insertRes.status, await insertRes.text().catch(() => ''));
+      return;
+    }
 
     console.log(`Commission: ${rate}% of net $${(netCents/100).toFixed(2)} = $${(commissionCents/100).toFixed(2)} (gross $${(grossCents/100).toFixed(2)})`);
   } catch (e) {
@@ -265,28 +297,37 @@ async function recordCommission({ profile, grossCents, netCents, stripeInvoiceId
 async function recordRefund({ stripeChargeId, stripeCustomerId, refundAmountCents, periodMonth }) {
   if (!refundAmountCents || refundAmountCents <= 0) return;
   try {
-    // Find the original commission using the stripe_payment_id (charge or invoice)
     const commRes = await fetch(
       `${process.env.SUPABASE_URL}/rest/v1/affiliate_commissions?stripe_payment_id=eq.${stripeChargeId}&status=eq.pending&select=*`,
       { headers: { 'apikey': process.env.SUPABASE_SERVICE_KEY, 'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}` } }
     );
+    if (!commRes.ok) {
+      console.error('Commission lookup failed for refund:', commRes.status, await commRes.text().catch(() => ''));
+      return;
+    }
     const commissions = await commRes.json();
 
-    // Look up the user profile for this customer (need referral_code_used)
     const profRes = await fetch(
       `${process.env.SUPABASE_URL}/rest/v1/profiles?stripe_customer_id=eq.${stripeCustomerId}&select=id,referral_code_used`,
       { headers: { 'apikey': process.env.SUPABASE_SERVICE_KEY, 'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}` } }
     );
+    if (!profRes.ok) {
+      console.error('Profile lookup failed for refund:', profRes.status, await profRes.text().catch(() => ''));
+      return;
+    }
     const profiles = await profRes.json();
     const profile = profiles?.[0];
 
-    if (!profile?.referral_code_used) return; // not a referred user
+    if (!profile?.referral_code_used) return;
 
-    // Find affiliate
     const affRes = await fetch(
       `${process.env.SUPABASE_URL}/rest/v1/affiliates?referral_code=eq.${profile.referral_code_used}&select=id,commission_rate`,
       { headers: { 'apikey': process.env.SUPABASE_SERVICE_KEY, 'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}` } }
     );
+    if (!affRes.ok) {
+      console.error('Affiliate lookup failed for refund:', affRes.status, await affRes.text().catch(() => ''));
+      return;
+    }
     const affiliates = await affRes.json();
     if (!affiliates?.length) return;
 
@@ -294,8 +335,7 @@ async function recordRefund({ stripeChargeId, stripeCustomerId, refundAmountCent
     const rate = parseFloat(affiliate.commission_rate) || 20;
     const refundCommissionCents = Math.round(refundAmountCents * (rate / 100));
 
-    // Insert a NEGATIVE commission entry to represent the refund
-    await fetch(`${process.env.SUPABASE_URL}/rest/v1/affiliate_commissions`, {
+    const insertRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/affiliate_commissions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -307,13 +347,17 @@ async function recordRefund({ stripeChargeId, stripeCustomerId, refundAmountCent
         affiliate_id: affiliate.id,
         referred_user_id: profile.id,
         stripe_payment_id: stripeChargeId,
-        payment_amount_cents: -refundAmountCents,   // negative = refund
+        payment_amount_cents: -refundAmountCents,
         commission_rate: rate,
-        commission_amount_cents: -refundCommissionCents, // negative = clawback
+        commission_amount_cents: -refundCommissionCents,
         status: 'refund',
         period_month: periodMonth,
       }),
     });
+    if (!insertRes.ok) {
+      console.error('Refund commission insert failed:', insertRes.status, await insertRes.text().catch(() => ''));
+      return;
+    }
 
     console.log(`Refund recorded: -$${(refundCommissionCents/100).toFixed(2)} clawback for affiliate ${affiliate.id}`);
   } catch (e) {
