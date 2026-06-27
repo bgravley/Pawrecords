@@ -2,6 +2,16 @@
 // Server-side admin data fetcher — uses service role key to bypass RLS
 // Only callable with a valid admin check
 
+async function checkedFetch(url, options, label) {
+  const r = await fetch(url, options);
+  if (!r.ok) {
+    const errText = await r.text().catch(() => '');
+    console.error(`${label} failed (${r.status}):`, errText);
+    throw new Error(`${label} failed (${r.status})`);
+  }
+  return r;
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -19,18 +29,13 @@ export default async function handler(req, res) {
 
   const { type, userId } = req.body;
 
-  // Verify the requesting user is actually an admin
   const authHeader = req.headers.authorization;
   if (!authHeader) return res.status(401).json({ error: 'Unauthorized' });
 
   const userToken = authHeader.replace('Bearer ', '');
 
-  // Verify token and check admin status
   const verifyRes = await fetch(`${supabaseUrl}/auth/v1/user`, {
-    headers: {
-      'Authorization': `Bearer ${userToken}`,
-      'apikey': serviceKey,
-    }
+    headers: { 'Authorization': `Bearer ${userToken}`, 'apikey': serviceKey }
   });
 
   if (!verifyRes.ok) return res.status(401).json({ error: 'Invalid token' });
@@ -38,11 +43,14 @@ export default async function handler(req, res) {
   const userData = await verifyRes.json();
   const requestingUserId = userData.id;
 
-  // Check if user is admin
   const profileRes = await fetch(
     `${supabaseUrl}/rest/v1/profiles?id=eq.${requestingUserId}&select=is_admin,email`,
     { headers: { 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}` } }
   );
+  if (!profileRes.ok) {
+    console.error('Admin profile lookup failed:', profileRes.status, await profileRes.text().catch(() => ''));
+    return res.status(502).json({ error: 'Could not verify admin status — please try again.' });
+  }
   const profiles = await profileRes.json();
   const isAdmin = profiles?.[0]?.is_admin === true ||
     profiles?.[0]?.email === 'bgravley@rdmarketingllc.com';
@@ -57,67 +65,48 @@ export default async function handler(req, res) {
 
   try {
     if (type === 'users') {
-      const r = await fetch(
-        `${supabaseUrl}/rest/v1/profiles?select=*&order=created_at.desc`,
-        { headers }
-      );
+      const r = await checkedFetch(`${supabaseUrl}/rest/v1/profiles?select=*&order=created_at.desc`, { headers }, 'Load users');
       const data = await r.json();
       return res.status(200).json({ data });
     }
 
     if (type === 'ai_logs') {
-      const r = await fetch(
-        `${supabaseUrl}/rest/v1/ai_usage_log?select=*&order=created_at.desc&limit=500`,
-        { headers }
-      );
+      const r = await checkedFetch(`${supabaseUrl}/rest/v1/ai_usage_log?select=*&order=created_at.desc&limit=500`, { headers }, 'Load AI logs');
       const data = await r.json();
       return res.status(200).json({ data });
     }
 
     if (type === 'activity') {
-      const r = await fetch(
-        `${supabaseUrl}/rest/v1/activity_log?select=*&order=created_at.desc&limit=200`,
-        { headers }
-      );
+      const r = await checkedFetch(`${supabaseUrl}/rest/v1/activity_log?select=*&order=created_at.desc&limit=200`, { headers }, 'Load activity');
       const data = await r.json();
       return res.status(200).json({ data });
     }
 
     if (type === 'errors') {
-      const r = await fetch(
-        `${supabaseUrl}/rest/v1/error_log?select=*&order=created_at.desc&limit=200`,
-        { headers }
-      );
+      const r = await checkedFetch(`${supabaseUrl}/rest/v1/error_log?select=*&order=created_at.desc&limit=200`, { headers }, 'Load errors');
       const data = await r.json();
       return res.status(200).json({ data });
     }
 
     if (type === 'user_pets') {
-      // Get all pets for a specific user
-      const r = await fetch(
-        `${supabaseUrl}/rest/v1/dogs?user_id=eq.${userId}&select=*&order=created_at.desc`,
-        { headers }
-      );
+      const r = await checkedFetch(`${supabaseUrl}/rest/v1/dogs?user_id=eq.${userId}&select=*&order=created_at.desc`, { headers }, 'Load user pets');
       const data = await r.json();
       return res.status(200).json({ data });
     }
 
     if (type === 'update_user') {
       const { targetUserId, updates } = req.body;
-      const r = await fetch(
+      const r = await checkedFetch(
         `${supabaseUrl}/rest/v1/profiles?id=eq.${targetUserId}`,
-        {
-          method: 'PATCH',
-          headers: { ...headers, 'Prefer': 'return=representation' },
-          body: JSON.stringify(updates),
-        }
+        { method: 'PATCH', headers: { ...headers, 'Prefer': 'return=representation' }, body: JSON.stringify(updates) },
+        'Update user'
       );
       const data = await r.json();
       return res.status(200).json({ data });
     }
 
     if (type === 'bug_reports') {
-      const r = await fetch(`${supabaseUrl}/rest/v1/bug_reports?select=*&order=created_at.desc`, { headers });
+      const r = await checkedFetch(`${supabaseUrl}/rest/v1/bug_reports?select=*&order=created_at.desc`, { headers }, 'Load bug reports');
       const data = await r.json();
       return res.status(200).json({ data });
     }
@@ -127,8 +116,7 @@ export default async function handler(req, res) {
       if (!reportId) return res.status(400).json({ error: 'reportId required' });
 
       try {
-        // Get the report and the reporting user's profile
-        const reportRes = await fetch(`${supabaseUrl}/rest/v1/bug_reports?id=eq.${reportId}&select=*`, { headers });
+        const reportRes = await checkedFetch(`${supabaseUrl}/rest/v1/bug_reports?id=eq.${reportId}&select=*`, { headers }, 'Load bug report');
         const reports = await reportRes.json();
         const report = reports?.[0];
         if (!report) return res.status(404).json({ error: 'Report not found' });
@@ -137,9 +125,9 @@ export default async function handler(req, res) {
         let rewardMessage = '';
 
         if (report.user_id) {
-          const profRes = await fetch(
+          const profRes = await checkedFetch(
             `${supabaseUrl}/rest/v1/profiles?id=eq.${report.user_id}&select=email,subscription_tier,stripe_customer_id`,
-            { headers }
+            { headers }, 'Load reporter profile'
           );
           const profiles = await profRes.json();
           const profile = profiles?.[0];
@@ -151,13 +139,12 @@ export default async function handler(req, res) {
             rewardType = 'free_tier_thanks';
             rewardMessage = "Thanks for the report! Since you're on the free plan there's no subscription to extend, but we appreciate you flagging this.";
           } else {
-            // Premium (Monthly or Annual) — extend trial_end by 1 month from their current renewal date
             const stripe = (await import('stripe')).default(process.env.STRIPE_SECRET_KEY);
             const subs = await stripe.subscriptions.list({ customer: profile.stripe_customer_id, status: 'active', limit: 1 });
             const sub = subs.data?.[0];
 
             if (sub) {
-              const newTrialEnd = sub.current_period_end + (30 * 24 * 60 * 60); // +1 month (30 days)
+              const newTrialEnd = sub.current_period_end + (30 * 24 * 60 * 60);
               await stripe.subscriptions.update(sub.id, { trial_end: newTrialEnd, proration_behavior: 'none' });
               rewardType = 'month_extended';
               rewardMessage = "We've added a free month to your subscription as a thank-you — your next charge has been pushed back by 30 days.";
@@ -167,9 +154,8 @@ export default async function handler(req, res) {
             }
           }
 
-          // Email the user about the outcome
           if (profile?.email && process.env.RESEND_API_KEY) {
-            await fetch('https://api.resend.com/emails', {
+            const emailRes = await fetch('https://api.resend.com/emails', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.RESEND_API_KEY}` },
               body: JSON.stringify({
@@ -179,14 +165,15 @@ export default async function handler(req, res) {
                 html: `<div style="font-family:sans-serif;padding:20px;"><h2>Thanks for reporting that!</h2><p>${rewardMessage}</p></div>`,
               }),
             });
+            if (!emailRes.ok) console.error('Bug report outcome email failed (non-critical):', emailRes.status, await emailRes.text().catch(() => ''));
           }
         }
 
-        await fetch(`${supabaseUrl}/rest/v1/bug_reports?id=eq.${reportId}`, {
-          method: 'PATCH',
-          headers,
-          body: JSON.stringify({ status: 'approved', reward_type: rewardType, reviewed_at: new Date().toISOString() }),
-        });
+        await checkedFetch(
+          `${supabaseUrl}/rest/v1/bug_reports?id=eq.${reportId}`,
+          { method: 'PATCH', headers, body: JSON.stringify({ status: 'approved', reward_type: rewardType, reviewed_at: new Date().toISOString() }) },
+          'Save bug report approval'
+        );
 
         return res.status(200).json({ data: { approved: true, rewardType, rewardMessage } });
       } catch (err) {
@@ -197,11 +184,11 @@ export default async function handler(req, res) {
 
     if (type === 'reject_bug_report') {
       const { reportId } = req.body;
-      await fetch(`${supabaseUrl}/rest/v1/bug_reports?id=eq.${reportId}`, {
-        method: 'PATCH',
-        headers,
-        body: JSON.stringify({ status: 'rejected', reviewed_at: new Date().toISOString() }),
-      });
+      await checkedFetch(
+        `${supabaseUrl}/rest/v1/bug_reports?id=eq.${reportId}`,
+        { method: 'PATCH', headers, body: JSON.stringify({ status: 'rejected', reviewed_at: new Date().toISOString() }) },
+        'Reject bug report'
+      );
       return res.status(200).json({ data: { rejected: true } });
     }
 
@@ -210,14 +197,12 @@ export default async function handler(req, res) {
       if (!targetUserId) return res.status(400).json({ error: 'targetUserId required' });
 
       try {
-        // Get this user's pet IDs first — vaccinations/visits/etc. are keyed by dog_id, not user_id
-        const dogsRes = await fetch(`${supabaseUrl}/rest/v1/dogs?user_id=eq.${targetUserId}&select=id`, { headers });
+        const dogsRes = await checkedFetch(`${supabaseUrl}/rest/v1/dogs?user_id=eq.${targetUserId}&select=id`, { headers }, 'Load pets for deletion');
         const dogs = await dogsRes.json();
         const dogIds = (dogs || []).map(d => d.id);
 
-        // Delete pet-keyed records for every pet this user owns
         for (const dogId of dogIds) {
-          await Promise.all([
+          const results = await Promise.all([
             fetch(`${supabaseUrl}/rest/v1/vaccinations?dog_id=eq.${dogId}`, { method: 'DELETE', headers }),
             fetch(`${supabaseUrl}/rest/v1/medications?dog_id=eq.${dogId}`, { method: 'DELETE', headers }),
             fetch(`${supabaseUrl}/rest/v1/allergies?dog_id=eq.${dogId}`, { method: 'DELETE', headers }),
@@ -226,32 +211,37 @@ export default async function handler(req, res) {
             fetch(`${supabaseUrl}/rest/v1/documents?dog_id=eq.${dogId}`, { method: 'DELETE', headers }),
             fetch(`${supabaseUrl}/rest/v1/emergency_contacts?dog_id=eq.${dogId}`, { method: 'DELETE', headers }),
           ]);
+          const failed = results.filter(r => !r.ok);
+          if (failed.length) throw new Error(`Failed to delete ${failed.length} pet-record table(s) for pet ${dogId}`);
         }
 
-        // Delete user-keyed records
-        const tripsRes = await fetch(`${supabaseUrl}/rest/v1/trips?user_id=eq.${targetUserId}&select=id`, { headers });
+        const tripsRes = await checkedFetch(`${supabaseUrl}/rest/v1/trips?user_id=eq.${targetUserId}&select=id`, { headers }, 'Load trips for deletion');
         const trips = await tripsRes.json();
         for (const trip of (trips || [])) {
-          await Promise.all([
+          const results = await Promise.all([
             fetch(`${supabaseUrl}/rest/v1/trip_checklist_items?trip_id=eq.${trip.id}`, { method: 'DELETE', headers }),
             fetch(`${supabaseUrl}/rest/v1/trip_documents?trip_id=eq.${trip.id}`, { method: 'DELETE', headers }),
           ]);
+          const failed = results.filter(r => !r.ok);
+          if (failed.length) throw new Error(`Failed to delete trip records for trip ${trip.id}`);
         }
-        await Promise.all([
+
+        const coreResults = await Promise.all([
           fetch(`${supabaseUrl}/rest/v1/trips?user_id=eq.${targetUserId}`, { method: 'DELETE', headers }),
           fetch(`${supabaseUrl}/rest/v1/dogs?user_id=eq.${targetUserId}`, { method: 'DELETE', headers }),
           fetch(`${supabaseUrl}/rest/v1/vets?user_id=eq.${targetUserId}`, { method: 'DELETE', headers }),
         ]);
+        const coreFailed = coreResults.filter(r => !r.ok);
+        if (coreFailed.length) throw new Error('Failed to delete core trips/pets/vets records');
 
-        // If they were an affiliate, deactivate rather than delete (keep commission history intact)
-        await fetch(`${supabaseUrl}/rest/v1/affiliates?user_id=eq.${targetUserId}`, {
+        const affRes = await fetch(`${supabaseUrl}/rest/v1/affiliates?user_id=eq.${targetUserId}`, {
           method: 'PATCH', headers, body: JSON.stringify({ status: 'cancelled', user_id: null }),
         });
+        if (!affRes.ok) console.error('Affiliate deactivation failed (non-critical):', affRes.status);
 
-        // Delete the profile row
-        await fetch(`${supabaseUrl}/rest/v1/profiles?id=eq.${targetUserId}`, { method: 'DELETE', headers });
+        const profDelRes = await fetch(`${supabaseUrl}/rest/v1/profiles?id=eq.${targetUserId}`, { method: 'DELETE', headers });
+        if (!profDelRes.ok) throw new Error('Failed to delete profile row');
 
-        // Finally, delete the actual auth user — this is what makes the email re-usable for signup again
         const authDeleteRes = await fetch(`${supabaseUrl}/auth/v1/admin/users/${targetUserId}`, {
           method: 'DELETE',
           headers: { 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}` },
@@ -271,51 +261,42 @@ export default async function handler(req, res) {
     }
 
     if (type === 'mark_error_reviewed') {
-      const { errorId, reviewed } = req.body; // reviewed: true|false — caller controls direction
-      const r = await fetch(
+      const { errorId, reviewed } = req.body;
+      const r = await checkedFetch(
         `${supabaseUrl}/rest/v1/error_log?id=eq.${errorId}`,
-        {
-          method: 'PATCH',
-          headers: { ...headers, 'Prefer': 'return=representation' },
-          body: JSON.stringify({ reviewed: reviewed !== false }), // defaults to true if not specified
-        }
+        { method: 'PATCH', headers: { ...headers, 'Prefer': 'return=representation' }, body: JSON.stringify({ reviewed: reviewed !== false }) },
+        'Update error reviewed status'
       );
       const data = await r.json();
       return res.status(200).json({ data });
     }
 
     if (type === 'error_count') {
-      const r = await fetch(
+      const r = await checkedFetch(
         `${supabaseUrl}/rest/v1/error_log?reviewed=eq.false&select=id`,
-        { headers: { ...headers, 'Prefer': 'count=exact', 'Range-Unit': 'items', 'Range': '0-0' } }
+        { headers: { ...headers, 'Prefer': 'count=exact', 'Range-Unit': 'items', 'Range': '0-0' } },
+        'Load error count'
       );
       const countHeader = r.headers.get('content-range');
       const count = countHeader ? parseInt(countHeader.split('/')[1]) || 0 : 0;
       return res.status(200).json({ count });
     }
 
-    // ── Affiliate endpoints ──────────────────────────────────────────────
     if (type === 'affiliates') {
-      const r = await fetch(
-        `${supabaseUrl}/rest/v1/affiliates?select=*&order=created_at.desc`,
-        { headers }
-      );
+      const r = await checkedFetch(`${supabaseUrl}/rest/v1/affiliates?select=*&order=created_at.desc`, { headers }, 'Load affiliates');
       const data = await r.json();
       return res.status(200).json({ data });
     }
 
     if (type === 'affiliate_commissions') {
-      const r = await fetch(
-        `${supabaseUrl}/rest/v1/affiliate_commissions?select=*&order=created_at.desc&limit=500`,
-        { headers }
-      );
+      const r = await checkedFetch(`${supabaseUrl}/rest/v1/affiliate_commissions?select=*&order=created_at.desc&limit=500`, { headers }, 'Load affiliate commissions');
       const data = await r.json();
       return res.status(200).json({ data });
     }
 
     if (type === 'create_affiliate') {
       const { userId: targetUserId, referralCode, commissionRate, notes } = req.body;
-      const r = await fetch(
+      const r = await checkedFetch(
         `${supabaseUrl}/rest/v1/affiliates`,
         {
           method: 'POST',
@@ -327,7 +308,8 @@ export default async function handler(req, res) {
             status: 'active',
             notes: notes || null,
           }),
-        }
+        },
+        'Create affiliate'
       );
       const data = await r.json();
       return res.status(200).json({ data: Array.isArray(data) ? data[0] : data });
@@ -335,13 +317,10 @@ export default async function handler(req, res) {
 
     if (type === 'update_affiliate') {
       const { affiliateId, updates } = req.body;
-      const r = await fetch(
+      const r = await checkedFetch(
         `${supabaseUrl}/rest/v1/affiliates?id=eq.${affiliateId}`,
-        {
-          method: 'PATCH',
-          headers: { ...headers, 'Prefer': 'return=representation' },
-          body: JSON.stringify(updates),
-        }
+        { method: 'PATCH', headers: { ...headers, 'Prefer': 'return=representation' }, body: JSON.stringify(updates) },
+        'Update affiliate'
       );
       const data = await r.json();
       return res.status(200).json({ data });
