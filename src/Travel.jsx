@@ -939,10 +939,16 @@ ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.i
               <button
                 onClick={async () => {
                   setDeleting(true);
-                  await supabase.from('trip_checklist_items').delete().eq('trip_id', trip.id);
-                  await supabase.from('trip_documents').delete().eq('trip_id', trip.id);
-                  await supabase.from('trips').delete().eq('id', trip.id);
+                  const { error: e1 } = await supabase.from('trip_checklist_items').delete().eq('trip_id', trip.id);
+                  const { error: e2 } = await supabase.from('trip_documents').delete().eq('trip_id', trip.id);
+                  const { error: e3 } = await supabase.from('trips').delete().eq('id', trip.id);
                   setDeleting(false);
+                  if (e1 || e2 || e3) {
+                    console.error('Trip delete failed:', e1 || e2 || e3);
+                    setGenError({ message: 'Could not fully delete this trip — please try again, or contact support if it keeps happening.' });
+                    return;
+                  }
+                  setShowDeleteConfirm(false);
                   onDelete(trip.id);
                 }}
                 disabled={deleteConfirmText !== trip.origin_city || deleting}
