@@ -81,8 +81,12 @@ export default async function handler(req, res) {
           `${process.env.SUPABASE_URL}/rest/v1/profiles?id=eq.${userData.id}&select=is_admin,email`,
           { headers: { 'apikey': process.env.SUPABASE_SERVICE_KEY, 'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}` } }
         );
-        const profiles = await profileRes.json();
-        isAdmin = profiles?.[0]?.is_admin === true || profiles?.[0]?.email === 'bgravley@rdmarketingllc.com';
+        if (!profileRes.ok) {
+          console.error('Admin profile check failed (failing closed, denying access):', profileRes.status);
+        } else {
+          const profiles = await profileRes.json();
+          isAdmin = profiles?.[0]?.is_admin === true || profiles?.[0]?.email === 'bgravley@rdmarketingllc.com';
+        }
       }
     }
   }
