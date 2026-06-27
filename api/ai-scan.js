@@ -70,6 +70,10 @@ async function checkRateLimit(userId) {
       }
     }
   );
+  if (!res.ok) {
+    console.error('Rate limit check failed:', res.status, await res.text().catch(() => ''));
+    throw new Error('Could not verify usage limit — please try again.');
+  }
   const countHeader = res.headers.get('content-range');
   return countHeader ? parseInt(countHeader.split('/')[1]) || 0 : 0;
 }
@@ -85,6 +89,10 @@ async function getUserProfile(userId) {
       }
     }
   );
+  if (!res.ok) {
+    console.error('Profile lookup failed:', res.status, await res.text().catch(() => ''));
+    throw new Error('Could not verify your account — please try again.');
+  }
   const data = await res.json();
   return {
     tier: data?.[0]?.subscription_tier || 'free',
