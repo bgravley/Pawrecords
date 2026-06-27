@@ -31,6 +31,10 @@ export default async function handler(req, res) {
         }
       }
     );
+    if (!profRes.ok) {
+      console.error('Profile lookup failed for billing portal:', profRes.status, await profRes.text().catch(() => ''));
+      return res.status(502).json({ error: 'Could not load your billing info right now — please try again.' });
+    }
     const profiles = await profRes.json();
     const stripeCustomerId = profiles?.[0]?.stripe_customer_id;
 
