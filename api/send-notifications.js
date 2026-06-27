@@ -32,6 +32,11 @@ async function sb(path, opts = {}) {
     },
     ...opts,
   });
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    console.error(`Supabase request failed (${path}):`, res.status, errText);
+    throw new Error(`Supabase request failed: ${path} (${res.status})`);
+  }
   return res.json();
 }
 
@@ -201,7 +206,13 @@ export default async function handler(req, res) {
   const isMonday = today.getDay() === 1;
 
   // Load all users with email notifications enabled
-  const profiles = await sb('profiles?select=id,email,full_name,email_notifications&email_notifications=neq.false');
+  let profiles;
+  try {
+    profiles = await sb('profiles?select=id,email,full_name,email_notifications&email_notifications=neq.false');
+  } catch (err) {
+    console.error('Failed to load profiles for notifications:', err.message);
+    return res.status(503).json({ error: 'Could not load users — please retry.' });
+  }
   
   let emailsSent = 0;
   const errors = [];
