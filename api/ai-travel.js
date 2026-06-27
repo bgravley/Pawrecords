@@ -60,6 +60,10 @@ async function checkRateLimit(userId) {
       }
     }
   );
+  if (!res.ok) {
+    console.error('Rate limit check failed:', res.status, await res.text().catch(() => ''));
+    throw new Error('Could not verify usage limit — please try again.');
+  }
   const countHeader = res.headers.get('content-range');
   return countHeader ? parseInt(countHeader.split('/')[1]) || 0 : 0;
 }
@@ -75,6 +79,10 @@ async function getUserProfile(userId) {
       }
     }
   );
+  if (!res.ok) {
+    console.error('Profile lookup failed:', res.status, await res.text().catch(() => ''));
+    throw new Error('Could not verify your account — please try again.');
+  }
   const data = await res.json();
   return {
     tier: data?.[0]?.subscription_tier || 'free',
@@ -119,6 +127,10 @@ async function getCachedChecklist(originCountry, destinationCountry, transportMo
       `${process.env.SUPABASE_URL}/rest/v1/travel_route_cache?origin_country=eq.${encodeURIComponent(normalizeCountry(originCountry))}&destination_country=eq.${encodeURIComponent(normalizeCountry(destinationCountry))}&transportation_mode=eq.${encodeURIComponent(mode)}&created_at=gte.${cutoff}&select=checklist_json&order=created_at.desc&limit=1`,
       { headers: { 'apikey': process.env.SUPABASE_SERVICE_KEY, 'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}` } }
     );
+    if (!res.ok) {
+      console.error('Cache lookup failed (non-critical, falling back to fresh generation):', res.status);
+      return null;
+    }
     const rows = await res.json();
     return rows?.[0]?.checklist_json || null;
   } catch (e) {
@@ -300,32 +312,43 @@ export default async function handler(req, res) {
 
   let userProfile = null;
 
-  // ── Premium gate — applies regardless of cache ──────────────────────────
-  if (userId) {
-    userProfile = await getUserProfile(userId);
-    const isPremium = userProfile.tier === 'premium' || userProfile.tier === 'lifetime';
-    if (!isPremium) {
-      return res.status(403).json({
-        error: 'AI Travel Checklist is a Premium feature. Upgrade to generate requirements.',
-        requiresUpgrade: true,
+  try {
+    // ── Premium gate — applies regardless of cache ──────────────────────────
+    if (userId) {
+      userProfile = await getUserProfile(userId);
+      const isPremium = userProfile.tier === 'premium' || userProfile.tier === 'lifetime';
+      if (!isPremium) {
+        return res.status(403).json({
+          error: 'AI Travel Checklist is a Premium feature. Upgrade to generate requirements.',
+          requiresUpgrade: true,
+        });
+      }
+    }
+
+    // ── Check the route cache — free for everyone, no quota cost ────────────
+    const cached = await getCachedChecklist(originCountry, destinationCountry, transportationType);
+    if (cached) {
+      console.log(`Cache hit for ${originCountry} → ${destinationCountry} (${transportationType || 'air'})`);
+      return res.status(200).json({
+        choices: [{ message: { content: JSON.stringify(cached) } }],
+        cached: true,
       });
     }
-  }
-
-  // ── Check the route cache — free for everyone, no quota cost ────────────
-  const cached = await getCachedChecklist(originCountry, destinationCountry, transportationType);
-  if (cached) {
-    console.log(`Cache hit for ${originCountry} → ${destinationCountry} (${transportationType || 'air'})`);
-    return res.status(200).json({
-      choices: [{ message: { content: JSON.stringify(cached) } }],
-      cached: true,
-    });
+  } catch (err) {
+    console.error('Pre-generation check failed:', err.message);
+    return res.status(503).json({ error: 'Could not verify your account right now — please try again in a moment.' });
   }
 
   // ── Rate limit + bonus credits — only applies when we pay for generation ──
   let useCreditInstead = false;
   if (userId && userProfile) {
-    const count = await checkRateLimit(userId);
+    let count;
+    try {
+      count = await checkRateLimit(userId);
+    } catch (err) {
+      console.error('Rate limit check failed:', err.message);
+      return res.status(503).json({ error: 'Could not verify your usage limit right now — please try again in a moment.' });
+    }
     const MONTHLY_LIMIT = userProfile.travelLimitOverride !== null ? userProfile.travelLimitOverride : 3;
 
     if (count >= MONTHLY_LIMIT) {
