@@ -282,6 +282,7 @@ export default function Marketing({ onLogin, onSignup }) {
       {/* FOOTER */}
       <footer style={{ textAlign: 'center', padding: '32px 20px', borderTop: `1px solid ${C.border}`, color: C.muted, fontSize: 13 }}>
         &copy; 2026 YourPetPass · RD Marketing LLC &nbsp;·&nbsp;
+        <a href="/blog.html" style={{ color: C.muted }}>Blog</a> &nbsp;·&nbsp;
         <a href="/privacy.html" style={{ color: C.muted }}>Privacy</a> &nbsp;·&nbsp;
         <a href="/terms.html" style={{ color: C.muted }}>Terms</a> &nbsp;·&nbsp;
         <a href="/contact.html" style={{ color: C.muted }}>Contact</a>
