@@ -45,8 +45,12 @@ export default async function handler(req, res) {
           }
         }
       );
-      const countHeader = countRes.headers.get('content-range');
-      if (countHeader) totalUsers = countHeader.split('/')[1] || '—';
+      if (!countRes.ok) {
+        console.error('Total user count lookup failed (non-critical):', countRes.status);
+      } else {
+        const countHeader = countRes.headers.get('content-range');
+        if (countHeader) totalUsers = countHeader.split('/')[1] || '—';
+      }
     } catch (e) { /* non-critical */ }
 
     const html = `
