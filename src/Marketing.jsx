@@ -97,6 +97,7 @@ export default function Marketing({ onLogin, onSignup }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
           <a href="#features" style={{ ...navBtn, color: '#D4E8E4', textDecoration: 'none' }}>Features</a>
           <a href="#use-cases" style={{ ...navBtn, color: '#D4E8E4', textDecoration: 'none' }}>Use Cases</a>
+          <a href="/blog.html" style={{ ...navBtn, color: '#D4E8E4', textDecoration: 'none' }}>Pet Guides</a>
           <a href="#store" style={{ ...navBtn, color: '#D4E8E4', textDecoration: 'none' }}>Store</a>
           <button onClick={onLogin} style={{ background: 'rgba(255,255,255,0.12)', color: '#FFFFFF', border: '1.5px solid rgba(255,255,255,0.5)', borderRadius: 10, padding: '8px 18px', fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: "'Nunito', sans-serif" }}>Login</button>
           <button onClick={onSignup} style={{ background: C.amber, color: '#1E1408', border: 'none', borderRadius: 10, padding: '9px 18px', fontWeight: 800, fontSize: 14, cursor: 'pointer', fontFamily: "'Nunito', sans-serif" }}>Sign Up Free</button>
@@ -282,7 +283,7 @@ export default function Marketing({ onLogin, onSignup }) {
       {/* FOOTER */}
       <footer style={{ textAlign: 'center', padding: '32px 20px', borderTop: `1px solid ${C.border}`, color: C.muted, fontSize: 13 }}>
         &copy; 2026 YourPetPass · RD Marketing LLC &nbsp;·&nbsp;
-        <a href="/blog.html" style={{ color: C.muted }}>Blog</a> &nbsp;·&nbsp;
+        <a href="/blog.html" style={{ color: C.muted }}>Pet Guides</a> &nbsp;·&nbsp;
         <a href="/privacy.html" style={{ color: C.muted }}>Privacy</a> &nbsp;·&nbsp;
         <a href="/terms.html" style={{ color: C.muted }}>Terms</a> &nbsp;·&nbsp;
         <a href="/contact.html" style={{ color: C.muted }}>Contact</a>
