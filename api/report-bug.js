@@ -55,12 +55,17 @@ export default async function handler(req, res) {
           from: FROM_EMAIL,
           to: ADMIN_EMAIL,
           subject: `🐛 New bug report from ${userEmail || 'a user'}`,
-          html: `<div style="font-family:sans-serif;padding:20px;">
-            <h2>New Bug Report</h2>
+          html: `<div style="font-family:sans-serif;max-width:500px;margin:0 auto;">
+            <div style="background:#1E5C52;padding:18px 24px;border-radius:12px 12px 0 0;">
+              <img src="https://yourpetpass.com/logo_horizontal_cream_transparent.png" alt="YourPetPass" width="160" style="display:block;height:auto;" />
+            </div>
+            <div style="padding:20px;">
+            <h2>🐛 New Bug Report</h2>
             <p><strong>From:</strong> ${userEmail || 'unknown'}</p>
             <p><strong>Description:</strong></p>
             <p style="background:#f4f4f4;padding:12px;border-radius:8px;white-space:pre-wrap;">${description.replace(/</g,'&lt;')}</p>
             <p><a href="https://yourpetpass.com/admin">Review in Admin →</a></p>
+            </div>
           </div>`,
         }),
       });

@@ -50,8 +50,7 @@ export default async function handler(req, res) {
 <body>
   <div class="card">
     <div class="header">
-      <h1>🐾 YourPetPass</h1>
-      <p>Your pet's health passport</p>
+      <img src="https://yourpetpass.com/logo_horizontal_cream_transparent.png" alt="YourPetPass" width="200" style="display:block;height:auto;margin:0 auto;" />
     </div>
     <div class="body">
       <h2>Welcome to the affiliate program${affiliateName ? `, ${affiliateName.split(' ')[0]}` : ''}! 🎉</h2>

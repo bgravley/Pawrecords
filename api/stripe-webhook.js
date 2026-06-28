@@ -25,7 +25,7 @@ async function sendCustomerEmail({ to, subject, bodyHtml }) {
 </style></head>
 <body>
   <div class="card">
-    <div class="header"><h1>🐾 YourPetPass</h1><p>Your pet's health passport</p></div>
+    <div class="header"><img src="https://yourpetpass.com/logo_horizontal_cream_transparent.png" alt="YourPetPass" width="220" style="display:block;height:auto;" /></div>
     <div class="body">${bodyHtml}</div>
     <div class="footer">YourPetPass · yourpetpass.com · Questions? <a href="https://yourpetpass.com/contact.html" style="color:#2D7D6F;">Contact us</a></div>
   </div>
