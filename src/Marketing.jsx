@@ -18,13 +18,14 @@ function FeatureCard({ icon, title, desc }) {
   );
 }
 
-function UseCaseCard({ image, eyebrow, title, body, featured }) {
+function UseCaseCard({ image, eyebrow, title, body, featured, link }) {
   return (
-    <div style={{
+    <a href={link} style={{
       background: featured ? C.tealDk : C.card,
       border: featured ? 'none' : `1px solid ${C.border}`,
       borderRadius: 18, overflow: 'hidden', textAlign: 'left',
       boxShadow: featured ? '0 8px 28px rgba(30,92,82,0.25)' : '0 2px 10px rgba(0,0,0,0.04)',
+      display: 'block', textDecoration: 'none', cursor: 'pointer',
     }}>
       <div style={{ width: '100%', aspectRatio: '16/10', overflow: 'hidden' }}>
         <img src={image} alt={title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
@@ -32,9 +33,10 @@ function UseCaseCard({ image, eyebrow, title, body, featured }) {
       <div style={{ padding: 26 }}>
         <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: featured ? '#A8D5CE' : C.teal, marginBottom: 6 }}>{eyebrow}</div>
         <div style={{ fontFamily: "'Lora', serif", fontSize: 20, fontWeight: 600, color: featured ? '#FFFFFF' : C.text, marginBottom: 10 }}>{title}</div>
-        <div style={{ fontSize: 14.5, color: featured ? '#D4E8E4' : C.brown, lineHeight: 1.75 }}>{body}</div>
+        <div style={{ fontSize: 14.5, color: featured ? '#D4E8E4' : C.brown, lineHeight: 1.75, marginBottom: 14 }}>{body}</div>
+        <div style={{ fontSize: 13.5, fontWeight: 700, color: featured ? '#FFFFFF' : C.teal }}>Read the full story →</div>
       </div>
-    </div>
+    </a>
   );
 }
 
@@ -181,23 +183,26 @@ export default function Marketing({ onLogin, onSignup }) {
         <p style={{ textAlign: 'center', color: C.muted, marginBottom: 32, fontSize: 15 }}>Three ways pet owners actually use YourPetPass.</p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 24 }}>
           <UseCaseCard
+            link="/use-cases/switching-vets.html"
             image="/IMG_1363.jpeg"
             eyebrow="Different Vets, One Record"
-            title="You moved. Your vet didn't come with you."
-            body="New city, new vet, and they're asking for vaccine history you don't have on hand. With YourPetPass, every record from every vet you've ever seen lives in one place — pull it up on your phone at the front desk, no calling your old clinic, no faxes."
+            title="When was their last shot? Here's why that question is harder than it should be."
+            body="Switching vets means starting from a blank slate — for them, not for your pet's actual history. See what really happens when records don't travel with you, and what changes when they do."
           />
           <UseCaseCard
+            link="/use-cases/pet-travel-documents.html"
             image="/IMG_1364.jpeg"
             eyebrow="Traveling With Your Pet"
-            title="Flying internationally? Know exactly what you need."
-            body="Health certificates, country-specific import rules, airline pet policies — they all change, and missing one document can mean your pet doesn't fly. Generate an AI checklist for your exact route and get a clear, current list of what to handle and when."
+            title="One missing document can cancel your pet's flight. Here's what's actually at stake."
+            body="Health certificates, timing windows, country-specific rules that don't match anything you did last trip — the real maze behind international pet travel, and how to actually stay ahead of it."
           />
           <UseCaseCard
             featured
+            link="/use-cases/maria-and-biscuit.html"
             image="/IMG_1365.jpeg"
-            eyebrow="The Real-World Story"
-            title="Maria & Biscuit: a weekend trip, three states, two vets, one app."
-            body="Maria drove from Austin to Denver for a long weekend, boarding Biscuit at a pet hotel for two nights mid-trip. The hotel needed proof of vaccines before check-in — she exported Biscuit's record and emailed it over from the parking lot. A week later, a limp sent them to an unfamiliar vet near Denver; the vet pulled up Biscuit's full history instantly, no guessing on prior treatments. Same trip, same app, two completely different problems solved."
+            eyebrow="A Real Trip, Start to Finish"
+            title="A boarding hotel, an unfamiliar vet, and a dog with a limp — four days, two completely different problems."
+            body="Maria's weekend trip to Denver didn't go as planned. Read what actually happened when neither moment could wait — and what made both of them easier."
           />
         </div>
       </section>
