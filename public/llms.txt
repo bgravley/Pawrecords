@@ -29,9 +29,22 @@ YourPetPass is built for dog and cat parents who:
 
 Premium unlocks AI document scanning, AI travel checklists, weight tracking, document storage, and the QR emergency health card.
 
+## Guides & Real-World Use Cases
+
+- Pet Guides (blog): https://yourpetpass.com/blog.html
+  - What Vaccines Does My Dog Need Before Flying: https://yourpetpass.com/blog/dog-vaccines-before-flying.html
+  - How to Keep Pet Health Records Straight When You Travel: https://yourpetpass.com/blog/pet-records-when-traveling.html
+  - Pet Health Certificates Explained: https://yourpetpass.com/blog/pet-health-certificates-explained.html
+  - Moving Across the Country With Pets: https://yourpetpass.com/blog/moving-across-country-with-pets.html
+- Real-world use cases:
+  - Switching vets without losing your pet's history: https://yourpetpass.com/use-cases/switching-vets.html
+  - International pet travel documents explained: https://yourpetpass.com/use-cases/pet-travel-documents.html
+  - A real trip, start to finish (Maria & Biscuit): https://yourpetpass.com/use-cases/maria-and-biscuit.html
+
 ## Links
 
 - Homepage: https://yourpetpass.com
+- Pet Guides: https://yourpetpass.com/blog.html
 - Privacy Policy: https://yourpetpass.com/privacy.html
 - Terms of Service: https://yourpetpass.com/terms.html
 - Contact: https://yourpetpass.com/contact.html
