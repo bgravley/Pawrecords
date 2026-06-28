@@ -35,8 +35,9 @@ export default async function handler(req, res) {
 <body style="margin:0; padding:20px; background:#FAF6F0; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
   <div style="max-width:720px; margin:0 auto;">
     <div style="background:#1E5C52; padding:20px 24px; border-radius:16px 16px 0 0;">
+      <img src="https://yourpetpass.com/logo_horizontal_cream_transparent.png" alt="YourPetPass" width="160" style="display:block;height:auto;margin-bottom:10px;" />
       <div style="color:#fff; font-size:18px; font-weight:700;">🐾 ${petName}'s Health Record</div>
-      <div style="color:#A8D5CE; font-size:13px; margin-top:4px;">Shared via YourPetPass${senderEmail ? ' by ' + senderEmail : ''}</div>
+      <div style="color:#A8D5CE; font-size:13px; margin-top:4px;">Shared${senderEmail ? ' by ' + senderEmail : ''}</div>
     </div>
     ${pdfUrl ? `
     <div style="background:#FFF8EC; border-bottom:1px solid #E8DDD0; padding:16px 24px; text-align:center;">

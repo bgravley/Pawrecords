@@ -162,7 +162,7 @@ export default async function handler(req, res) {
                 from: 'YourPetPass <notifications@yourpetpass.com>',
                 to: profile.email,
                 subject: '🐛 Your bug report was reviewed',
-                html: `<div style="font-family:sans-serif;padding:20px;"><h2>Thanks for reporting that!</h2><p>${rewardMessage}</p></div>`,
+                html: `<div style="font-family:sans-serif;max-width:500px;margin:0 auto;"><div style="background:#1E5C52;padding:20px 24px;border-radius:12px 12px 0 0;"><img src="https://yourpetpass.com/logo_horizontal_cream_transparent.png" alt="YourPetPass" width="160" style="display:block;height:auto;" /></div><div style="padding:20px;"><h2>Thanks for reporting that!</h2><p>${rewardMessage}</p></div></div>`,
               }),
             });
             if (!emailRes.ok) console.error('Bug report outcome email failed (non-critical):', emailRes.status, await emailRes.text().catch(() => ''));

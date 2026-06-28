@@ -18,7 +18,7 @@ function wrap(bodyHtml) {
   .footer { background: #F4EFE8; padding: 14px 26px; font-size: 11px; color: #8B7355; text-align: center; }
 </style></head>
 <body><div class="card">
-  <div class="header"><h1>🐾 YourPetPass</h1></div>
+  <div class="header"><img src="https://yourpetpass.com/logo_horizontal_cream_transparent.png" alt="YourPetPass" width="200" style="display:block;height:auto;" /></div>
   <div class="body">${bodyHtml}</div>
   <div class="footer">YourPetPass · yourpetpass.com</div>
 </div></body></html>`;

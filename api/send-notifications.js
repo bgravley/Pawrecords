@@ -86,8 +86,7 @@ function emailWrapper(content) {
 </style></head><body>
 <div class="container">
   <div class="header">
-    <div class="logo">🐾 Your<span>Pet</span>Pass</div>
-    <div class="tagline">Your pet's health passport</div>
+    <img src="https://yourpetpass.com/logo_horizontal_cream_transparent.png" alt="YourPetPass" width="200" style="display:block;height:auto;" />
   </div>
   <div class="body">${content}</div>
   <div class="footer">

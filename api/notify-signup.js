@@ -78,8 +78,9 @@ export default async function handler(req, res) {
 <body>
   <div class="card">
     <div class="header">
+      <img src="https://yourpetpass.com/logo_horizontal_cream_transparent.png" alt="YourPetPass" width="180" style="display:block;height:auto;margin-bottom:12px;" />
       <h1>🐾 New User Signed Up</h1>
-      <p>YourPetPass · yourpetpass.com</p>
+      <p>yourpetpass.com</p>
     </div>
     <div class="body">
       <div class="row">
