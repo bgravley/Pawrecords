@@ -132,8 +132,8 @@ export default function AffiliatePortal({ userId, userEmail, onClose }) {
       {/* Header */}
       <div style={{ background: C.tealDk, padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
-          <div style={{ fontFamily: "'Lora', serif", fontSize: 22, color: '#FFFFFF', fontWeight: 600 }}>YourPetPass</div>
-          <div style={{ fontSize: 13, color: '#A8D5CE', marginTop: 2 }}>Affiliate Partner Dashboard</div>
+          <img src="/logo_horizontal_cream_transparent.png" alt="YourPetPass" style={{ height: 34, display: "block" }} />
+          <div style={{ fontSize: 13, color: '#A8D5CE', marginTop: 4 }}>Affiliate Partner Dashboard</div>
         </div>
         <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: 10, padding: '8px 16px', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
           ← Back to App

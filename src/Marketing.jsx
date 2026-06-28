@@ -93,8 +93,8 @@ export default function Marketing({ onLogin, onSignup }) {
 
       {/* NAV */}
       <nav style={{ position: 'sticky', top: 0, zIndex: 50, background: C.tealDk, padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-        <div style={{ fontFamily: "'Lora', serif", fontSize: 22, color: '#FFFFFF', fontWeight: 700 }}>
-          🐾 Your<span style={{ color: '#F5C45E' }}>Pet</span>Pass
+        <div>
+          <img src="/logo_horizontal_cream_transparent.png" alt="YourPetPass" style={{ height: 36, display: 'block' }} />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
           <a href="#features" style={{ ...navBtn, color: '#D4E8E4', textDecoration: 'none' }}>Features</a>

@@ -152,7 +152,8 @@ export default function Admin({ onBack }) {
         <div style={{ maxWidth: 1100, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <button onClick={onBack} style={{ background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8, padding: "6px 12px", color: C.sub, cursor: "pointer", fontSize: 13 }}>← Back to App</button>
-            <div style={{ fontSize: 20, fontWeight: 800 }}>🐾 YourPetPass <span style={{ color: C.accent }}>Admin</span></div>
+            <img src="/logo_horizontal_cream_transparent.png" alt="YourPetPass" style={{ height: 30, display: "block" }} />
+            <div style={{ fontSize: 16, fontWeight: 800, color: C.accent }}>Admin</div>
           </div>
           <button onClick={loadData} style={{ background: C.accent, border: "none", borderRadius: 8, padding: "7px 16px", color: "#fff", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>↻ Refresh</button>
         </div>
