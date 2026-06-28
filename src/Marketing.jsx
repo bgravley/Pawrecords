@@ -99,6 +99,7 @@ export default function Marketing({ onLogin, onSignup }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
           <a href="#features" style={{ ...navBtn, color: '#D4E8E4', textDecoration: 'none' }}>Features</a>
           <a href="#use-cases" style={{ ...navBtn, color: '#D4E8E4', textDecoration: 'none' }}>Use Cases</a>
+          <a href="#pricing" style={{ ...navBtn, color: '#D4E8E4', textDecoration: 'none' }}>Pricing</a>
           <a href="/blog.html" style={{ ...navBtn, color: '#D4E8E4', textDecoration: 'none' }}>Pet Guides</a>
           <a href="#store" style={{ ...navBtn, color: '#D4E8E4', textDecoration: 'none' }}>Store</a>
           <button onClick={onLogin} style={{ background: 'rgba(255,255,255,0.12)', color: '#FFFFFF', border: '1.5px solid rgba(255,255,255,0.5)', borderRadius: 10, padding: '8px 18px', fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: "'Nunito', sans-serif" }}>Login</button>
@@ -219,6 +220,43 @@ export default function Marketing({ onLogin, onSignup }) {
             <div style={{ fontSize: 14.5, color: C.brown, lineHeight: 1.7 }}>
               Every vaccine, every visit, every medication — right there on your phone before the vet even asks. No more guessing, no more "I think it was sometime last year."
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* PRICING — was previously only mentioned in a single FAQ line */}
+      <section id="pricing" style={{ padding: '48px 20px', maxWidth: 1080, margin: '0 auto' }}>
+        <h2 style={{ fontFamily: "'Lora', serif", fontSize: 28, textAlign: 'center', color: C.tealDk, marginBottom: 8 }}>Simple pricing, no surprises</h2>
+        <p style={{ textAlign: 'center', color: C.muted, marginBottom: 32, fontSize: 15 }}>Start free. Upgrade whenever you actually need more.</p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 18, padding: 28, textAlign: 'left' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em', color: C.muted, marginBottom: 8 }}>Free</div>
+            <div style={{ fontFamily: "'Lora', serif", fontSize: 30, color: C.text, marginBottom: 4 }}>$0</div>
+            <div style={{ fontSize: 13, color: C.muted, marginBottom: 18 }}>forever</div>
+            <div style={{ fontSize: 14, color: C.brown, lineHeight: 1.8, marginBottom: 20 }}>Core health record storage — vaccines, vet visits, allergies, and medications for every pet you have.</div>
+            <button onClick={onSignup} style={{ width: '100%', background: 'transparent', border: `1.5px solid ${C.teal}`, color: C.teal, borderRadius: 10, padding: '11px 0', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>Get Started Free</button>
+          </div>
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 18, padding: 28, textAlign: 'left' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em', color: C.muted, marginBottom: 8 }}>Premium Monthly</div>
+            <div style={{ fontFamily: "'Lora', serif", fontSize: 30, color: C.text, marginBottom: 4 }}>$4.99</div>
+            <div style={{ fontSize: 13, color: C.muted, marginBottom: 18 }}>per month</div>
+            <div style={{ fontSize: 14, color: C.brown, lineHeight: 1.8, marginBottom: 20 }}>Everything in Free, plus AI document scanning, AI travel checklists, weight tracking, document storage, and the QR emergency card.</div>
+            <button onClick={onSignup} style={{ width: '100%', background: 'transparent', border: `1.5px solid ${C.teal}`, color: C.teal, borderRadius: 10, padding: '11px 0', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>Start Premium</button>
+          </div>
+          <div style={{ background: C.tealDk, border: 'none', borderRadius: 18, padding: 28, textAlign: 'left', boxShadow: '0 8px 28px rgba(30,92,82,0.25)', position: 'relative' }}>
+            <div style={{ position: 'absolute', top: -12, right: 20, background: C.amber, color: '#1E1408', fontSize: 11, fontWeight: 800, padding: '4px 12px', borderRadius: 20, textTransform: 'uppercase', letterSpacing: '.04em' }}>Best Value</div>
+            <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em', color: '#A8D5CE', marginBottom: 8 }}>Premium Annual</div>
+            <div style={{ fontFamily: "'Lora', serif", fontSize: 30, color: '#FFFFFF', marginBottom: 4 }}>$39.99</div>
+            <div style={{ fontSize: 13, color: '#A8D5CE', marginBottom: 18 }}>per year — under $3.50/month</div>
+            <div style={{ fontSize: 14, color: '#D4E8E4', lineHeight: 1.8, marginBottom: 20 }}>Everything in Premium Monthly, billed once a year instead of twelve times.</div>
+            <button onClick={onSignup} style={{ width: '100%', background: '#FFFFFF', border: 'none', color: C.tealDk, borderRadius: 10, padding: '11px 0', fontWeight: 800, fontSize: 14, cursor: 'pointer' }}>Start Premium</button>
+          </div>
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 18, padding: 28, textAlign: 'left' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em', color: C.muted, marginBottom: 8 }}>Premium Lifetime</div>
+            <div style={{ fontFamily: "'Lora', serif", fontSize: 30, color: C.text, marginBottom: 4 }}>$89.99</div>
+            <div style={{ fontSize: 13, color: C.muted, marginBottom: 18 }}>one-time, forever</div>
+            <div style={{ fontSize: 14, color: C.brown, lineHeight: 1.8, marginBottom: 20 }}>Pay once. Every Premium feature, for every pet you ever have, with no recurring charge.</div>
+            <button onClick={onSignup} style={{ width: '100%', background: 'transparent', border: `1.5px solid ${C.teal}`, color: C.teal, borderRadius: 10, padding: '11px 0', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>Get Lifetime Access</button>
           </div>
         </div>
       </section>
