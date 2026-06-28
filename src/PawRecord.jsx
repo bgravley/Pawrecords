@@ -2300,8 +2300,7 @@ const Home=({state,dispatch,userId,tier,userEmail,onSignOut,isAdmin,onOpenAdmin,
       <div style={{maxWidth:680,margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
         <div>
           <button onClick={()=>{setSelDog(null);window.scrollTo(0,0);}} style={{background:"none",border:"none",cursor:"pointer",textAlign:"left",padding:0}}>
-            <div style={{fontFamily:"'Lora',serif",fontSize:28,color:"#FFFFFF"}}>🐾 <span style={{fontWeight:900}}>Your</span><span style={{color:"#F5C45E",fontWeight:900}}>Pet</span><span style={{fontWeight:900}}>Pass</span></div>
-            <div style={{fontSize:13,color:"#F5C45E",marginTop:1,fontStyle:"italic",fontFamily:"Lora,serif"}}>Your pet's health passport</div>
+            <img src="/logo_horizontal_cream_transparent.png" alt="YourPetPass" style={{height:48,display:"block"}} />
           </button>
         </div>
         <div style={{display:"flex",alignItems:"center",gap:8}}>
