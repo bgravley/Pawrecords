@@ -1,1 +1,30 @@
+name: Site Audit
 
+# Runs the audit script three ways:
+# 1. On every pull request - catches issues before they merge, not after
+# 2. Every Monday morning - a safety net even when nothing is actively changing
+# 3. On demand - click "Run workflow" in the Actions tab anytime
+"on":
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '0 13 * * 1'  # Monday 9am ET (13:00 UTC)
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run audit
+        run: python3 scripts/audit.py
