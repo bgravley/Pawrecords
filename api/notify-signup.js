@@ -4,6 +4,11 @@
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const FROM_EMAIL     = 'YourPetPass <notifications@yourpetpass.com>';
+
+function esc(str) {
+  if (!str) return str;
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
 const ADMIN_EMAIL    = 'bgravley@rdmarketingllc.com';
 const WEBHOOK_SECRET = process.env.SIGNUP_WEBHOOK_SECRET; // set this in Vercel env vars
 
@@ -85,11 +90,11 @@ export default async function handler(req, res) {
     <div class="body">
       <div class="row">
         <span class="label">Email</span>
-        <span class="value">${userEmail}</span>
+        <span class="value">${esc(userEmail)}</span>
       </div>
       <div class="row">
         <span class="label">Name</span>
-        <span class="value">${fullName}</span>
+        <span class="value">${esc(fullName)}</span>
       </div>
       <div class="row">
         <span class="label">Signed up</span>
@@ -102,7 +107,7 @@ export default async function handler(req, res) {
       ${referralCode ? `
       <div class="row">
         <span class="label">Referral code used</span>
-        <span class="value"><span class="ref-badge">🤝 ${referralCode}</span></span>
+        <span class="value"><span class="ref-badge">🤝 ${esc(referralCode)}</span></span>
       </div>
       ` : ''}
       <div class="row">
