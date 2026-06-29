@@ -196,7 +196,129 @@ else:
     ok("node_modules/dist are not tracked in git")
 
 
-# ── Report ─────────────────────────────────────────────────────────────
+# ── 9. Every real public page is listed in sitemap.xml ──────────────────
+sitemap_content = open("public/sitemap.xml", errors='ignore').read() if os.path.isfile("public/sitemap.xml") else ""
+sitemap_urls = set(re.findall(r'<loc>(https://yourpetpass\.com[^<]*)</loc>', sitemap_content))
+missing_from_sitemap = []
+for root, dirs, files in os.walk("public"):
+    for f in files:
+        if f.endswith(".html") and f not in ("404.html",):
+            path = os.path.join(root, f)
+            url_path = path.replace("public", "", 1).replace("/index.html", "/")
+            if url_path == "/index.html":
+                url_path = "/"
+            full_url = f"https://yourpetpass.com{url_path}"
+            if full_url not in sitemap_urls and url_path != "/index.html":
+                missing_from_sitemap.append(path)
+for path in missing_from_sitemap:
+    fail(f"{path} exists but is not listed in sitemap.xml")
+if not missing_from_sitemap:
+    ok("Every public page is listed in sitemap.xml")
+
+
+# ── 10. No oversized images (the 3MB blog-photo lesson) ──────────────────
+MAX_IMAGE_KB = 500
+KNOWN_SIZE_EXCEPTIONS = {"public/og-image.png"}  # fetched once by social platforms, cached there - not a page-load cost
+oversized = []
+for root, dirs, files in os.walk("public"):
+    for f in files:
+        if f.lower().endswith((".jpg", ".jpeg", ".png", ".webp")):
+            path = os.path.join(root, f)
+            if path in KNOWN_SIZE_EXCEPTIONS:
+                continue
+            size_kb = os.path.getsize(path) / 1024
+            if size_kb > MAX_IMAGE_KB:
+                oversized.append((path, round(size_kb)))
+for path, kb in oversized:
+    fail(f"{path} is {kb}KB — over the {MAX_IMAGE_KB}KB guideline, consider compressing")
+if not oversized:
+    ok(f"No page-load images over {MAX_IMAGE_KB}KB")
+
+
+# ── 11. Hardcoded secrets accidentally committed ─────────────────────────
+SECRET_PATTERNS = [
+    (r'sk_live_[A-Za-z0-9]{10,}', "Stripe live secret key"),
+    (r'whsec_[A-Za-z0-9]{10,}', "Stripe webhook secret"),
+    (r're_[A-Za-z0-9]{20,}', "Resend API key"),
+]
+found_secrets = []
+for root, dirs, files in os.walk("."):
+    if any(skip in root for skip in ("node_modules", ".git", "dist")):
+        continue
+    for f in files:
+        if f.endswith((".js", ".jsx", ".html", ".json")):
+            path = os.path.join(root, f)
+            try:
+                content = open(path, errors='ignore').read()
+            except Exception:
+                continue
+            for pattern, label in SECRET_PATTERNS:
+                if re.search(pattern, content):
+                    found_secrets.append(f"{path}: looks like a hardcoded {label}")
+for s in found_secrets:
+    fail(s)
+if not found_secrets:
+    ok("No hardcoded secrets found in committed code")
+
+
+# ── 12. Images have alt text ─────────────────────────────────────────────
+missing_alt = []
+for fpath in all_html_jsx_files():
+    content = open(fpath, errors='ignore').read()
+    for tag in re.finditer(r'<img\s[^>]*>', content):
+        if 'alt=' not in tag.group(0):
+            missing_alt.append(f"{fpath}: <img> tag with no alt attribute")
+for m in missing_alt:
+    fail(m)
+if not missing_alt:
+    ok("Every <img> tag has alt text")
+
+
+# ── 13. Every page has a viewport meta tag and a favicon link ───────────
+missing_viewport, missing_favicon = [], []
+for root, dirs, files in os.walk("public"):
+    for f in files:
+        if f.endswith(".html"):
+            path = os.path.join(root, f)
+            content = open(path, errors='ignore').read()
+            if 'name="viewport"' not in content:
+                missing_viewport.append(path)
+            if 'rel="icon"' not in content:
+                missing_favicon.append(path)
+for p in missing_viewport:
+    fail(f"{p} is missing the viewport meta tag")
+for p in missing_favicon:
+    fail(f"{p} is missing a favicon link")
+if not missing_viewport:
+    ok("Every page has a viewport meta tag")
+if not missing_favicon:
+    ok("Every page has a favicon link")
+
+
+# ── 14. Public, unauthenticated POST endpoints have some abuse protection ─
+# Known open item as of June 2026 - flagged here so it stays visible every
+# time this runs instead of being forgotten. Remove from this list once
+# rate-limiting is actually added.
+PUBLIC_ENDPOINTS_NEEDING_PROTECTION = [
+    "api/contact-form.js", "api/newsletter-signup.js", "api/report-bug.js",
+]
+for f in PUBLIC_ENDPOINTS_NEEDING_PROTECTION:
+    if os.path.isfile(f):
+        content = open(f, errors='ignore').read()
+        if not re.search(r'rate.?limit|captcha|honeypot', content, re.IGNORECASE):
+            fail(f"{f} is publicly accessible with no rate-limiting/spam protection (known open item)")
+
+
+# ── 15. Environment variables the code expects (informational) ─────────
+env_vars = set()
+for root, dirs, files in os.walk("api"):
+    for f in files:
+        if f.endswith(".js"):
+            content = open(os.path.join(root, f), errors='ignore').read()
+            env_vars.update(re.findall(r'process\.env\.([A-Z_]+)', content))
+print(f"\nEnvironment variables the code expects ({len(env_vars)}) — verify these are all set in Vercel:")
+for v in sorted(env_vars):
+    print(f"  - {v}")
 print("\n" + "="*60)
 print(f"PASSED: {len(passed)}")
 for p in passed:

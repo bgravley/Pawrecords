@@ -201,7 +201,7 @@ const buildRecordHTML=(dog,state)=>{
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${dog.name} Medical Records</title>
 <style>body{font-family:Georgia,serif;max-width:720px;margin:40px auto;padding:0 24px;color:#111}h1{font-size:26px;margin-bottom:4px}.gen{color:#666;font-size:13px;margin-bottom:32px}h2{font-size:14px;font-weight:700;text-transform:uppercase;border-bottom:2px solid #111;padding-bottom:6px;margin:28px 0 14px}table{width:100%;border-collapse:collapse;font-size:13px}th{background:#f2f2f2;padding:8px 10px;text-align:left}td{padding:8px 10px;border-bottom:1px solid #e8e8e8;vertical-align:top}.core{background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700}.opt{background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:20px;font-size:11px}.sa{background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700}.esa{background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700}footer{margin-top:48px;color:#aaa;font-size:12px;border-top:1px solid #eee;padding-top:16px}@media print{body{margin:16px}}</style></head><body>
 <div style="display:flex;align-items:center;gap:20px;margin-bottom:8px;">
-    ${dog.photo_url ? `<img src="${dog.photo_url}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:3px solid #2D7D6F;" />` : '<div style="width:80px;height:80px;border-radius:50%;background:#2D7D6F;display:flex;align-items:center;justify-content:center;font-size:32px;color:white;font-family:Georgia,serif;">'+dog.name[0]+'</div>'}
+    ${dog.photo_url ? `<img src="${dog.photo_url}" alt="${dog.name}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:3px solid #2D7D6F;" />` : '<div style="width:80px;height:80px;border-radius:50%;background:#2D7D6F;display:flex;align-items:center;justify-content:center;font-size:32px;color:white;font-family:Georgia,serif;">'+dog.name[0]+'</div>'}
     <div>
       <h1 style="margin:0;font-size:28px;">🐾 ${dog.name}'s Medical Records</h1>
       ${dog.breed ? `<div style="color:#5A4535;font-size:14px;margin-top:4px;">${dog.breed}</div>` : ''}
@@ -551,7 +551,7 @@ const DogForm=({dog,userId,userEmail,onSave,onClose})=>{
     <div style={{display:"flex",flexDirection:"column",gap:14}}>
       <div style={{display:"flex",justifyContent:"center"}}>
         <div style={{position:"relative",cursor:"pointer"}} onClick={()=>fr.current.click()}>
-          {f.photo?<img src={f.photo} style={{width:80,height:80,borderRadius:"50%",objectFit:"cover",border:"3px solid #2D7D6F"}}/>:<div style={{width:80,height:80,borderRadius:"50%",background:"#FFFFFF",border:"2px dashed #E8DDD0",display:"flex",alignItems:"center",justifyContent:"center",color:"#5A4535"}}><Ic n="camera" s={24} c="#5A4535"/></div>}
+          {f.photo?<img src={f.photo} alt="Pet photo preview" style={{width:80,height:80,borderRadius:"50%",objectFit:"cover",border:"3px solid #2D7D6F"}}/>:<div style={{width:80,height:80,borderRadius:"50%",background:"#FFFFFF",border:"2px dashed #E8DDD0",display:"flex",alignItems:"center",justifyContent:"center",color:"#5A4535"}}><Ic n="camera" s={24} c="#5A4535"/></div>}
           <div style={{position:"absolute",bottom:0,right:0,background:"#2D7D6F",borderRadius:"50%",padding:5}}><Ic n="camera" s={11} c="#FAF6F0"/></div>
         </div>
         <input ref={fr} type="file" accept="image/*" style={{display:"none"}} onChange={onPhoto}/>
@@ -1090,7 +1090,7 @@ const AIScanModal=({dog,state,userId,userEmail,dispatch,onSave,onClose,onUpgrade
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
               {images.map((img,idx)=>(
                 <div key={idx} style={{position:"relative",borderRadius:12,overflow:"hidden",border:"1px solid #E8DDD0",background:"#FFFFFF"}}>
-                  <img src={img.dataUrl} style={{width:"100%",height:120,objectFit:"cover",display:"block"}}/>
+                  <img src={img.dataUrl} alt={img.label||`Scanned page ${idx+1}`} style={{width:"100%",height:120,objectFit:"cover",display:"block"}}/>
                   <div style={{position:"absolute",top:0,left:0,right:0,background:"rgba(0,0,0,0.45)",padding:"4px 8px",fontSize:11,color:"#fff",fontWeight:600}}>{img.label||`Page ${idx+1}`}</div>
                   <button onClick={()=>removeImage(idx)} style={{position:"absolute",top:4,right:4,background:"#C4714A",border:"none",borderRadius:"50%",width:22,height:22,color:"#fff",fontWeight:700,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
                 </div>
@@ -1327,7 +1327,7 @@ const QRSection=({dog,state,backBtn})=>{
           </div>
         ):(
           <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:16}}>
-            <img src={qrUrl} style={{borderRadius:12,border:"2px solid #E8DDD0",background:"#fff",padding:10,width:240,height:240}}/>
+            <img src={qrUrl} alt="Emergency QR health card code" style={{borderRadius:12,border:"2px solid #E8DDD0",background:"#fff",padding:10,width:240,height:240}}/>
             {/* Shareable link */}
             <div style={{width:"100%",background:"#FAF6F0",borderRadius:10,padding:"10px 14px",display:"flex",alignItems:"center",gap:8}}>
               <span style={{fontSize:12,color:"#5A4535",flex:1,wordBreak:"break-all"}}>{emergencyUrl}</span>
@@ -2114,7 +2114,7 @@ const OwnerProfileModal=({userId,tier,userEmail,onUpgrade,onClose})=>{
         <div style={{display:"flex",justifyContent:"center",marginBottom:8}}>
           <div style={{position:"relative",cursor:"pointer"}} onClick={()=>profPhotoRef.current.click()}>
             {f.photo
-              ?<img src={f.photo} style={{width:80,height:80,borderRadius:"50%",objectFit:"cover",border:"3px solid #2D7D6F"}}/>
+              ?<img src={f.photo} alt="Your profile photo" style={{width:80,height:80,borderRadius:"50%",objectFit:"cover",border:"3px solid #2D7D6F"}}/>
               :<div style={{width:80,height:80,borderRadius:"50%",background:"#FFFFFF",border:"2px dashed #E8DDD0",display:"flex",alignItems:"center",justifyContent:"center",color:"#5A4535"}}><Ic n="camera" s={24} c="#5A4535"/></div>}
             <div style={{position:"absolute",bottom:0,right:0,background:"#2D7D6F",borderRadius:"50%",padding:5}}><Ic n="camera" s={11} c="#FAF6F0"/></div>
           </div>

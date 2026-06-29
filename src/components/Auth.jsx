@@ -35,7 +35,7 @@ const EmergencyLookup = ({ onBack }) => {
                 <button key={pet.id} onClick={() => window.location.href = `/emergency/${pet.emergency_token}`}
                   style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", background: "#FAF6F0", border: "1px solid #E8DDD0", borderRadius: 14, cursor: "pointer", textAlign: "left", width: "100%" }}>
                   {pet.photo_url
-                    ? <img src={pet.photo_url} style={{ width: 52, height: 52, borderRadius: "50%", objectFit: "cover", border: "2px solid #2D7D6F", flexShrink: 0 }} />
+                    ? <img src={pet.photo_url} alt={pet.name} style={{ width: 52, height: 52, borderRadius: "50%", objectFit: "cover", border: "2px solid #2D7D6F", flexShrink: 0 }} />
                     : <div style={{ width: 52, height: 52, borderRadius: "50%", background: "#2D7D6F22", border: "2px solid #2D7D6F", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0, fontFamily: "'Lora', serif", fontWeight: 700, color: "#2D7D6F" }}>
                         {pet.name[0]}
                       </div>}

@@ -611,7 +611,7 @@ const ChecklistItem = ({ item, tripPets, onTogglePet, onToggleAll, onUpload, onD
                     }}>
                     <span style={{ fontSize: 15 }}>{done ? "✓" : "○"}</span>
                     {pet.photo_url
-                      ? <img src={pet.photo_url} style={{ width: 20, height: 20, borderRadius: "50%", objectFit: "cover" }} />
+                      ? <img src={pet.photo_url} alt={pet.name} style={{ width: 20, height: 20, borderRadius: "50%", objectFit: "cover" }} />
                       : <span style={{ width: 20, height: 20, borderRadius: "50%", background: C.accent + "30", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: C.accent }}>{pet.name[0]}</span>
                     }
                     {pet.name}
