@@ -11,6 +11,11 @@ const FROM_EMAIL = 'YourPetPass Alerts <notifications@yourpetpass.com>';
 const ADMIN_EMAIL = 'bgravley@rdmarketingllc.com';
 const WEBHOOK_SECRET = process.env.SIGNUP_WEBHOOK_SECRET;
 
+function esc(str) {
+  if (!str) return str;
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 export default async function handler(req, res) {
   if (req.headers['x-webhook-secret'] !== WEBHOOK_SECRET) {
     return res.status(401).json({ error: 'Unauthorized' });
@@ -30,9 +35,9 @@ export default async function handler(req, res) {
       <div style="color:#fff;font-weight:700;font-size:16px;">⚠️ New Error Logged</div>
     </div>
     <div style="padding:20px 24px;color:#5A4535;font-size:14px;line-height:1.6;">
-      <p><strong>Context:</strong> ${context || 'unknown'}</p>
-      <p><strong>User:</strong> ${user_email || 'not signed in'}</p>
-      <p><strong>Error:</strong> ${error_message || 'no message'}</p>
+      <p><strong>Context:</strong> ${esc(context) || 'unknown'}</p>
+      <p><strong>User:</strong> ${esc(user_email) || 'not signed in'}</p>
+      <p><strong>Error:</strong> ${esc(error_message) || 'no message'}</p>
       <p style="margin-top:16px;"><a href="https://yourpetpass.com/admin" style="color:#2D7D6F;font-weight:700;">View in Admin →</a></p>
     </div>
   </div>
