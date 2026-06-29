@@ -5,6 +5,11 @@
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const FROM_EMAIL     = 'YourPetPass <notifications@yourpetpass.com>';
 const ADMIN_EMAIL    = 'bgravley@rdmarketingllc.com';
+
+function esc(str) {
+  if (!str) return str;
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
 const WEBHOOK_SECRET = process.env.SIGNUP_WEBHOOK_SECRET;
 
 export default async function handler(req, res) {
@@ -53,7 +58,7 @@ export default async function handler(req, res) {
       <img src="https://yourpetpass.com/logo_horizontal_cream_transparent.png" alt="YourPetPass" width="200" style="display:block;height:auto;margin:0 auto;" />
     </div>
     <div class="body">
-      <h2>Welcome to the affiliate program${affiliateName ? `, ${affiliateName.split(' ')[0]}` : ''}! 🎉</h2>
+      <h2>Welcome to the affiliate program${affiliateName ? `, ${esc(affiliateName.split(' ')[0])}` : ''}! 🎉</h2>
       <p>
         You've been added as an official YourPetPass affiliate partner. 
         Every time someone signs up through your link and pays for a subscription, 

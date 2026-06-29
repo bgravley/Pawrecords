@@ -6,6 +6,11 @@
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const FROM_EMAIL = 'YourPetPass <notifications@yourpetpass.com>';
 
+function esc(str) {
+  if (!str) return str;
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -36,8 +41,8 @@ export default async function handler(req, res) {
   <div style="max-width:720px; margin:0 auto;">
     <div style="background:#1E5C52; padding:20px 24px; border-radius:16px 16px 0 0;">
       <img src="https://yourpetpass.com/logo_horizontal_cream_transparent.png" alt="YourPetPass" width="160" style="display:block;height:auto;margin-bottom:10px;" />
-      <div style="color:#fff; font-size:18px; font-weight:700;">🐾 ${petName}'s Health Record</div>
-      <div style="color:#A8D5CE; font-size:13px; margin-top:4px;">Shared${senderEmail ? ' by ' + senderEmail : ''}</div>
+      <div style="color:#fff; font-size:18px; font-weight:700;">🐾 ${esc(petName)}'s Health Record</div>
+      <div style="color:#A8D5CE; font-size:13px; margin-top:4px;">Shared${senderEmail ? ' by ' + esc(senderEmail) : ''}</div>
     </div>
     ${pdfUrl ? `
     <div style="background:#FFF8EC; border-bottom:1px solid #E8DDD0; padding:16px 24px; text-align:center;">

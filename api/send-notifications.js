@@ -6,6 +6,11 @@ const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const FROM_EMAIL = 'YourPetPass <notifications@yourpetpass.com>';
 const APP_URL = 'https://yourpetpass.com';
 
+function esc(str) {
+  if (!str) return str;
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 // ── EMAIL SENDER ──────────────────────────────────────────
 async function sendEmail({ to, subject, html }) {
   const res = await fetch('https://api.resend.com/emails', {
@@ -101,15 +106,15 @@ function vaccineReminderEmail({ petName, vaccineName, dueDate, days, ownerName }
   const urgency = days <= 7 ? 'urgent' : days <= 30 ? 'warning' : 'ok';
   const urgencyText = days <= 7 ? '⚠️ Urgent' : days <= 30 ? '📅 Coming Up' : '🗓 Reminder';
   return emailWrapper(`
-    <h2>${urgencyText}: ${vaccineName} Due for ${petName}</h2>
-    <p>Hi ${ownerName || 'there'},</p>
-    <p>${petName}'s <strong>${vaccineName}</strong> vaccination is due in <strong>${days} day${days !== 1 ? 's' : ''}</strong> on <strong>${fmt(dueDate)}</strong>.</p>
+    <h2>${urgencyText}: ${esc(vaccineName)} Due for ${esc(petName)}</h2>
+    <p>Hi ${esc(ownerName) || 'there'},</p>
+    <p>${esc(petName)}'s <strong>${esc(vaccineName)}</strong> vaccination is due in <strong>${days} day${days !== 1 ? 's' : ''}</strong> on <strong>${fmt(dueDate)}</strong>.</p>
     <div class="alert-card alert-${urgency}">
-      <strong>${petName}</strong> · ${vaccineName}<br>
+      <strong>${esc(petName)}</strong> · ${esc(vaccineName)}<br>
       <span style="font-size:13px;color:#5A4535;">Due: ${fmt(dueDate)} · ${days} days away</span>
     </div>
     ${days <= 7 ? '<p style="color:#C4714A;font-weight:600;">⚠️ Schedule your vet appointment now to avoid your pet being overdue.</p>' : ''}
-    <a href="${APP_URL}" class="btn">View ${petName}'s Records →</a>
+    <a href="${APP_URL}" class="btn">View ${esc(petName)}'s Records →</a>
   `);
 }
 
@@ -121,19 +126,19 @@ function travelReminderEmail({ ownerName, tripName, items }) {
       <div class="alert-card alert-${urgency}">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;">
           <div>
-            <strong>${item.title}</strong><br>
+            <strong>${esc(item.title)}</strong><br>
             <span style="font-size:12px;color:#5A4535;">Due: ${fmt(item.deadline_date)}</span>
           </div>
           <span class="badge ${badge}">${item.days}d left</span>
         </div>
-        ${item.notes ? `<div style="font-size:12px;color:#C4714A;margin-top:6px;">⚠ ${item.notes}</div>` : ''}
+        ${item.notes ? `<div style="font-size:12px;color:#C4714A;margin-top:6px;">⚠ ${esc(item.notes)}</div>` : ''}
       </div>`;
   }).join('');
 
   return emailWrapper(`
     <h2>✈️ Travel Action Items Due Soon</h2>
-    <p>Hi ${ownerName || 'there'},</p>
-    <p>You have upcoming deadlines for your trip <strong>${tripName}</strong>. Some items need to be completed well before your departure date.</p>
+    <p>Hi ${esc(ownerName) || 'there'},</p>
+    <p>You have upcoming deadlines for your trip <strong>${esc(tripName)}</strong>. Some items need to be completed well before your departure date.</p>
     ${itemsHtml}
     <a href="${APP_URL}" class="btn">View Trip Checklist →</a>
     <p style="font-size:13px;color:#8B7355;margin-top:16px;">Remember: USDA endorsement takes 1–3 business days by mail. Don't wait until the last minute.</p>
@@ -148,7 +153,7 @@ function weeklyDigestEmail({ ownerName, overdueVaccines, upcomingVaccines, trave
       <div style="font-size:11px;font-weight:700;color:#C4714A;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">⚠ Overdue Vaccines</div>
       ${overdueVaccines.map(v => `
         <div class="item-row">
-          <span><strong>${v.petName}</strong> · ${v.name}</span>
+          <span><strong>${esc(v.petName)}</strong> · ${esc(v.name)}</span>
           <span class="badge badge-red">Overdue ${Math.abs(v.days)}d</span>
         </div>`).join('')}
     </div>` : '';
@@ -158,7 +163,7 @@ function weeklyDigestEmail({ ownerName, overdueVaccines, upcomingVaccines, trave
       <div style="font-size:11px;font-weight:700;color:#E8A838;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">📅 Upcoming Vaccines</div>
       ${upcomingVaccines.map(v => `
         <div class="item-row">
-          <span><strong>${v.petName}</strong> · ${v.name}</span>
+          <span><strong>${esc(v.petName)}</strong> · ${esc(v.name)}</span>
           <span class="badge badge-amber">Due in ${v.days}d</span>
         </div>`).join('')}
     </div>` : '';
@@ -168,7 +173,7 @@ function weeklyDigestEmail({ ownerName, overdueVaccines, upcomingVaccines, trave
       <div style="font-size:11px;font-weight:700;color:#2D7D6F;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">✈️ Travel Documents Due Soon</div>
       ${travelItems.map(t => `
         <div class="item-row">
-          <span><strong>${t.tripName}</strong> · ${t.title}</span>
+          <span><strong>${esc(t.tripName)}</strong> · ${esc(t.title)}</span>
           <span class="badge ${t.days <= 7 ? 'badge-red' : 'badge-amber'}">Due in ${t.days}d</span>
         </div>`).join('')}
     </div>` : '';
@@ -182,7 +187,7 @@ function weeklyDigestEmail({ ownerName, overdueVaccines, upcomingVaccines, trave
 
   return emailWrapper(`
     <h2>🐾 Your Weekly Pet Health Summary</h2>
-    <p>Hi ${ownerName || 'there'}, here's everything coming up for your pets this week.</p>
+    <p>Hi ${esc(ownerName) || 'there'}, here's everything coming up for your pets this week.</p>
     ${overdueHtml}${upcomingHtml}${travelHtml}${noNewsHtml}
     <a href="${APP_URL}" class="btn">Open YourPetPass →</a>
   `);

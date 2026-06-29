@@ -5,6 +5,11 @@
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const FROM_EMAIL = 'YourPetPass <notifications@yourpetpass.com>';
+
+function esc(str) {
+  if (!str) return str;
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
 const ADMIN_EMAIL = 'bgravley@rdmarketingllc.com';
 
 export default async function handler(req, res) {
@@ -61,7 +66,7 @@ export default async function handler(req, res) {
             </div>
             <div style="padding:20px;">
             <h2>🐛 New Bug Report</h2>
-            <p><strong>From:</strong> ${userEmail || 'unknown'}</p>
+            <p><strong>From:</strong> ${esc(userEmail) || 'unknown'}</p>
             <p><strong>Description:</strong></p>
             <p style="background:#f4f4f4;padding:12px;border-radius:8px;white-space:pre-wrap;">${description.replace(/</g,'&lt;')}</p>
             <p><a href="https://yourpetpass.com/admin">Review in Admin →</a></p>

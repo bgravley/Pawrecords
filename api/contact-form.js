@@ -5,6 +5,14 @@ const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const FROM_EMAIL     = 'YourPetPass <notifications@yourpetpass.com>';
 const ADMIN_EMAIL    = 'bgravley@rdmarketingllc.com';
 
+// Escapes user-submitted text before it gets inserted into email HTML —
+// without this, someone could submit HTML/script tags as their name or
+// subject and have it render in the email instead of showing as plain text.
+function esc(str) {
+  if (!str) return str;
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -55,8 +63,8 @@ export default async function handler(req, res) {
       <h1>📨 New Contact Form Submission</h1>
     </div>
     <div class="body">
-      <div class="row"><span class="label">From</span><span class="value">${name} &lt;${email}&gt;</span></div>
-      ${subject ? `<div class="row"><span class="label">Subject</span><span class="value">${subject}</span></div>` : ''}
+      <div class="row"><span class="label">From</span><span class="value">${esc(name)} &lt;${esc(email)}&gt;</span></div>
+      ${subject ? `<div class="row"><span class="label">Subject</span><span class="value">${esc(subject)}</span></div>` : ''}
       <div class="row">
         <span class="label">Message</span>
         <div class="message-box">${message.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>

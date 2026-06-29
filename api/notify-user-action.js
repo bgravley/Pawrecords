@@ -5,6 +5,11 @@
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const FROM_EMAIL = 'YourPetPass <notifications@yourpetpass.com>';
 
+function esc(str) {
+  if (!str) return str;
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 function wrap(bodyHtml) {
   return `
 <!DOCTYPE html>
@@ -27,19 +32,19 @@ function wrap(bodyHtml) {
 const TEMPLATES = {
   profile_updated: ({ name }) => ({
     subject: '✓ Your profile was updated',
-    body: `<h2>Profile updated</h2><p>Your account profile was just updated successfully${name ? `, ${name}` : ''}. If this wasn't you, please reply to this email right away.</p>`,
+    body: `<h2>Profile updated</h2><p>Your account profile was just updated successfully${name ? `, ${esc(name)}` : ''}. If this wasn't you, please reply to this email right away.</p>`,
   }),
   trip_added: ({ tripName, origin, destination }) => ({
     subject: `✈️ Trip added: ${origin} → ${destination}`,
-    body: `<h2>New trip planned</h2><p>"${tripName || `${origin} → ${destination}`}" has been added to your Travel tab. Generate an AI checklist anytime to see what's needed for this route.</p>`,
+    body: `<h2>New trip planned</h2><p>"${esc(tripName) || `${esc(origin)} → ${esc(destination)}`}" has been added to your Travel tab. Generate an AI checklist anytime to see what's needed for this route.</p>`,
   }),
   document_added: ({ petName }) => ({
     subject: `📄 Document added to ${petName}'s records`,
-    body: `<h2>Document saved</h2><p>A new document was successfully added to ${petName}'s health records and is ready to view anytime.</p>`,
+    body: `<h2>Document saved</h2><p>A new document was successfully added to ${esc(petName)}'s health records and is ready to view anytime.</p>`,
   }),
   checklist_generated: ({ origin, destination, used, limit, creditsBalance }) => ({
     subject: `✈️ Travel checklist ready: ${origin} → ${destination}`,
-    body: `<h2>Checklist generated</h2><p>Your AI travel checklist for ${origin} → ${destination} is ready in the Travel tab.</p>
+    body: `<h2>Checklist generated</h2><p>Your AI travel checklist for ${esc(origin)} → ${esc(destination)} is ready in the Travel tab.</p>
       <p style="background:#F4EFE8;border-radius:10px;padding:12px 16px;margin-top:14px;">
         <strong>Usage this month:</strong> ${used}/${limit} included checklists used
         ${creditsBalance > 0 ? `<br><strong>Bonus credits remaining:</strong> ${creditsBalance}` : ''}
