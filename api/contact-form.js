@@ -4,6 +4,40 @@
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const FROM_EMAIL     = 'YourPetPass <notifications@yourpetpass.com>';
 const ADMIN_EMAIL    = 'bgravley@rdmarketingllc.com';
+const RATE_LIMIT     = 5;   // max submissions per IP per hour
+const RATE_WINDOW_MS = 60 * 60 * 1000;
+
+// Checks the rate_limit_log table and returns true if this IP is over the limit.
+// Also writes a new entry for this attempt.
+async function isRateLimited(ip, form) {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const serviceKey  = process.env.SUPABASE_SERVICE_KEY;
+  if (!supabaseUrl || !serviceKey) return false; // fail open if not configured
+
+  const since = new Date(Date.now() - RATE_WINDOW_MS).toISOString();
+  const headers = {
+    'apikey': serviceKey,
+    'Authorization': `Bearer ${serviceKey}`,
+    'Content-Type': 'application/json',
+  };
+
+  // Count recent submissions from this IP
+  const countRes = await fetch(
+    `${supabaseUrl}/rest/v1/rate_limit_log?ip=eq.${encodeURIComponent(ip)}&form=eq.${form}&created_at=gte.${since}&select=id`,
+    { headers: { ...headers, 'Prefer': 'count=exact', 'Range-Unit': 'items', 'Range': '0-0' } }
+  );
+  const countHeader = countRes.headers.get('content-range');
+  const count = countHeader ? parseInt(countHeader.split('/')[1]) || 0 : 0;
+
+  // Log this attempt regardless (so the count is accurate next time)
+  await fetch(`${supabaseUrl}/rest/v1/rate_limit_log`, {
+    method: 'POST',
+    headers: { ...headers, 'Prefer': 'return=minimal' },
+    body: JSON.stringify({ ip, form }),
+  });
+
+  return count >= RATE_LIMIT;
+}
 
 // Escapes user-submitted text before it gets inserted into email HTML —
 // without this, someone could submit HTML/script tags as their name or
@@ -19,6 +53,13 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  // Rate limiting — 5 submissions per IP per hour
+  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown';
+  const limited = await isRateLimited(ip, 'contact-form');
+  if (limited) {
+    return res.status(429).json({ error: 'Too many submissions. Please wait a while before trying again.' });
+  }
 
   const { name, email, subject, message } = req.body;
 
