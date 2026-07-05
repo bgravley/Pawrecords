@@ -3,6 +3,7 @@ import { useReducer, useState, useEffect, useRef, Component } from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { supabase } from "./lib/supabase";
 import * as db from "./lib/db";
+import OnboardingTour, { TOUR_STORAGE_KEY } from "./components/OnboardingTour";
 
 const PRICES = {
   monthly: "price_1TknmwB5s5OlwZVJsgXTq1JA",
@@ -2264,7 +2265,18 @@ const Home=({state,dispatch,userId,tier,userEmail,onSignOut,isAdmin,onOpenAdmin,
   const[showAlerts,setShowAlerts]=useState(false);
   const[errorCount,setErrorCount]=useState(0);
   const[upcomingTrips,setUpcomingTrips]=useState([]);
+  const[showTour,setShowTour]=useState(false);
   const premium=isPremium(tier);
+
+  // Show the onboarding tour automatically the first time a user reaches
+  // the dashboard (never seen it before, per localStorage).
+  useEffect(()=>{
+    try{
+      if(localStorage.getItem(TOUR_STORAGE_KEY)!=="true"){
+        setShowTour(true);
+      }
+    }catch(e){/* localStorage unavailable — just skip the auto-tour */}
+  },[]);
 
   useEffect(()=>{
     if(!isAdmin)return;
@@ -2310,6 +2322,7 @@ const Home=({state,dispatch,userId,tier,userEmail,onSignOut,isAdmin,onOpenAdmin,
           {!premium&&<button onClick={()=>setShowUpgrade(true)} style={{background:"#E8A83820",border:"1px solid #E8A83844",borderRadius:10,padding:"7px 12px",color:"#E8A838",fontWeight:600,fontSize:12,display:"flex",alignItems:"center",gap:5,cursor:"pointer"}}><Ic n="crown" s={13} c="#E8A838"/>Premium</button>}
           {totalAlerts>0&&<button onClick={()=>setShowAlerts(true)} style={{background:"#E8A83814",border:"1px solid #E8A83844",borderRadius:10,padding:"7px 12px",display:"flex",alignItems:"center",gap:5,color:"#E8A838",fontSize:13,cursor:"pointer"}}><Ic n="alert" s={14} c="#E8A838"/>{totalAlerts}</button>}
           <button onClick={onOpenTravel} title="Travel" style={{background:"#FFFFFF",border:"1px solid #E8DDD0",borderRadius:10,padding:"7px 10px",color:"#5A4535",cursor:"pointer"}}><Ic n="map" s={16} c="#5A4535"/></button>
+          <button onClick={()=>setShowTour(true)} title="Take a tour" style={{background:"#FFFFFF",border:"1px solid #E8DDD0",borderRadius:10,padding:"7px 10px",color:"#5A4535",cursor:"pointer",fontSize:15}}>❓</button>
           <button onClick={()=>setShowBugReport(true)} title="Report a Bug" style={{background:"#FFFFFF",border:"1px solid #E8DDD0",borderRadius:10,padding:"7px 10px",color:"#5A4535",cursor:"pointer",fontSize:15}}>🐛</button>
           <button onClick={()=>setShowProfile(true)} title="My Account" style={{background:"#FFFFFF",border:"1px solid #E8DDD0",borderRadius:10,padding:"7px 10px",color:"#5A4535",cursor:"pointer"}}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5A4535" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -2407,6 +2420,7 @@ const Home=({state,dispatch,userId,tier,userEmail,onSignOut,isAdmin,onOpenAdmin,
     {showProfile&&<OwnerProfileModal userId={userId} tier={tier} userEmail={userEmail} onUpgrade={()=>{setShowProfile(false);setShowUpgrade(true);}} onClose={()=>setShowProfile(false)}/>}
     {showBugReport&&<BugReportModal userId={userId} userEmail={userEmail} onClose={()=>setShowBugReport(false)}/>}
     {showAlerts&&<AlertsModal state={state} onClose={()=>setShowAlerts(false)} onSelectDog={(id)=>setSelDog(id)}/>}
+    {showTour&&<OnboardingTour onClose={()=>setShowTour(false)}/>}
     {/* Bottom nav */}
     <div style={{position:"fixed",bottom:0,left:0,right:0,background:"#FFFFFF",borderTop:"1px solid #E8DDD0",display:"flex",zIndex:200,paddingBottom:"env(safe-area-inset-bottom)"}}>
       <button style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"10px 0",background:"none",border:"none",cursor:"pointer",color:"#2D7D6F",borderTop:"2px solid #2D7D6F"}}>
