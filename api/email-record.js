@@ -3,6 +3,8 @@
 // The HTML is generated client-side (same function used for the Export
 // button) and passed in — this endpoint just delivers it via Resend.
 
+import { verifyUser } from './_verifyUser.js';
+
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const FROM_EMAIL = 'YourPetPass <notifications@yourpetpass.com>';
 
@@ -14,11 +16,18 @@ function esc(str) {
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { recipientEmail, petName, htmlContent, note, senderEmail, pdfUrl } = req.body;
+  // Require a signed-in user — this endpoint sends email from our domain,
+  // so it must never be callable by an anonymous stranger (open relay risk).
+  const auth = await verifyUser(req);
+  if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
+
+  const { recipientEmail, petName, htmlContent, note, pdfUrl } = req.body;
+  // Sender identity always comes from the verified session, never the body.
+  const senderEmail = auth.email;
 
   if (!recipientEmail || !petName || !htmlContent) {
     return res.status(400).json({ error: 'recipientEmail, petName, and htmlContent are required.' });

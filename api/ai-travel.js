@@ -8,6 +8,8 @@
 // - Results are cached by origin/destination country pair for 30 days
 // Rate limits: Premium: 3 AI generations/month included (overridable per user in Admin)
 
+import { verifyUser } from './_verifyUser.js';
+
 // ── Logging ────────────────────────────────────────────────────────────────
 async function logUsage({ userId, userEmail, model, inputTokens, outputTokens, destination, success, error }) {
   try {
@@ -304,7 +306,15 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).end();
 
-  const { messages, userId, userEmail, destination, originCountry, destinationCountry, transportationType } = req.body;
+  // Verify the caller actually holds a valid session — otherwise anyone could
+  // call this expensive AI endpoint with a made-up userId and run up our bill.
+  const auth = await verifyUser(req);
+  if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
+
+  const { messages, destination, originCountry, destinationCountry, transportationType } = req.body;
+  // Identity comes from the verified token, never from the request body.
+  const userId = auth.userId;
+  const userEmail = auth.email;
 
   if (!messages || !Array.isArray(messages)) {
     return res.status(400).json({ error: 'messages array required' });
@@ -314,15 +324,15 @@ export default async function handler(req, res) {
 
   try {
     // ── Premium gate — applies regardless of cache ──────────────────────────
-    if (userId) {
-      userProfile = await getUserProfile(userId);
-      const isPremium = userProfile.tier === 'premium' || userProfile.tier === 'lifetime';
-      if (!isPremium) {
-        return res.status(403).json({
-          error: 'AI Travel Checklist is a Premium feature. Upgrade to generate requirements.',
-          requiresUpgrade: true,
-        });
-      }
+    // userId is always present now (guaranteed by verifyUser above), so this
+    // gate always runs — no anonymous bypass possible.
+    userProfile = await getUserProfile(userId);
+    const isPremium = userProfile.tier === 'premium' || userProfile.tier === 'lifetime';
+    if (!isPremium) {
+      return res.status(403).json({
+        error: 'AI Travel Checklist is a Premium feature. Upgrade to generate requirements.',
+        requiresUpgrade: true,
+      });
     }
 
     // ── Check the route cache — free for everyone, no quota cost ────────────

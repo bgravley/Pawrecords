@@ -795,10 +795,11 @@ const EmailRecordModal=({dog,state,userEmail,onClose})=>{
         console.error("PDF generation failed, sending without it:",pdfErr.message);
       }
 
+      const{data:{session}}=await supabase.auth.getSession();
       const res=await fetch('/api/email-record',{
         method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({recipientEmail,petName:dog.name,htmlContent,note,senderEmail:userEmail,pdfUrl})
+        headers:{'Content-Type':'application/json','Authorization':`Bearer ${session?.access_token||''}`},
+        body:JSON.stringify({recipientEmail,petName:dog.name,htmlContent,note,pdfUrl})
       });
       const data=await res.json();
       if(!res.ok||data.error)throw new Error(data.error||'Could not send email');
@@ -948,7 +949,8 @@ const AIScanModal=({dog,state,userId,userEmail,dispatch,onSave,onClose,onUpgrade
     setStep("scanning");setError(null);
     try{
       const imagePayload=images.map(img=>({base64:img.dataUrl.split(",")[1],mediaType:img.dataUrl.split(";")[0].split(":")[1]}));
-      const res=await fetch("/api/ai-scan",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({images:imagePayload,userId,userEmail:userEmail||null,petName:dog.name})});
+      const{data:{session:scanSession}}=await supabase.auth.getSession();
+      const res=await fetch("/api/ai-scan",{method:"POST",headers:{"Content-Type":"application/json","Authorization":`Bearer ${scanSession?.access_token||''}`},body:JSON.stringify({images:imagePayload,petName:dog.name})});
       if(!res.ok){
         const e=await res.json();
         if(e.requiresUpgrade){setStep("upload");setError(null);onUpgrade&&onUpgrade();return;}
@@ -1950,7 +1952,8 @@ const BillingSection=({userId,tier,userEmail})=>{
   const openPortal=async()=>{
     setLoadingPortal(true);setPortalError(null);
     try{
-      const res=await fetch('/api/create-portal-session',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userId})});
+      const{data:{session:portalSession}}=await supabase.auth.getSession();
+      const res=await fetch('/api/create-portal-session',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${portalSession?.access_token||''}`},body:JSON.stringify({})});
       const data=await res.json();
       if(!res.ok||data.error)throw new Error(data.error||'Could not open billing portal');
       window.location.href=data.url;

@@ -310,15 +310,15 @@ Each item must have these exact fields:
 
 [`;
 
+  const { data: { session: aiSession } } = await supabase.auth.getSession();
   const response = await fetch("/api/ai-travel", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      "Authorization": `Bearer ${aiSession?.access_token || ''}`,
     },
     body: JSON.stringify({
       messages: [{ role: "user", content: prompt }],
-      userId: userId,
-      userEmail: null,
       destination: `${trip.origin_city} to ${trip.destination_city}`,
       originCountry: trip.origin_country,
       destinationCountry: trip.destination_country,
