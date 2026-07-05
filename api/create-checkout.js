@@ -65,12 +65,8 @@ export default async function handler(req, res) {
       code: err.code,
       sentParams: { ...sessionParams, line_items: sessionParams.line_items },
     });
-    // Surface the specific failing field in the error sent to the client
-    const detail = [
-      err.message,
-      err.param ? `(param: ${err.param})` : null,
-      err.type ? `[${err.type}]` : null,
-    ].filter(Boolean).join(' ');
-    return res.status(500).json({ error: detail, stripeParam: err.param || null, stripeType: err.type || null });
+    // Full detail is logged server-side above. Return a generic message to the
+    // client — internal Stripe params/types shouldn't be exposed to the browser.
+    return res.status(500).json({ error: 'Could not start checkout. Please try again, or contact support if this keeps happening.' });
   }
 }

@@ -3,6 +3,8 @@
 // - Premium: 20 AI scans/month (overridable per user in Admin)
 // - Free: 0 (AI scan is premium only)
 
+import { verifyUser } from './_verifyUser.js';
+
 // ── MIME validation ────────────────────────────────────────────────────────
 // Checks the actual base64 content matches the declared media type.
 // Prevents someone from renaming a file to trick the scanner.
@@ -110,10 +112,16 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { imageBase64, mediaType, images, userId, userEmail, petName } = req.body;
+    // Verify the caller holds a valid session before running any paid AI work.
+    const auth = await verifyUser(req);
+    if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
 
-    // ── Auth / tier / rate limit ──────────────────────────────────────────
-    if (userId) {
+    const { imageBase64, mediaType, images, petName } = req.body;
+    const userId = auth.userId;
+    const userEmail = auth.email;
+
+    // ── Tier / rate limit — always enforced (userId guaranteed by auth) ────
+    {
       const { tier, scanLimitOverride } = await getUserProfile(userId);
       const isPremium = tier === 'premium' || tier === 'lifetime';
 

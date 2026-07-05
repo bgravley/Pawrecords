@@ -28,7 +28,7 @@ def remind(msg):  reminders.append(msg)
 # ════════════════════════════════════════════════════════════════════════════
 # 1. BUILD SUCCEEDS
 # ════════════════════════════════════════════════════════════════════════════
-print("[ 1/16] Running build...")
+print("[ 1/19] Running build...")
 result = subprocess.run(["npm", "run", "build"], capture_output=True, text=True)
 if result.returncode != 0:
     fail(f"BUILD FAILED:\n{result.stdout[-2000:]}\n{result.stderr[-2000:]}")
@@ -41,7 +41,7 @@ else:
 #    (Travel.jsx, db.js, terms.html have all had this bug — whole file
 #     content copy-pasted onto itself, causing silent double-execution)
 # ════════════════════════════════════════════════════════════════════════════
-print("[ 2/16] Checking for duplicated file content...")
+print("[ 2/19] Checking for duplicated file content...")
 for f in subprocess.run(
     ["find", "public", "-name", "*.html"], capture_output=True, text=True
 ).stdout.split():
@@ -71,7 +71,7 @@ if not any("DOCTYPE" in i or "export default" in i for i in issues):
 # ════════════════════════════════════════════════════════════════════════════
 # 3. BROKEN INTERNAL LINKS AND IMAGE REFERENCES
 # ════════════════════════════════════════════════════════════════════════════
-print("[ 3/16] Checking internal links and image references...")
+print("[ 3/19] Checking internal links and image references...")
 
 def all_html_jsx_files():
     out = []
@@ -107,7 +107,7 @@ if not broken_images: ok("All image references resolve to real files")
 # 4. EVERY HTML PAGE HAS A META DESCRIPTION — NO DUPLICATES
 #    (Bing flagged 3 pages missing this; duplicates hurt SEO ranking)
 # ════════════════════════════════════════════════════════════════════════════
-print("[ 4/16] Checking meta descriptions and page titles...")
+print("[ 4/19] Checking meta descriptions and page titles...")
 descs, titles, missing_desc = {}, {}, []
 for root, dirs, files in os.walk("public"):
     for f in files:
@@ -140,7 +140,7 @@ if not missing_desc:
 #    (pet-health-certificates page claimed to be the moving-page — same
 #     root cause as duplicated content, metadata cross-contaminated)
 # ════════════════════════════════════════════════════════════════════════════
-print("[ 5/16] Checking metadata self-consistency...")
+print("[ 5/19] Checking metadata self-consistency...")
 for root, dirs, files in os.walk("public"):
     for f in files:
         if f.endswith(".html"):
@@ -162,7 +162,7 @@ if not any("og:url" in i or "mainEntityOfPage" in i for i in issues):
 #    (pet names, trip names, contact form fields were going into email HTML
 #     with no escaping — someone could inject HTML/script tags)
 # ════════════════════════════════════════════════════════════════════════════
-print("[ 6/16] Checking for unescaped user input in email templates...")
+print("[ 6/19] Checking for unescaped user input in email templates...")
 RISKY_FIELDS = [
     "name", "email", "subject", "message", "petName", "tripName",
     "ownerName", "description", "fullName", "affiliateName",
@@ -191,7 +191,7 @@ if not any("esc()" in i for i in issues):
 # ════════════════════════════════════════════════════════════════════════════
 # 7. NO LEFTOVER STRIPE TEST-MODE ARTIFACTS
 # ════════════════════════════════════════════════════════════════════════════
-print("[ 7/16] Checking for Stripe test-mode artifacts...")
+print("[ 7/19] Checking for Stripe test-mode artifacts...")
 test_artifacts = subprocess.run(
     ["grep", "-rl",
      "--exclude-dir=scripts", "--exclude-dir=node_modules", "--exclude-dir=.git",
@@ -208,7 +208,7 @@ else:
 # 8. NODE_MODULES / DIST ARE GITIGNORED — NOT TRACKED
 #    (accidentally committed 3,800+ node_modules files in one session)
 # ════════════════════════════════════════════════════════════════════════════
-print("[ 8/16] Checking git-tracked file hygiene...")
+print("[ 8/19] Checking git-tracked file hygiene...")
 tracked = subprocess.run(
     ["git", "ls-tree", "-r", "HEAD", "--name-only"],
     capture_output=True, text=True
@@ -224,7 +224,7 @@ else:
 # ════════════════════════════════════════════════════════════════════════════
 # 9. EVERY PUBLIC PAGE IS IN SITEMAP.XML
 # ════════════════════════════════════════════════════════════════════════════
-print("[ 9/16] Checking sitemap completeness...")
+print("[ 9/19] Checking sitemap completeness...")
 sitemap = open("public/sitemap.xml", errors='ignore').read() \
     if os.path.isfile("public/sitemap.xml") else ""
 sitemap_urls = set(re.findall(
@@ -250,7 +250,7 @@ if not missing_from_sitemap:
 #     (3MB+ blog hero images caused page speed issues — fixed by compressing
 #      them to ~130KB JPEGs; og-image.png is exempt, social platforms cache it)
 # ════════════════════════════════════════════════════════════════════════════
-print("[10/16] Checking image file sizes...")
+print("[10/19] Checking image file sizes...")
 MAX_KB = 500
 EXEMPT = {"public/og-image.png"}
 oversized = []
@@ -272,7 +272,7 @@ if not oversized:
 # ════════════════════════════════════════════════════════════════════════════
 # 11. NO HARDCODED SECRETS COMMITTED
 # ════════════════════════════════════════════════════════════════════════════
-print("[11/16] Checking for hardcoded secrets...")
+print("[11/19] Checking for hardcoded secrets...")
 SECRET_PATTERNS = [
     (r'sk_live_[A-Za-z0-9]{10,}', "Stripe live secret key"),
     (r'whsec_[A-Za-z0-9]{10,}', "Stripe webhook secret"),
@@ -304,7 +304,7 @@ if not found_secrets:
 #     (7 images across PawRecord.jsx, Travel.jsx, Auth.jsx had none —
 #      affects screen readers and SEO image indexing)
 # ════════════════════════════════════════════════════════════════════════════
-print("[12/16] Checking alt text on images...")
+print("[12/19] Checking alt text on images...")
 missing_alt = []
 for fpath in all_html_jsx_files():
     content = open(fpath, errors='ignore').read()
@@ -321,7 +321,7 @@ if not missing_alt:
 # ════════════════════════════════════════════════════════════════════════════
 # 13. EVERY PAGE HAS VIEWPORT META TAG AND FAVICON LINK
 # ════════════════════════════════════════════════════════════════════════════
-print("[13/16] Checking viewport and favicon presence...")
+print("[13/19] Checking viewport and favicon presence...")
 missing_vp, missing_fav = [], []
 for root, dirs, files in os.walk("public"):
     for f in files:
@@ -342,7 +342,7 @@ if not missing_fav: ok("Every page has a favicon link")
 # 14. PUBLIC UNAUTHENTICATED ENDPOINTS — SPAM PROTECTION REMINDER
 #     (contact-form, newsletter-signup, report-bug have no rate-limiting)
 # ════════════════════════════════════════════════════════════════════════════
-print("[14/16] Checking public endpoint spam protection...")
+print("[14/19] Checking public endpoint spam protection...")
 PUBLIC_ENDPOINTS = [
     "api/contact-form.js",
     "api/newsletter-signup.js",
@@ -378,7 +378,7 @@ for f in PUBLIC_ENDPOINTS:
 #       whatsapp_country_code (='+1')
 #     All other columns have schema-level defaults and are safe to omit.
 # ════════════════════════════════════════════════════════════════════════════
-print("[15/16] Supabase trigger reminder...")
+print("[15/19] Supabase trigger reminder...")
 remind(
     "MANUAL CHECK after any 'ALTER TABLE profiles ADD COLUMN':\n"
     "  Verify handle_new_user trigger in Supabase SQL editor:\n"
@@ -392,7 +392,7 @@ ok("Trigger reminder noted (cannot auto-check from code — see REMINDERS below)
 # 16. ENVIRONMENT VARIABLES INVENTORY
 #     (informational — cross-check these are all set in Vercel dashboard)
 # ════════════════════════════════════════════════════════════════════════════
-print("[16/16] Collecting environment variable inventory...")
+print("[16/19] Collecting environment variable inventory...")
 env_vars = set()
 for root, dirs, files in os.walk("api"):
     for f in files:
@@ -406,6 +406,108 @@ for root, dirs, files in os.walk("src"):
             content = open(os.path.join(root, f), errors='ignore').read()
             env_vars.update(re.findall(r'import\.meta\.env\.([A-Z_]+)', content))
 ok(f"Found {len(env_vars)} environment variables (see inventory below)")
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# 17. ENDPOINTS THAT ACT ON A USER MUST VERIFY THE TOKEN, NOT TRUST BODY userId
+#     (ai-scan.js & ai-travel.js used to rate-limit on an unverified userId from
+#      the request body — anyone could pass a fake id, skip the Premium gate,
+#      and run up the AI bill. email-record.js was an open mail relay. The fix
+#      pattern is verifyUser(req) from _verifyUser.js. This check flags any
+#      endpoint that reads userId from the body but never calls verifyUser or
+#      otherwise verifies an auth token.)
+# ════════════════════════════════════════════════════════════════════════════
+print("[17/19] Checking endpoint authentication...")
+# Endpoints that are intentionally public (no user identity needed) — anything
+# NOT in this list that touches userId/email must verify a token.
+INTENTIONALLY_PUBLIC = {
+    "api/contact-form.js",       # public form, rate-limited instead
+    "api/newsletter-signup.js",  # public form, rate-limited instead
+    "api/report-bug.js",         # public form, rate-limited instead
+    "api/create-checkout.js",    # Stripe session; webhook verifies the truth
+    "api/stripe-webhook.js",     # verifies Stripe signature instead of a user
+    "api/prewarm-cache.js",      # protected by CRON_SECRET instead
+    "api/send-notifications.js", # cron job, protected by CRON_SECRET
+    "api/notify-error.js",       # internal, protected by webhook secret
+    "api/notify-signup.js",      # internal webhook, verifies its own secret
+    "api/notify-affiliate.js",   # called server-side by admin-data (already authed)
+    "api/notify-user-action.js", # called server-side after an authed action
+}
+def endpoint_verifies_identity(content):
+    return (
+        "verifyUser(" in content or
+        "/auth/v1/user" in content or
+        "constructEvent" in content or          # stripe signature check
+        "CRON_SECRET" in content or
+        "WEBHOOK_SECRET" in content or
+        "SIGNUP_WEBHOOK_SECRET" in content
+    )
+for f in sorted(subprocess.run(["find", "api", "-name", "*.js"],
+                capture_output=True, text=True).stdout.split()):
+    base = os.path.basename(f)
+    if base.startswith("_"):
+        continue  # helper module, not an endpoint
+    if f in INTENTIONALLY_PUBLIC:
+        continue
+    content = open(f, errors='ignore').read()
+    touches_user = re.search(r'\buserId\b|\buser_id\b|\buserEmail\b', content)
+    if touches_user and not endpoint_verifies_identity(content):
+        fail(f"{f} acts on a user identity but never verifies an auth token "
+             f"(use verifyUser from _verifyUser.js). If it's intentionally public, "
+             f"add it to INTENTIONALLY_PUBLIC in audit.py with a reason.")
+if not any("never verifies an auth token" in i for i in issues):
+    ok("All user-acting endpoints verify identity (or are documented public)")
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# 18. NO ENDPOINT SENDS EMAIL FROM OUR DOMAIN WITHOUT AUTH OR A SECRET
+#     (email-record.js was an open relay — anyone could send YourPetPass-branded
+#      email to anyone. Any endpoint that calls Resend must first verify a user
+#      token OR a server secret, or be a known public/rate-limited form.)
+# ════════════════════════════════════════════════════════════════════════════
+print("[18/19] Checking for open email relays...")
+EMAIL_SENDERS_OK_PUBLIC = {
+    "api/contact-form.js",       # rate-limited, only emails the admin (fixed recipient)
+    "api/newsletter-signup.js",  # rate-limited, only stores/notifies admin
+    "api/report-bug.js",         # rate-limited, only emails the admin (fixed recipient)
+    "api/notify-signup.js", "api/notify-error.js", "api/notify-affiliate.js",
+    "api/notify-user-action.js", "api/send-notifications.js", "api/stripe-webhook.js",
+}
+for f in sorted(subprocess.run(["find", "api", "-name", "*.js"],
+                capture_output=True, text=True).stdout.split()):
+    if os.path.basename(f).startswith("_"):
+        continue
+    content = open(f, errors='ignore').read()
+    sends_email = "api.resend.com" in content or "resend.com/emails" in content
+    if not sends_email:
+        continue
+    if f in EMAIL_SENDERS_OK_PUBLIC:
+        continue
+    # Must verify a user token or a secret before sending
+    if not endpoint_verifies_identity(content):
+        fail(f"{f} sends email via Resend but doesn't verify a user token or secret "
+             f"— possible open relay. Add verifyUser or document it in audit.py.")
+if not any("possible open relay" in i for i in issues):
+    ok("No unauthenticated email-sending endpoints (no open relays)")
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# 19. .env FILES ARE GITIGNORED
+#     (prevents accidentally committing secrets in a local .env)
+# ════════════════════════════════════════════════════════════════════════════
+print("[19/19] Checking .env is gitignored...")
+gitignore = open(".gitignore", errors='ignore').read() if os.path.isfile(".gitignore") else ""
+if re.search(r'^\.env', gitignore, re.MULTILINE):
+    ok(".env files are gitignored")
+else:
+    fail(".gitignore does not exclude .env files — a local .env with secrets could be committed")
+# Also confirm no .env is actually tracked right now
+tracked_env = [l for l in subprocess.run(
+    ["git", "ls-tree", "-r", "HEAD", "--name-only"],
+    capture_output=True, text=True).stdout.splitlines()
+    if l == ".env" or l.startswith(".env.")]
+if tracked_env:
+    fail(f"A .env file is committed to git: {tracked_env} — remove it and rotate those secrets")
 
 
 # ════════════════════════════════════════════════════════════════════════════
