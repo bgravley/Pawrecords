@@ -28,7 +28,7 @@ def remind(msg):  reminders.append(msg)
 # ════════════════════════════════════════════════════════════════════════════
 # 1. BUILD SUCCEEDS
 # ════════════════════════════════════════════════════════════════════════════
-print("[ 1/19] Running build...")
+print("[ 1/20] Running build...")
 result = subprocess.run(["npm", "run", "build"], capture_output=True, text=True)
 if result.returncode != 0:
     fail(f"BUILD FAILED:\n{result.stdout[-2000:]}\n{result.stderr[-2000:]}")
@@ -41,7 +41,7 @@ else:
 #    (Travel.jsx, db.js, terms.html have all had this bug — whole file
 #     content copy-pasted onto itself, causing silent double-execution)
 # ════════════════════════════════════════════════════════════════════════════
-print("[ 2/19] Checking for duplicated file content...")
+print("[ 2/20] Checking for duplicated file content...")
 for f in subprocess.run(
     ["find", "public", "-name", "*.html"], capture_output=True, text=True
 ).stdout.split():
@@ -71,7 +71,7 @@ if not any("DOCTYPE" in i or "export default" in i for i in issues):
 # ════════════════════════════════════════════════════════════════════════════
 # 3. BROKEN INTERNAL LINKS AND IMAGE REFERENCES
 # ════════════════════════════════════════════════════════════════════════════
-print("[ 3/19] Checking internal links and image references...")
+print("[ 3/20] Checking internal links and image references...")
 
 def all_html_jsx_files():
     out = []
@@ -107,7 +107,7 @@ if not broken_images: ok("All image references resolve to real files")
 # 4. EVERY HTML PAGE HAS A META DESCRIPTION — NO DUPLICATES
 #    (Bing flagged 3 pages missing this; duplicates hurt SEO ranking)
 # ════════════════════════════════════════════════════════════════════════════
-print("[ 4/19] Checking meta descriptions and page titles...")
+print("[ 4/20] Checking meta descriptions and page titles...")
 descs, titles, missing_desc = {}, {}, []
 for root, dirs, files in os.walk("public"):
     for f in files:
@@ -140,7 +140,7 @@ if not missing_desc:
 #    (pet-health-certificates page claimed to be the moving-page — same
 #     root cause as duplicated content, metadata cross-contaminated)
 # ════════════════════════════════════════════════════════════════════════════
-print("[ 5/19] Checking metadata self-consistency...")
+print("[ 5/20] Checking metadata self-consistency...")
 for root, dirs, files in os.walk("public"):
     for f in files:
         if f.endswith(".html"):
@@ -162,7 +162,7 @@ if not any("og:url" in i or "mainEntityOfPage" in i for i in issues):
 #    (pet names, trip names, contact form fields were going into email HTML
 #     with no escaping — someone could inject HTML/script tags)
 # ════════════════════════════════════════════════════════════════════════════
-print("[ 6/19] Checking for unescaped user input in email templates...")
+print("[ 6/20] Checking for unescaped user input in email templates...")
 RISKY_FIELDS = [
     "name", "email", "subject", "message", "petName", "tripName",
     "ownerName", "description", "fullName", "affiliateName",
@@ -191,7 +191,7 @@ if not any("esc()" in i for i in issues):
 # ════════════════════════════════════════════════════════════════════════════
 # 7. NO LEFTOVER STRIPE TEST-MODE ARTIFACTS
 # ════════════════════════════════════════════════════════════════════════════
-print("[ 7/19] Checking for Stripe test-mode artifacts...")
+print("[ 7/20] Checking for Stripe test-mode artifacts...")
 test_artifacts = subprocess.run(
     ["grep", "-rl",
      "--exclude-dir=scripts", "--exclude-dir=node_modules", "--exclude-dir=.git",
@@ -208,7 +208,7 @@ else:
 # 8. NODE_MODULES / DIST ARE GITIGNORED — NOT TRACKED
 #    (accidentally committed 3,800+ node_modules files in one session)
 # ════════════════════════════════════════════════════════════════════════════
-print("[ 8/19] Checking git-tracked file hygiene...")
+print("[ 8/20] Checking git-tracked file hygiene...")
 tracked = subprocess.run(
     ["git", "ls-tree", "-r", "HEAD", "--name-only"],
     capture_output=True, text=True
@@ -224,7 +224,7 @@ else:
 # ════════════════════════════════════════════════════════════════════════════
 # 9. EVERY PUBLIC PAGE IS IN SITEMAP.XML
 # ════════════════════════════════════════════════════════════════════════════
-print("[ 9/19] Checking sitemap completeness...")
+print("[ 9/20] Checking sitemap completeness...")
 sitemap = open("public/sitemap.xml", errors='ignore').read() \
     if os.path.isfile("public/sitemap.xml") else ""
 sitemap_urls = set(re.findall(
@@ -250,7 +250,7 @@ if not missing_from_sitemap:
 #     (3MB+ blog hero images caused page speed issues — fixed by compressing
 #      them to ~130KB JPEGs; og-image.png is exempt, social platforms cache it)
 # ════════════════════════════════════════════════════════════════════════════
-print("[10/19] Checking image file sizes...")
+print("[10/20] Checking image file sizes...")
 MAX_KB = 500
 EXEMPT = {"public/og-image.png"}
 oversized = []
@@ -272,7 +272,7 @@ if not oversized:
 # ════════════════════════════════════════════════════════════════════════════
 # 11. NO HARDCODED SECRETS COMMITTED
 # ════════════════════════════════════════════════════════════════════════════
-print("[11/19] Checking for hardcoded secrets...")
+print("[11/20] Checking for hardcoded secrets...")
 SECRET_PATTERNS = [
     (r'sk_live_[A-Za-z0-9]{10,}', "Stripe live secret key"),
     (r'whsec_[A-Za-z0-9]{10,}', "Stripe webhook secret"),
@@ -304,7 +304,7 @@ if not found_secrets:
 #     (7 images across PawRecord.jsx, Travel.jsx, Auth.jsx had none —
 #      affects screen readers and SEO image indexing)
 # ════════════════════════════════════════════════════════════════════════════
-print("[12/19] Checking alt text on images...")
+print("[12/20] Checking alt text on images...")
 missing_alt = []
 for fpath in all_html_jsx_files():
     content = open(fpath, errors='ignore').read()
@@ -321,7 +321,7 @@ if not missing_alt:
 # ════════════════════════════════════════════════════════════════════════════
 # 13. EVERY PAGE HAS VIEWPORT META TAG AND FAVICON LINK
 # ════════════════════════════════════════════════════════════════════════════
-print("[13/19] Checking viewport and favicon presence...")
+print("[13/20] Checking viewport and favicon presence...")
 missing_vp, missing_fav = [], []
 for root, dirs, files in os.walk("public"):
     for f in files:
@@ -342,7 +342,7 @@ if not missing_fav: ok("Every page has a favicon link")
 # 14. PUBLIC UNAUTHENTICATED ENDPOINTS — SPAM PROTECTION REMINDER
 #     (contact-form, newsletter-signup, report-bug have no rate-limiting)
 # ════════════════════════════════════════════════════════════════════════════
-print("[14/19] Checking public endpoint spam protection...")
+print("[14/20] Checking public endpoint spam protection...")
 PUBLIC_ENDPOINTS = [
     "api/contact-form.js",
     "api/newsletter-signup.js",
@@ -378,12 +378,17 @@ for f in PUBLIC_ENDPOINTS:
 #       whatsapp_country_code (='+1')
 #     All other columns have schema-level defaults and are safe to omit.
 # ════════════════════════════════════════════════════════════════════════════
-print("[15/19] Supabase trigger reminder...")
+print("[15/20] Supabase trigger reminder...")
 remind(
-    "MANUAL CHECK after any 'ALTER TABLE profiles ADD COLUMN':\n"
-    "  Verify handle_new_user trigger in Supabase SQL editor:\n"
-    "  SELECT pg_get_functiondef(oid) FROM pg_proc WHERE proname = 'handle_new_user';\n"
-    "  A broken trigger causes ALL new signups to fail silently."
+    "LIVE DATABASE CHECKS (audit.py can't reach the DB from CI):\n"
+    "  Run the queries in scripts/schema_audit.sql in any Supabase-connected\n"
+    "  session (MCP connector or SQL editor). They catch what the snapshot can't:\n"
+    "    - handle_new_user trigger health (broken trigger = all signups fail silently)\n"
+    "    - oversized storage photos (>500KB = slow/broken image loads)\n"
+    "    - RLS enabled on every table (missing = data leak)\n"
+    "    - documents bucket is public (private = every photo 404s)\n"
+    "  ALSO: after ANY schema change, regenerate scripts/schema_snapshot.json\n"
+    "  (query #1 in schema_audit.sql) or check 20 will drift."
 )
 ok("Trigger reminder noted (cannot auto-check from code — see REMINDERS below)")
 
@@ -392,7 +397,7 @@ ok("Trigger reminder noted (cannot auto-check from code — see REMINDERS below)
 # 16. ENVIRONMENT VARIABLES INVENTORY
 #     (informational — cross-check these are all set in Vercel dashboard)
 # ════════════════════════════════════════════════════════════════════════════
-print("[16/19] Collecting environment variable inventory...")
+print("[16/20] Collecting environment variable inventory...")
 env_vars = set()
 for root, dirs, files in os.walk("api"):
     for f in files:
@@ -417,7 +422,7 @@ ok(f"Found {len(env_vars)} environment variables (see inventory below)")
 #      endpoint that reads userId from the body but never calls verifyUser or
 #      otherwise verifies an auth token.)
 # ════════════════════════════════════════════════════════════════════════════
-print("[17/19] Checking endpoint authentication...")
+print("[17/20] Checking endpoint authentication...")
 # Endpoints that are intentionally public (no user identity needed) — anything
 # NOT in this list that touches userId/email must verify a token.
 INTENTIONALLY_PUBLIC = {
@@ -465,7 +470,7 @@ if not any("never verifies an auth token" in i for i in issues):
 #      email to anyone. Any endpoint that calls Resend must first verify a user
 #      token OR a server secret, or be a known public/rate-limited form.)
 # ════════════════════════════════════════════════════════════════════════════
-print("[18/19] Checking for open email relays...")
+print("[18/20] Checking for open email relays...")
 EMAIL_SENDERS_OK_PUBLIC = {
     "api/contact-form.js",       # rate-limited, only emails the admin (fixed recipient)
     "api/newsletter-signup.js",  # rate-limited, only stores/notifies admin
@@ -495,7 +500,7 @@ if not any("possible open relay" in i for i in issues):
 # 19. .env FILES ARE GITIGNORED
 #     (prevents accidentally committing secrets in a local .env)
 # ════════════════════════════════════════════════════════════════════════════
-print("[19/19] Checking .env is gitignored...")
+print("[19/20] Checking .env is gitignored...")
 gitignore = open(".gitignore", errors='ignore').read() if os.path.isfile(".gitignore") else ""
 if re.search(r'^\.env', gitignore, re.MULTILINE):
     ok(".env files are gitignored")
@@ -508,6 +513,77 @@ tracked_env = [l for l in subprocess.run(
     if l == ".env" or l.startswith(".env.")]
 if tracked_env:
     fail(f"A .env file is committed to git: {tracked_env} — remove it and rotate those secrets")
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# 20. DATABASE SCHEMA DRIFT — CODE WRITES COLUMNS THAT EXIST IN THE DB
+#     (This is the big one. The trips.transportation_type bug and the
+#      affiliates.payout_paypal/payout_stripe_email bug were BOTH this: the
+#      code writes a column the database doesn't have, so the operation fails
+#      silently — trip creation broke, affiliate payout saving broke, with no
+#      error the user could understand.
+#
+#      audit.py has no live DB connection in CI, so it checks the code against
+#      scripts/schema_snapshot.json — a committed snapshot of the real schema.
+#      REGENERATE THE SNAPSHOT after any schema change using query #1 in
+#      scripts/schema_audit.sql. If the snapshot is stale this check gives false
+#      positives, which is itself a useful signal that someone changed the DB
+#      without updating the snapshot.)
+# ════════════════════════════════════════════════════════════════════════════
+print("[20/20] Checking database schema drift (code vs schema_snapshot.json)...")
+snap_path = "scripts/schema_snapshot.json"
+if not os.path.isfile(snap_path):
+    fail("scripts/schema_snapshot.json is missing — cannot check schema drift. "
+         "Regenerate it with query #1 in scripts/schema_audit.sql.")
+else:
+    snapshot = json.load(open(snap_path))
+    snapshot = {k: set(v) for k, v in snapshot.items() if not k.startswith("_")}
+
+    drift = []
+    src_files = []
+    for base in ("src", "api"):
+        for root, dirs, files in os.walk(base):
+            dirs[:] = [d for d in dirs if d != "node_modules"]
+            for f in files:
+                if f.endswith((".js", ".jsx")):
+                    src_files.append(os.path.join(root, f))
+
+    # Only match DIRECTLY chained .from("table").insert/update/upsert({...})
+    # to avoid the false positives that plagued the naive version.
+    chain_pat = re.compile(
+        r'\.from\(\s*[\'"`](\w+)[\'"`]\s*\)\s*\.(insert|update|upsert)\(\s*(\{)',
+        re.DOTALL,
+    )
+    for fp in src_files:
+        content = open(fp, errors="ignore").read()
+        for m in chain_pat.finditer(content):
+            table = m.group(1)
+            if table not in snapshot:
+                continue  # unknown table (view, storage, etc.) — skip
+            obj_start = m.start(3)
+            depth = 0
+            keys = []
+            i = obj_start
+            buf = content[obj_start:obj_start + 3000]
+            # extract only top-level keys of the object literal
+            d = 0
+            for km in re.finditer(r'([{}])|(\w+)\s*:', buf):
+                if km.group(1) == "{":
+                    d += 1
+                elif km.group(1) == "}":
+                    d -= 1
+                    if d == 0:
+                        break
+                elif km.group(2) and d == 1:
+                    keys.append(km.group(2))
+            for k in keys:
+                if k not in snapshot[table]:
+                    drift.append(f"{fp}: writes '{k}' to '{table}' — column not in schema_snapshot.json "
+                                 f"(either the DB is missing it, or the snapshot is stale)")
+    for d in sorted(set(drift)):
+        fail(d)
+    if not drift:
+        ok("No schema drift — every column the code writes exists in the schema snapshot")
 
 
 # ════════════════════════════════════════════════════════════════════════════
