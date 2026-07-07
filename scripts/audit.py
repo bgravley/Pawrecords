@@ -394,6 +394,16 @@ ok("Trigger reminder noted (cannot auto-check from code — see REMINDERS below)
 
 
 # ════════════════════════════════════════════════════════════════════════════
+# ─────────────────────────────────────────────────────────────────────────────
+# DATABASE AUDIT — see scripts/db_audit.sql
+# This code audit CANNOT see the Supabase database. The worst bugs of the
+# June 2026 session were all database problems (missing columns, broken signup
+# trigger) invisible to any code-only check. When a Supabase connection is
+# available, ALSO run scripts/db_audit.sql — it checks the signup trigger,
+# schema-vs-code column drift, RLS coverage, storage bucket visibility, and
+# orphaned photo URLs. Run it during every review that has DB access.
+# ─────────────────────────────────────────────────────────────────────────────
+
 # 16. ENVIRONMENT VARIABLES INVENTORY
 #     (informational — cross-check these are all set in Vercel dashboard)
 # ════════════════════════════════════════════════════════════════════════════
