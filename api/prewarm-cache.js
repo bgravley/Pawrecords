@@ -42,7 +42,15 @@ async function warmOneRoute(originCountry, destinationCountry, transportationTyp
 
   const res = await fetch(`${APP_URL}/api/ai-travel`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      // Proves this is the trusted prewarm job, not an anonymous caller —
+      // see the matching check in ai-travel.js. Without this, ai-travel.js's
+      // verifyUser() rejects the request outright (no Authorization header),
+      // which is exactly what was happening before this was added: every
+      // single prewarm attempt failed at the auth check, 100% of the time.
+      'x-prewarm-secret': CRON_SECRET || '',
+    },
     body: JSON.stringify({
       messages: [{ role: 'user', content: prompt }],
       userId: null, // no quota check, no premium gate — this is a backend job, not a user request

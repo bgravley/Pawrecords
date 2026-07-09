@@ -306,15 +306,25 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).end();
 
-  // Verify the caller actually holds a valid session — otherwise anyone could
-  // call this expensive AI endpoint with a made-up userId and run up our bill.
-  const auth = await verifyUser(req);
-  if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
+  // Two ways in: a real signed-in user (normal path), or the prewarm job
+  // proving it holds CRON_SECRET (same secret prewarm-cache.js already uses
+  // to authenticate itself for the cron trigger -- reused here as the trust
+  // boundary for this internal system-to-system call). Nothing else bypasses
+  // verifyUser -- a made-up userId in the request body still gets nowhere.
+  const isPrewarmJob = !!process.env.CRON_SECRET && req.headers['x-prewarm-secret'] === process.env.CRON_SECRET;
+
+  let userId, userEmail;
+  if (isPrewarmJob) {
+    userId = null;
+    userEmail = null;
+  } else {
+    const auth = await verifyUser(req);
+    if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
+    userId = auth.userId;
+    userEmail = auth.email;
+  }
 
   const { messages, destination, originCountry, destinationCountry, transportationType } = req.body;
-  // Identity comes from the verified token, never from the request body.
-  const userId = auth.userId;
-  const userEmail = auth.email;
 
   if (!messages || !Array.isArray(messages)) {
     return res.status(400).json({ error: 'messages array required' });
@@ -323,16 +333,18 @@ export default async function handler(req, res) {
   let userProfile = null;
 
   try {
-    // ── Premium gate — applies regardless of cache ──────────────────────────
-    // userId is always present now (guaranteed by verifyUser above), so this
-    // gate always runs — no anonymous bypass possible.
-    userProfile = await getUserProfile(userId);
-    const isPremium = userProfile.tier === 'premium' || userProfile.tier === 'lifetime';
-    if (!isPremium) {
-      return res.status(403).json({
-        error: 'AI Travel Checklist is a Premium feature. Upgrade to generate requirements.',
-        requiresUpgrade: true,
-      });
+    // ── Premium gate — applies to real users only. The prewarm job has no
+    // userId, so getUserProfile(null) would just fail; skip it entirely and
+    // go straight to the cache-population logic below.
+    if (!isPrewarmJob) {
+      userProfile = await getUserProfile(userId);
+      const isPremium = userProfile.tier === 'premium' || userProfile.tier === 'lifetime';
+      if (!isPremium) {
+        return res.status(403).json({
+          error: 'AI Travel Checklist is a Premium feature. Upgrade to generate requirements.',
+          requiresUpgrade: true,
+        });
+      }
     }
 
     // ── Check the route cache — free for everyone, no quota cost ────────────
