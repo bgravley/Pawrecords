@@ -340,10 +340,10 @@ export default async function handler(req, res) {
 
     if (type === 'payout_summary') {
       // Rolls up unpaid commission balances per affiliate. No payment
-      // processor involved -- this just tells you who's owed what and how
-      // they want to be paid (payout_paypal / payout_stripe_email, which
-      // affiliates fill in themselves in their portal). You send the money
-      // yourself, then call mark_commissions_paid.
+      // processor involved -- this just tells you who's owed what; you
+      // reach out directly to arrange payment, then call
+      // mark_commissions_paid. (PayPal/Stripe self-serve payout fields were
+      // removed until real payout handling is built -- see conversation.)
       try {
         const commRes = await checkedFetch(
           `${supabaseUrl}/rest/v1/affiliate_commissions?status=eq.pending&select=affiliate_id,commission_amount_cents`,
@@ -352,7 +352,7 @@ export default async function handler(req, res) {
         const commissions = await commRes.json();
 
         const affRes = await checkedFetch(
-          `${supabaseUrl}/rest/v1/affiliates?select=id,referral_code,payout_paypal,payout_stripe_email,user_id`,
+          `${supabaseUrl}/rest/v1/affiliates?select=id,referral_code,user_id`,
           { headers }, 'Load affiliates for payout'
         );
         const affiliatesList = await affRes.json();
@@ -379,8 +379,6 @@ export default async function handler(req, res) {
             referralCode: a.referral_code,
             name: profileMap[a.user_id]?.full_name || '',
             email: profileMap[a.user_id]?.email || '',
-            payoutPaypal: a.payout_paypal || null,
-            payoutStripeEmail: a.payout_stripe_email || null,
             pendingCents: totals[a.id] || 0,
           }))
           .filter(s => s.pendingCents > 0)
