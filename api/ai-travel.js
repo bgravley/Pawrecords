@@ -5,7 +5,7 @@
 //
 // - GPT-4o (with OpenAI's native web search tool) researches and generates
 // - Claude (Sonnet, no search needed) reviews the checklist and flags uncertainty
-// - Results are cached by origin/destination country pair for 30 days
+// - Results are cached by origin/destination country pair for 7 days
 // Rate limits: Premium: 3 AI generations/month included (overridable per user in Admin)
 
 import { verifyUser } from './_verifyUser.js';
@@ -114,7 +114,7 @@ async function spendOneCredit(userId, currentBalance) {
 // ── Route cache ──────────────────────────────────────────────────────────
 // Pet travel regulations are the same for everyone flying the same route —
 // no reason to pay for fresh research on a route already researched recently.
-const CACHE_TTL_DAYS = 30;
+const CACHE_TTL_DAYS = 7;
 
 function normalizeCountry(c) {
   return (c || '').trim().toLowerCase();
