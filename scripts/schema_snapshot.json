@@ -1,5 +1,5 @@
 {
-  "_comment": "Live snapshot of the public schema, generated from Supabase on 2026-07-09. Regenerate after any schema change by running the query in scripts/schema_audit.sql. The audit cross-references code column usage against this file to catch drift like the transportation_type bug. admin_ai_summary removed (dropped July 2026 -- unused SECURITY DEFINER view). affiliate_commissions.gross_amount_cents and .payout_method added (were referenced in code but never existed as columns -- fixed July 2026).",
+  "_comment": "Live snapshot of the public schema, generated from Supabase on 2026-07-09. Regenerate after any schema change by running the query in scripts/schema_audit.sql. The audit cross-references code column usage against this file to catch drift like the transportation_type bug. admin_ai_summary removed (dropped July 2026 -- unused SECURITY DEFINER view). affiliate_commissions.gross_amount_cents and .payout_method added (were referenced in code but never existed as columns -- fixed July 2026). prewarm_routes added July 2026 (replaces the old hardcoded COMMON_ROUTES list in prewarm-cache.js).",
   "activity_log": [
     "id",
     "created_at",
@@ -294,5 +294,14 @@
     "weight_lbs",
     "notes",
     "created_at"
+  ],
+  "prewarm_routes": [
+    "id",
+    "origin_country",
+    "destination_country",
+    "transportation_mode",
+    "active",
+    "source",
+    "added_at"
   ]
 }
