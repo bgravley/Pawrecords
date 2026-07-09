@@ -15,7 +15,7 @@ const PRICES = {
 // UpgradeModal. Created in Stripe as a Coupon (not a Promotion Code), so it
 // can only be applied by this server-side logic, never typed in by anyone
 // who happens to find the ID.
-const REFERRAL_SIGNUP_COUPON = "REPLACE_WITH_STRIPE_COUPON_ID";
+const REFERRAL_SIGNUP_COUPON = "REFERRAL50FIRST";
 // Coupon codes (created in Stripe dashboard)
 // YPPFREE  = 100% off forever (lifetime free)
 // YPP3FREE = 100% off for 3 months;
