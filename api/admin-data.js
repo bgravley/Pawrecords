@@ -316,7 +316,7 @@ export default async function handler(req, res) {
           body: JSON.stringify({
             user_id: targetUserId,
             referral_code: referralCode,
-            commission_rate: commissionRate || 20,
+            commission_rate: commissionRate || 25,
             status: 'active',
             notes: notes || null,
           }),
@@ -336,6 +336,83 @@ export default async function handler(req, res) {
       );
       const data = await r.json();
       return res.status(200).json({ data });
+    }
+
+    if (type === 'payout_summary') {
+      // Rolls up unpaid commission balances per affiliate. No payment
+      // processor involved -- this just tells you who's owed what and how
+      // they want to be paid (payout_paypal / payout_stripe_email, which
+      // affiliates fill in themselves in their portal). You send the money
+      // yourself, then call mark_commissions_paid.
+      try {
+        const commRes = await checkedFetch(
+          `${supabaseUrl}/rest/v1/affiliate_commissions?status=eq.pending&select=affiliate_id,commission_amount_cents`,
+          { headers }, 'Load pending commissions'
+        );
+        const commissions = await commRes.json();
+
+        const affRes = await checkedFetch(
+          `${supabaseUrl}/rest/v1/affiliates?select=id,referral_code,payout_paypal,payout_stripe_email,user_id`,
+          { headers }, 'Load affiliates for payout'
+        );
+        const affiliatesList = await affRes.json();
+
+        const profileIds = affiliatesList.map(a => a.user_id).filter(Boolean);
+        let profileMap = {};
+        if (profileIds.length) {
+          const profRes = await checkedFetch(
+            `${supabaseUrl}/rest/v1/profiles?id=in.(${profileIds.join(',')})&select=id,email,full_name`,
+            { headers }, 'Load affiliate profiles for payout'
+          );
+          const profilesList = await profRes.json();
+          profileMap = Object.fromEntries(profilesList.map(p => [p.id, p]));
+        }
+
+        const totals = {};
+        for (const c of commissions) {
+          totals[c.affiliate_id] = (totals[c.affiliate_id] || 0) + (c.commission_amount_cents || 0);
+        }
+
+        const summary = affiliatesList
+          .map(a => ({
+            affiliateId: a.id,
+            referralCode: a.referral_code,
+            name: profileMap[a.user_id]?.full_name || '',
+            email: profileMap[a.user_id]?.email || '',
+            payoutPaypal: a.payout_paypal || null,
+            payoutStripeEmail: a.payout_stripe_email || null,
+            pendingCents: totals[a.id] || 0,
+          }))
+          .filter(s => s.pendingCents > 0)
+          .sort((a, b) => b.pendingCents - a.pendingCents);
+
+        return res.status(200).json({ data: summary });
+      } catch (err) {
+        console.error('payout_summary failed:', err.message);
+        await logAdminError(supabaseUrl, headers, 'payout_summary_failed', null, err.message);
+        return res.status(500).json({ error: err.message });
+      }
+    }
+
+    if (type === 'mark_commissions_paid') {
+      const { affiliateId, payoutMethod } = req.body;
+      if (!affiliateId) return res.status(400).json({ error: 'affiliateId required' });
+      try {
+        const r = await fetch(`${supabaseUrl}/rest/v1/affiliate_commissions?affiliate_id=eq.${affiliateId}&status=eq.pending`, {
+          method: 'PATCH',
+          headers,
+          body: JSON.stringify({ status: 'paid', payout_method: payoutMethod || null }),
+        });
+        if (!r.ok) {
+          const errText = await r.text().catch(() => '');
+          throw new Error(`Failed to mark commissions paid (${r.status}): ${errText}`);
+        }
+        return res.status(200).json({ data: { marked: true } });
+      } catch (err) {
+        console.error('mark_commissions_paid failed:', err.message);
+        await logAdminError(supabaseUrl, headers, 'mark_paid_failed', null, err.message);
+        return res.status(500).json({ error: err.message });
+      }
     }
 
     return res.status(400).json({ error: 'Unknown type' });

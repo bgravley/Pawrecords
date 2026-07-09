@@ -260,7 +260,7 @@ async function recordCommission({ profile, grossCents, netCents, stripeInvoiceId
     if (!affiliates?.length) return;
 
     const affiliate = affiliates[0];
-    const rate = parseFloat(affiliate.commission_rate) || 20;
+    const rate = parseFloat(affiliate.commission_rate) || 25;
     const commissionCents = Math.round(netCents * (rate / 100));
 
     const insertRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/affiliate_commissions`, {
@@ -332,7 +332,7 @@ async function recordRefund({ stripeChargeId, stripeCustomerId, refundAmountCent
     if (!affiliates?.length) return;
 
     const affiliate = affiliates[0];
-    const rate = parseFloat(affiliate.commission_rate) || 20;
+    const rate = parseFloat(affiliate.commission_rate) || 25;
     const refundCommissionCents = Math.round(refundAmountCents * (rate / 100));
 
     const insertRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/affiliate_commissions`, {
