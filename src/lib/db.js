@@ -172,12 +172,14 @@ export const getDocuments = async (userId) => {
     .from('documents').select('*').eq('user_id', userId).order('doc_date', { ascending: false })
   return { data: data || [], error }
 }
-export const addDocument = async (userId, userId2, doc, file) => {
+export const addDocument = async (userId, doc, file) => {
   let filePath = null
   if (file) {
-    const ext = file.name?.split('.').pop() || 'jpg'
-    filePath = `${userId}/docs/${doc.id}.${ext}`
-    await supabase.storage.from('documents').upload(filePath, file, { upsert: true })
+    const ext = (file.name?.split('.').pop() || 'jpg').toLowerCase()
+    const rand = Math.random().toString(36).slice(2, 8)
+    filePath = `${userId}/docs/${doc.dogId}/${Date.now()}-${rand}.${ext}`
+    const { error: upErr } = await supabase.storage.from('documents').upload(filePath, file, { upsert: true, contentType: file.type })
+    if (upErr) throw upErr
   }
   const { data, error } = await supabase.from('documents').insert({
     dog_id: doc.dogId, user_id: userId, name: doc.name, doc_date: doc.date || null,
