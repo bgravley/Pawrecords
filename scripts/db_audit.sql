@@ -127,3 +127,32 @@ WHERE d.photo_url IS NOT NULL
     WHERE o.bucket_id = 'documents'
       AND d.photo_url LIKE '%' || o.name
   );
+
+
+-- ── CHECK D9: oversized photos in the documents bucket ───────────────────────
+-- Added July 2026 after finding 1.3-3MB avatar photos in live storage — the
+-- upload path had no client-side compression (fixed in src/lib/imageResize.js,
+-- used by both photo upload handlers in PawRecord.jsx). New uploads should
+-- land under ~150KB. Expect: zero rows going forward. Any row here uploaded
+-- AFTER the imageResize.js fix shipped means a new upload path bypassed it.
+SELECT name, (metadata->>'size')::bigint / 1024 AS size_kb, created_at
+FROM storage.objects
+WHERE bucket_id = 'documents'
+  AND (metadata->>'size')::bigint > 500 * 1024
+ORDER BY size_kb DESC;
+
+
+-- ── CHECK D10: SECURITY DEFINER functions without a fixed search_path ────────
+-- A SECURITY DEFINER function with a mutable search_path can be hijacked by
+-- creating a same-named object earlier in the caller's search_path. Every
+-- SECURITY DEFINER function should set search_path explicitly. Expect: zero
+-- rows (fixed July 2026 for handle_new_user/notify_new_signup/notify_new_error
+-- — if a new SECURITY DEFINER function shows up here, give it a search_path).
+SELECT p.proname, p.prosecdef AS is_security_definer, p.proconfig
+FROM pg_proc p
+JOIN pg_namespace n ON p.pronamespace = n.oid
+WHERE n.nspname = 'public'
+  AND p.prosecdef = true
+  AND (p.proconfig IS NULL OR NOT EXISTS (
+    SELECT 1 FROM unnest(p.proconfig) c WHERE c LIKE 'search_path=%'
+  ));
