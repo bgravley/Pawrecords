@@ -56,7 +56,7 @@ export default async function handler(req, res) {
     return res.status(429).json({ error: 'Too many bug reports submitted. Please wait before submitting another.' });
   }
 
-  const { userId, userEmail, description } = req.body;
+  const { userId, userEmail, description, screenshotUrl } = req.body;
 
   if (!description || description.trim().length === 0) {
     return res.status(400).json({ error: 'Please describe the bug.' });
@@ -64,6 +64,10 @@ export default async function handler(req, res) {
   if (description.length > 2000) {
     return res.status(400).json({ error: 'Description is too long (max 2000 characters).' });
   }
+  // screenshotUrl comes from our own Supabase storage upload (client-side,
+  // right before this call) -- not arbitrary user input, but still worth a
+  // sanity check before it goes into an email/DB row.
+  const safeScreenshotUrl = (typeof screenshotUrl === 'string' && screenshotUrl.startsWith('https://')) ? screenshotUrl : null;
 
   try {
     const insertRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/bug_reports`, {
@@ -78,6 +82,7 @@ export default async function handler(req, res) {
         user_id: userId || null,
         user_email: userEmail || null,
         description: description.trim(),
+        screenshot_url: safeScreenshotUrl,
         status: 'pending',
       }),
     });
@@ -106,6 +111,7 @@ export default async function handler(req, res) {
             <p><strong>From:</strong> ${esc(userEmail) || 'unknown'}</p>
             <p><strong>Description:</strong></p>
             <p style="background:#f4f4f4;padding:12px;border-radius:8px;white-space:pre-wrap;">${description.replace(/</g,'&lt;')}</p>
+            ${safeScreenshotUrl ? `<p><strong>Screenshot:</strong></p><a href="${safeScreenshotUrl}"><img src="${safeScreenshotUrl}" alt="Bug screenshot" style="max-width:100%;border-radius:8px;border:1px solid #ddd;" /></a>` : ''}
             <p><a href="https://yourpetpass.com/admin">Review in Admin →</a></p>
             </div>
           </div>`,

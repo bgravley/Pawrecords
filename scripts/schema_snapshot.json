@@ -69,7 +69,8 @@
     "status",
     "reward_type",
     "created_at",
-    "reviewed_at"
+    "reviewed_at",
+    "screenshot_url"
   ],
   "documents": [
     "id",
