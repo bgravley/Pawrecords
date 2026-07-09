@@ -32,10 +32,6 @@ export default function AffiliatePortal({ userId, userEmail, onClose }) {
   const [commissions, setCommissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
-  const [savingPayout, setSavingPayout] = useState(false);
-  const [payoutSaved, setPayoutSaved] = useState(false);
-  const [paypal, setPaypal] = useState('');
-  const [stripeEmail, setStripeEmail] = useState('');
   const [monthFilter, setMonthFilter] = useState('all');
 
   useEffect(() => {
@@ -45,12 +41,14 @@ export default function AffiliatePortal({ userId, userEmail, onClose }) {
   const loadData = async () => {
     setLoading(true);
     try {
-      // Load this affiliate's record (RLS ensures only their own)
-      const { data: aff } = await supabase.from('affiliates').select('*').eq('user_id', userId).single();
+      // Load this affiliate's record (RLS ensures only their own).
+      // .limit(1).maybeSingle() instead of .single() -- won't error if this
+      // ever matches zero or more than one row (a duplicate-affiliate-row
+      // bug hit exactly this pattern elsewhere in the app; this stays
+      // resilient even though a DB constraint now prevents it at the source).
+      const { data: aff } = await supabase.from('affiliates').select('*').eq('user_id', userId).limit(1).maybeSingle();
       if (!aff) { setLoading(false); return; }
       setAffiliate(aff);
-      setPaypal(aff.payout_paypal || '');
-      setStripeEmail(aff.payout_stripe_email || '');
 
       // Load their commissions (RLS ensures only their own)
       const { data: comms } = await supabase
@@ -63,14 +61,6 @@ export default function AffiliatePortal({ userId, userEmail, onClose }) {
       console.error('Affiliate portal load error:', e);
     }
     setLoading(false);
-  };
-
-  const savePayoutInfo = async () => {
-    setSavingPayout(true);
-    await supabase.from('affiliates').update({ payout_paypal: paypal, payout_stripe_email: stripeEmail }).eq('id', affiliate.id);
-    setPayoutSaved(true);
-    setTimeout(() => setPayoutSaved(false), 2500);
-    setSavingPayout(false);
   };
 
   const copyLink = () => {
@@ -285,24 +275,10 @@ export default function AffiliatePortal({ userId, userEmail, onClose }) {
 
         {/* Payout Info */}
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 20 }}>
-          <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 4 }}>Your Payout Info</div>
-          <div style={{ fontSize: 13, color: C.muted, marginBottom: 14 }}>
-            Brandon uses these to send you payments. Keep at least one filled in.
+          <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 4 }}>Payouts</div>
+          <div style={{ fontSize: 13, color: C.muted }}>
+            We'll reach out directly to arrange payment once you have a balance to pay out — no need to enter anything here yet.
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
-            <div>
-              <label style={{ fontSize: 12, fontWeight: 700, color: C.brown, textTransform: 'uppercase', letterSpacing: '.05em', display: 'block', marginBottom: 6 }}>PayPal Email</label>
-              <input maxLength={150} value={paypal} onChange={e => setPaypal(e.target.value)} placeholder="you@paypal.com" style={inp}/>
-            </div>
-            <div>
-              <label style={{ fontSize: 12, fontWeight: 700, color: C.brown, textTransform: 'uppercase', letterSpacing: '.05em', display: 'block', marginBottom: 6 }}>Stripe Email</label>
-              <input maxLength={150} value={stripeEmail} onChange={e => setStripeEmail(e.target.value)} placeholder="you@email.com" style={inp}/>
-            </div>
-          </div>
-          <button onClick={savePayoutInfo} disabled={savingPayout}
-            style={{ background: payoutSaved ? C.tealDk : C.teal, color: '#fff', border: 'none', borderRadius: 10, padding: '11px 24px', fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: "'Nunito', sans-serif" }}>
-            {savingPayout ? 'Saving...' : payoutSaved ? '✓ Saved!' : 'Save Payout Info'}
-          </button>
         </div>
 
       </div>

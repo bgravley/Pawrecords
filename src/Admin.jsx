@@ -696,10 +696,6 @@ export default function Admin({ onBack }) {
           setAffiliateCommissions(p => p.map(c => c.id === commissionId ? { ...c, status: 'paid', payout_method: method } : c));
         };
 
-        const savePayoutInfo = async (affId, updates) => {
-          await adminFetch('update_affiliate', { affiliateId: affId, updates });
-          setAffiliates(p => p.map(a => a.id === affId ? { ...a, ...updates } : a));
-        };
         return (
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
@@ -747,10 +743,6 @@ export default function Admin({ onBack }) {
                             <span style={{ color: C.text }}><b>{referred}</b> <span style={{ color: C.sub }}>referred</span></span>
                             <span style={{ color: C.warn }}><b>${(owed/100).toFixed(2)}</b> <span style={{ color: C.sub }}>owed</span></span>
                             <span style={{ color: C.green }}><b>${(paid/100).toFixed(2)}</b> <span style={{ color: C.sub }}>paid</span></span>
-                          </div>
-                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                            <input maxLength={150} defaultValue={aff.payout_paypal || ''} onBlur={e => savePayoutInfo(aff.id, { payout_paypal: e.target.value })} placeholder="PayPal email" style={{ fontSize: 12, padding: '4px 8px', borderRadius: 6, border: '1px solid ' + C.border, background: C.bg, color: C.text, flex: 1, minWidth: 160 }}/>
-                            <input maxLength={150} defaultValue={aff.payout_stripe_email || ''} onBlur={e => savePayoutInfo(aff.id, { payout_stripe_email: e.target.value })} placeholder="Stripe email" style={{ fontSize: 12, padding: '4px 8px', borderRadius: 6, border: '1px solid ' + C.border, background: C.bg, color: C.text, flex: 1, minWidth: 160 }}/>
                           </div>
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
@@ -892,8 +884,7 @@ export default function Admin({ onBack }) {
       {tab === "payouts" && (() => {
         const markPaid = async (p) => {
           if (!window.confirm(`Mark $${(p.pendingCents/100).toFixed(2)} as paid to ${p.name || p.email || p.referralCode}? Only do this after you've actually sent the money.`)) return;
-          const method = p.payoutPaypal ? 'paypal' : (p.payoutStripeEmail ? 'stripe' : null);
-          const res = await adminFetch('mark_commissions_paid', { affiliateId: p.affiliateId, payoutMethod: method });
+          const res = await adminFetch('mark_commissions_paid', { affiliateId: p.affiliateId, payoutMethod: null });
           if (res.data?.marked) {
             setPayoutSummary(prev => prev.filter(x => x.affiliateId !== p.affiliateId));
           } else {
@@ -923,7 +914,7 @@ export default function Admin({ onBack }) {
                       <div style={{ fontWeight: 600, fontSize: 15 }}>{p.name || p.email || p.referralCode}</div>
                       <div style={{ fontSize: 12, color: C.sub, marginTop: 2, fontFamily: 'monospace' }}>{p.referralCode}</div>
                       <div style={{ fontSize: 12, color: C.sub, marginTop: 4 }}>
-                        {p.payoutPaypal ? `PayPal: ${p.payoutPaypal}` : p.payoutStripeEmail ? `Stripe: ${p.payoutStripeEmail}` : <span style={{ color: C.danger }}>No payout method on file yet</span>}
+                        {p.email ? `Contact: ${p.email}` : 'No contact email on file'}
                       </div>
                     </div>
                     <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: 14 }}>
