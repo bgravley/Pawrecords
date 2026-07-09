@@ -142,6 +142,35 @@ WHERE bucket_id = 'documents'
 ORDER BY size_kb DESC;
 
 
+-- ── CHECK D11: auth users with no matching profile row ───────────────────────
+-- Added July 2026 after finding 2 real users stuck exactly like this — the
+-- account exists in auth (so "sign in instead" is correct) but they have no
+-- profile, so the app is unusable for them and they have no way out.
+--
+-- ROOT CAUSE (fixed July 2026): notify_new_signup/notify_new_error called
+-- net.http_post with body cast to ::text, but net.http_post's real signature
+-- takes body as JSONB. That raised "function net.http_post(...) does not
+-- exist". Because notify_new_signup fires as a trigger ON THE PROFILES INSERT
+-- ITSELF (nested inside handle_new_user's own INSERT statement), the
+-- unhandled exception rolled back the whole profiles insert via PL/pgSQL's
+-- implicit savepoint — even though handle_new_user's own EXCEPTION WHEN
+-- OTHERS then quietly swallowed it and let the outer auth.users insert
+-- commit. Net effect: auth account created, profile silently never created,
+-- 100% reproducible on every signup, zero trace in error_log (error_log
+-- inserts hit the identical bug via notify_new_error/on_new_error).
+--
+-- Expect: zero rows. If this ever returns anything, something is once again
+-- interrupting the profiles insert after auth signup succeeds — check
+-- Postgres logs (get_logs, service=postgres) for "RAISE LOG" lines from
+-- handle_new_user's exception handler, which will show the real underlying
+-- error even when it's actually a nested trigger's failure.
+SELECT u.id, u.email, u.created_at, u.raw_app_meta_data->>'provider' AS auth_provider
+FROM auth.users u
+LEFT JOIN profiles p ON p.id = u.id
+WHERE p.id IS NULL AND u.deleted_at IS NULL
+ORDER BY u.created_at;
+
+
 -- ── CHECK D10: SECURITY DEFINER functions without a fixed search_path ────────
 -- A SECURITY DEFINER function with a mutable search_path can be hijacked by
 -- creating a same-named object earlier in the caller's search_path. Every
