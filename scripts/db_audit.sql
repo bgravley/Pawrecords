@@ -194,3 +194,19 @@ WHERE n.nspname = 'public'
   AND (p.proconfig IS NULL OR NOT EXISTS (
     SELECT 1 FROM unnest(p.proconfig) c WHERE c LIKE 'search_path=%'
   ));
+
+
+-- ── CHECK D12: emergency QR health card can actually see health data ─────────
+-- dogs has always had a public "emergency_token IS NOT NULL" read policy,
+-- but until July 2026, vaccinations/medications/allergies/vet_visits/
+-- weights/documents did not -- meaning the QR Health Card found the pet but
+-- silently showed zero vaccines, visits, meds, allergies, weight, or
+-- documents to any genuinely anonymous scanner (a vet, a border agent).
+-- Only testing while still logged in as the owner would have hidden this,
+-- since auth.uid() = user_id would then also match.
+-- Expect: all 6 tables present. A missing one means the emergency page is
+-- silently blind to that data type again.
+SELECT unnest(ARRAY['vaccinations','medications','allergies','vet_visits','weights','documents']) AS expected_table
+EXCEPT
+SELECT tablename FROM pg_policies
+WHERE schemaname = 'public' AND policyname = 'Public can view via dog emergency token';
