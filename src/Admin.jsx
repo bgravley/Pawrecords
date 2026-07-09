@@ -53,9 +53,11 @@ export default function Admin({ onBack }) {
   const [errorLogs, setErrorLogs] = useState([]);
   const [bugReports, setBugReports] = useState([]);
   const [affiliates, setAffiliates] = useState([]);
+  const [payoutSummary, setPayoutSummary] = useState([]);
   const [affiliateCommissions, setAffiliateCommissions] = useState([]);
   const [showCreateAffiliate, setShowCreateAffiliate] = useState(false);
-  const [newAffiliate, setNewAffiliate] = useState({ userId: '', commissionRate: 20, notes: '' });
+  const [newAffiliate, setNewAffiliate] = useState({ userId: '', referralCode: '', commissionRate: 25, notes: '' });
+  const [affiliateError, setAffiliateError] = useState('');
   const [loading, setLoading] = useState(true);
   const [editUser, setEditUser] = useState(null);
   const [showDeleteUserConfirm, setShowDeleteUserConfirm] = useState(false);
@@ -79,7 +81,7 @@ export default function Admin({ onBack }) {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [usersRes, aiRes, actRes, errRes, affRes, commRes, bugRes] = await Promise.all([
+      const [usersRes, aiRes, actRes, errRes, affRes, commRes, bugRes, payoutRes] = await Promise.all([
         adminFetch('users'),
         adminFetch('ai_logs'),
         adminFetch('activity'),
@@ -87,6 +89,7 @@ export default function Admin({ onBack }) {
         adminFetch('affiliates'),
         adminFetch('affiliate_commissions'),
         adminFetch('bug_reports'),
+        adminFetch('payout_summary'),
       ]);
       setUsers(usersRes.data || []);
       setAiLogs(aiRes.data || []);
@@ -95,6 +98,7 @@ export default function Admin({ onBack }) {
       setAffiliates(affRes.data || []);
       setAffiliateCommissions(commRes.data || []);
       setBugReports(bugRes.data || []);
+      setPayoutSummary(payoutRes.data || []);
     } catch(e) {
       console.error('Admin load error:', e);
     }
@@ -170,6 +174,7 @@ export default function Admin({ onBack }) {
           { id: "errors", label: `Errors (${errorLogs.filter(e=>!e.reviewed).length})`, alert: errorLogs.filter(e=>!e.reviewed).length > 0 },
           { id: "bugs", label: `Bug Reports (${bugReports.filter(b=>b.status==='pending').length})`, alert: bugReports.filter(b=>b.status==='pending').length > 0 },
           { id: "affiliates", label: `Affiliates (${affiliates.length})` },
+          { id: "payouts", label: `Payouts (${payoutSummary.length})`, alert: payoutSummary.length > 0 },
         ].map(t => (
             <Tab key={t.id} id={t.id} label={t.label} active={tab === t.id} onClick={() => setTab(t.id)} />
           ))}
@@ -572,9 +577,11 @@ export default function Admin({ onBack }) {
         };
         const createAffiliate = async () => {
           if (!newAffiliate.userId) return;
+          setAffiliateError('');
           const user = users.find(u => u.id === newAffiliate.userId);
-          const code = genCode(user?.email || '');
-          const rate = parseFloat(newAffiliate.commissionRate) || 20;
+          const typed = (newAffiliate.referralCode || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+          const code = typed || genCode(user?.email || '');
+          const rate = parseFloat(newAffiliate.commissionRate) || 25;
           const res = await adminFetch('create_affiliate', {
             userId: newAffiliate.userId,
             referralCode: code,
@@ -584,7 +591,7 @@ export default function Admin({ onBack }) {
           if (res.data) {
             setAffiliates(p => [res.data, ...p]);
             setShowCreateAffiliate(false);
-            setNewAffiliate({ userId: '', commissionRate: 20, notes: '' });
+            setNewAffiliate({ userId: '', referralCode: '', commissionRate: 25, notes: '' });
             // Send welcome email to the new affiliate
             try {
               await fetch('/api/notify-affiliate', {
@@ -601,6 +608,15 @@ export default function Admin({ onBack }) {
             } catch (e) {
               console.error('Affiliate welcome email failed (non-critical):', e.message);
             }
+          } else {
+            // Most likely cause: that code is already taken (referral_code is
+            // unique in the database) -- surface that clearly instead of
+            // silently doing nothing.
+            setAffiliateError(
+              (res.error || '').includes('409') || (res.error || '').toLowerCase().includes('duplicate')
+                ? `"${code}" is already taken — try a different code.`
+                : (res.error || 'Could not create affiliate. Please try again.')
+            );
           }
         };
         const toggleStatus = async (aff) => {
@@ -634,7 +650,7 @@ export default function Admin({ onBack }) {
                   This month: <span style={{ color: C.warn, fontWeight: 700 }}>${(thisMonthOwed / 100).toFixed(2)}</span>
                 </div>
               </div>
-              <button onClick={() => setShowCreateAffiliate(true)}
+              <button onClick={() => { setAffiliateError(''); setShowCreateAffiliate(true); }}
                 style={{ background: C.accent, border: 'none', borderRadius: 8, padding: '8px 16px', color: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
                 + Add Affiliate
               </button>
@@ -748,7 +764,7 @@ export default function Admin({ onBack }) {
             {/* Create Affiliate Modal */}
             {showCreateAffiliate && (
               <div style={{ position: 'fixed', inset: 0, background: '#000000cc', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
-                onClick={e => e.target === e.currentTarget && setShowCreateAffiliate(false)}>
+                onClick={e => e.target === e.currentTarget && (setAffiliateError(''), setShowCreateAffiliate(false))}>
                 <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 16, padding: 28, width: '100%', maxWidth: 440 }}>
                   <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 20 }}>Add Affiliate</div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -761,11 +777,22 @@ export default function Admin({ onBack }) {
                       </select>
                     </div>
                     <div>
+                      <label style={{ fontSize: 11, color: C.sub, textTransform: 'uppercase', letterSpacing: '.05em', display: 'block', marginBottom: 6 }}>Referral Code</label>
+                      <input maxLength={20} value={newAffiliate.referralCode}
+                        onChange={e => setNewAffiliate(p => ({ ...p, referralCode: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '') }))}
+                        placeholder={(() => {
+                          const u = users.find(x => x.id === newAffiliate.userId);
+                          return u ? genCode(u.email) + ' (auto)' : 'Pick a user first, or type a custom code';
+                        })()}
+                        style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '9px 12px', color: C.text, fontSize: 14, width: '100%', outline: 'none', fontFamily: 'monospace' }} />
+                      <div style={{ fontSize: 11, color: C.sub, marginTop: 4 }}>Leave blank to auto-generate, or type something memorable (e.g. SADIE25) — this works as both the link code and a typed-in promo code.</div>
+                    </div>
+                    <div>
                       <label style={{ fontSize: 11, color: C.sub, textTransform: 'uppercase', letterSpacing: '.05em', display: 'block', marginBottom: 6 }}>Commission Rate (%)</label>
                       <input type="number" min="1" max="100" value={newAffiliate.commissionRate}
                         onChange={e => setNewAffiliate(p => ({ ...p, commissionRate: e.target.value }))}
                         style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '9px 12px', color: C.text, fontSize: 14, width: '100%', outline: 'none' }} />
-                      <div style={{ fontSize: 11, color: C.sub, marginTop: 4 }}>20% is the standard. Go up to 25–30% for high-value influencer deals.</div>
+                      <div style={{ fontSize: 11, color: C.sub, marginTop: 4 }}>25% is the standard (calculated on what you actually receive after Stripe fees). Go higher for special deals.</div>
                     </div>
                     <div>
                       <label style={{ fontSize: 11, color: C.sub, textTransform: 'uppercase', letterSpacing: '.05em', display: 'block', marginBottom: 6 }}>Notes (optional)</label>
@@ -773,12 +800,17 @@ export default function Admin({ onBack }) {
                         placeholder="e.g. Instagram @handle, deal terms"
                         style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '9px 12px', color: C.text, fontSize: 14, width: '100%', outline: 'none' }} />
                     </div>
+                    {affiliateError && (
+                      <div style={{ fontSize: 12, color: C.danger, background: '#C4714A14', border: `1px solid ${C.danger}44`, borderRadius: 8, padding: '10px 12px' }}>
+                        {affiliateError}
+                      </div>
+                    )}
                     <div style={{ fontSize: 12, color: C.sub, background: C.bg, borderRadius: 8, padding: '10px 12px' }}>
-                      A unique referral code will be auto-generated from the user's email. Their link will be:<br/>
-                      <span style={{ fontFamily: 'monospace', color: C.accent }}>yourpetpass.com?ref=THEIRCODE</span>
+                      Their link and typed promo code will both be:<br/>
+                      <span style={{ fontFamily: 'monospace', color: C.accent }}>yourpetpass.com?ref={newAffiliate.referralCode || 'THEIRCODE'}</span>
                     </div>
                     <div style={{ display: 'flex', gap: 10 }}>
-                      <button onClick={() => setShowCreateAffiliate(false)}
+                      <button onClick={() => { setAffiliateError(''); setShowCreateAffiliate(false); }}
                         style={{ flex: 1, background: 'transparent', border: `1px solid ${C.border}`, borderRadius: 8, padding: 10, color: C.sub, cursor: 'pointer', fontWeight: 600 }}>
                         Cancel
                       </button>
@@ -789,6 +821,59 @@ export default function Admin({ onBack }) {
                     </div>
                   </div>
                 </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* PAYOUTS TAB */}
+      {tab === "payouts" && (() => {
+        const markPaid = async (p) => {
+          if (!window.confirm(`Mark $${(p.pendingCents/100).toFixed(2)} as paid to ${p.name || p.email || p.referralCode}? Only do this after you've actually sent the money.`)) return;
+          const method = p.payoutPaypal ? 'paypal' : (p.payoutStripeEmail ? 'stripe' : null);
+          const res = await adminFetch('mark_commissions_paid', { affiliateId: p.affiliateId, payoutMethod: method });
+          if (res.data?.marked) {
+            setPayoutSummary(prev => prev.filter(x => x.affiliateId !== p.affiliateId));
+          } else {
+            alert(res.error || 'Could not mark as paid — please try again.');
+          }
+        };
+        const totalOwed = payoutSummary.reduce((sum, p) => sum + p.pendingCents, 0);
+        return (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div>
+                <div style={{ fontSize: 18, fontWeight: 700 }}>Affiliate Payouts</div>
+                <div style={{ fontSize: 13, color: C.sub, marginTop: 2 }}>Unpaid commission balances. Send payment yourself (PayPal/Stripe/etc), then mark it paid here.</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 22, fontWeight: 700, color: C.warn }}>${(totalOwed/100).toFixed(2)}</div>
+                <div style={{ fontSize: 12, color: C.sub }}>total owed</div>
+              </div>
+            </div>
+            {payoutSummary.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px 0', color: C.sub }}>Nothing owed right now.</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {payoutSummary.map(p => (
+                  <div key={p.affiliateId} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: 15 }}>{p.name || p.email || p.referralCode}</div>
+                      <div style={{ fontSize: 12, color: C.sub, marginTop: 2, fontFamily: 'monospace' }}>{p.referralCode}</div>
+                      <div style={{ fontSize: 12, color: C.sub, marginTop: 4 }}>
+                        {p.payoutPaypal ? `PayPal: ${p.payoutPaypal}` : p.payoutStripeEmail ? `Stripe: ${p.payoutStripeEmail}` : <span style={{ color: C.danger }}>No payout method on file yet</span>}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: 14 }}>
+                      <div style={{ fontSize: 20, fontWeight: 700 }}>${(p.pendingCents/100).toFixed(2)}</div>
+                      <button onClick={() => markPaid(p)}
+                        style={{ background: C.accent, border: 'none', borderRadius: 8, padding: '8px 14px', color: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+                        Mark Paid
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>

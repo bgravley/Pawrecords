@@ -10,6 +10,12 @@ const PRICES = {
   annual:  "price_1TknmuB5s5OlwZVJLGQI4rt0",
   lifetime:"price_1TknmvB5s5OlwZVJU867MMjE",
 }
+// Referred-user signup discount: 50% off first month, monthly plan only,
+// auto-applied (not a customer-typed code) -- see refDiscount logic in
+// UpgradeModal. Created in Stripe as a Coupon (not a Promotion Code), so it
+// can only be applied by this server-side logic, never typed in by anyone
+// who happens to find the ID.
+const REFERRAL_SIGNUP_COUPON = "REPLACE_WITH_STRIPE_COUPON_ID";
 // Coupon codes (created in Stripe dashboard)
 // YPPFREE  = 100% off forever (lifetime free)
 // YPP3FREE = 100% off for 3 months;
@@ -342,6 +348,30 @@ const UpgradeModal=({userId,userEmail,onClose})=>{
   const[couponApplied,setCouponApplied]=useState(false);
   const[couponLoading,setCouponLoading]=useState(false);
 
+  // Referred-user signup discount: 50% off the first month, but only if they
+  // subscribe to the monthly plan within 48 hours of creating their account
+  // (not "whenever they eventually pay" -- affiliate commission tracking is
+  // separately lifetime regardless of timing, this window is just for the
+  // discount itself). Auto-applied -- no code to type, since the referral
+  // code was already captured at signup.
+  const[refDiscount,setRefDiscount]=useState({checked:false,eligible:false,hoursLeft:0});
+  useEffect(()=>{
+    let cancelled=false;
+    (async()=>{
+      try{
+        const{data:prof}=await supabase.from("profiles").select("referral_code_used,created_at,subscription_tier").eq("id",userId).single();
+        if(cancelled||!prof)return;
+        const hoursSinceSignup=(Date.now()-new Date(prof.created_at).getTime())/3600000;
+        const eligible=!!prof.referral_code_used && prof.subscription_tier==="free" && hoursSinceSignup<48;
+        setRefDiscount({checked:true,eligible,hoursLeft:Math.max(0,Math.round(48-hoursSinceSignup))});
+      }catch(e){
+        console.error("Referral discount eligibility check failed (non-critical):",e.message);
+        if(!cancelled)setRefDiscount({checked:true,eligible:false,hoursLeft:0});
+      }
+    })();
+    return()=>{cancelled=true;};
+  },[userId]);
+
   const applyCoupon=async()=>{
     if(!coupon.trim())return;
     setCouponLoading(true);setError(null);
@@ -354,7 +384,11 @@ const UpgradeModal=({userId,userEmail,onClose})=>{
     setLoading(priceKey);setError(null);
     try{
       const body={priceId:PRICES[priceKey],userId,userEmail,mode};
-      if(couponApplied&&coupon.trim())body.couponCode=coupon.trim().toUpperCase();
+      if(priceKey==="monthly"&&refDiscount.eligible){
+        body.couponCode=REFERRAL_SIGNUP_COUPON;
+      }else if(couponApplied&&coupon.trim()){
+        body.couponCode=coupon.trim().toUpperCase();
+      }
       const res=await fetch('/api/create-checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
       const data=await res.json();
       if(!res.ok||data.error)throw new Error(data.error||'Checkout failed — please try again');
@@ -377,19 +411,31 @@ const UpgradeModal=({userId,userEmail,onClose})=>{
             {["📷 AI Document Scan","✈️ AI Travel Checklists","📊 Weight Tracking","📄 Export Records","📁 Document Storage","🔲 QR Health Card"].map(f=><div key={f}>{f}</div>)}
           </div>
         </div>
+        {refDiscount.checked&&refDiscount.eligible&&(
+          <div style={{background:"#E8A83814",border:"1px solid #E8A83855",borderRadius:10,padding:12,fontSize:13,color:"#8B6B1F"}}>
+            🎉 <strong>Your first month is 50% off — just $2.50!</strong> Subscribe to Monthly now to claim it (offer expires in {refDiscount.hoursLeft}h).
+          </div>
+        )}
         {error&&<div style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:10,padding:12,fontSize:13,color:"#C4714A"}}>{error}</div>}
-        {plans.map(plan=>(
+        {plans.map(plan=>{
+          const discounted=plan.key==="monthly"&&refDiscount.eligible;
+          return(
           <div key={plan.key} style={{position:"relative",border:`2px solid ${plan.popular?"#2D7D6F":"#E8DDD0"}`,borderRadius:14,padding:18,background:plan.popular?"#2D7D6F08":"transparent"}}>
             {plan.popular&&<div style={{position:"absolute",top:-10,left:20,background:"#2D7D6F",color:"#FAF6F0",fontSize:11,fontWeight:700,padding:"2px 10px",borderRadius:20}}>BEST VALUE</div>}
+            {discounted&&<div style={{position:"absolute",top:-10,right:20,background:"#E8A838",color:"#FAF6F0",fontSize:11,fontWeight:700,padding:"2px 10px",borderRadius:20}}>50% OFF</div>}
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
               <div><div style={{fontWeight:700,fontSize:16}}>{plan.label}</div><div style={{color:"#5A4535",fontSize:13,marginTop:2}}>{plan.desc}</div></div>
-              <div style={{textAlign:"right"}}><div style={{fontFamily:"'Lora',serif",fontSize:26,color:plan.color,fontWeight:700}}>{plan.price}</div><div style={{color:"#5A4535",fontSize:12}}>{plan.period}</div></div>
+              <div style={{textAlign:"right"}}>
+                {discounted&&<div style={{color:"#5A4535",fontSize:13,textDecoration:"line-through"}}>{plan.price}</div>}
+                <div style={{fontFamily:"'Lora',serif",fontSize:26,color:plan.color,fontWeight:700}}>{discounted?"$2.50":plan.price}</div>
+                <div style={{color:"#5A4535",fontSize:12}}>{discounted?"first month":plan.period}</div>
+              </div>
             </div>
             <Btn full onClick={()=>checkout(plan.key,plan.mode)} disabled={!!loading} style={{marginTop:12,background:plan.color,color:"#FAF6F0",justifyContent:"center"}}>{loading===plan.key?"Processing...":`Get ${plan.label}`}</Btn>
           </div>
-        ))}
+          );})}
         {/* Coupon Code */}
-        <div style={{borderTop:"1px solid #E8DDD0",paddingTop:14}}>
+        {!refDiscount.eligible&&<div style={{borderTop:"1px solid #E8DDD0",paddingTop:14}}>
           <div style={{fontSize:13,fontWeight:600,color:"#5A4535",marginBottom:8}}>Have a coupon code?</div>
           {couponApplied
             ?<div style={{display:"flex",alignItems:"center",gap:8,color:"#2D7D6F",fontSize:13,fontWeight:600,background:"#2D7D6F14",borderRadius:10,padding:"10px 14px"}}>
@@ -400,8 +446,7 @@ const UpgradeModal=({userId,userEmail,onClose})=>{
               <input maxLength={150} value={coupon} onChange={e=>setCoupon(e.target.value.toUpperCase())} placeholder="Enter code" style={{flex:1,background:"#FAF6F0",border:"1.5px solid #E8DDD0",borderRadius:10,padding:"9px 14px",fontSize:14,color:"#2C2017",outline:"none",fontFamily:"'Nunito',sans-serif",letterSpacing:".05em"}}/>
               <Btn sm onClick={applyCoupon} disabled={couponLoading||!coupon.trim()}>{couponLoading?"...":"Apply"}</Btn>
             </div>}
-        </div>
-        <div style={{display:"flex",alignItems:"center",gap:8,justifyContent:"center",color:"#5A4535",fontSize:12}}><Ic n="lock" s={12} c="#5A4535"/> Secure payment via Stripe</div>
+        </div>}        <div style={{display:"flex",alignItems:"center",gap:8,justifyContent:"center",color:"#5A4535",fontSize:12}}><Ic n="lock" s={12} c="#5A4535"/> Secure payment via Stripe</div>
       </div>
     </Modal>
   );
