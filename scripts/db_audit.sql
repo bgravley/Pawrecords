@@ -164,6 +164,15 @@ ORDER BY size_kb DESC;
 -- Postgres logs (get_logs, service=postgres) for "RAISE LOG" lines from
 -- handle_new_user's exception handler, which will show the real underlying
 -- error even when it's actually a nested trigger's failure.
+--
+-- UPDATE July 2026: handle_new_user's exception handler now ALSO writes a
+-- row to error_log (context = 'signup_profile_creation') whenever it catches
+-- a failure, so this shows up in the admin panel's error log without a
+-- manual SQL query. Check there first if this is ever non-empty — it should
+-- already tell you which signup failed and why. (user_id is left NULL on
+-- these rows since error_log.user_id has a FK to profiles(id), and by
+-- definition there's no profile yet when this fires — user_email is used
+-- instead, which the admin UI already prefers for display.)
 SELECT u.id, u.email, u.created_at, u.raw_app_meta_data->>'provider' AS auth_provider
 FROM auth.users u
 LEFT JOIN profiles p ON p.id = u.id
