@@ -3,6 +3,7 @@ import { useReducer, useState, useEffect, useRef, Component } from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { supabase } from "./lib/supabase";
 import * as db from "./lib/db";
+import { resizeImageFile } from "./lib/imageResize";
 
 const PRICES = {
   monthly: "price_1TknmwB5s5OlwZVJsgXTq1JA",
@@ -483,7 +484,7 @@ const DogForm=({dog,userId,userEmail,onSave,onClose})=>{
   const set=(k,v)=>setF(p=>({...p,[k]:v}));
   const fr=useRef();
   const certRef=useRef();
-  const onPhoto=e=>{const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=ev=>set("photo",ev.target.result);r.readAsDataURL(file);};
+  const onPhoto=e=>{const file=e.target.files[0];if(!file)return;resizeImageFile(file).then(dataUrl=>set("photo",dataUrl)).catch(()=>{const r=new FileReader();r.onload=ev=>set("photo",ev.target.result);r.readAsDataURL(file);});};
   const save=async()=>{
     if(!f.name)return;setSaving(true);
     try{
@@ -2121,7 +2122,7 @@ const OwnerProfileModal=({userId,tier,userEmail,onUpgrade,onClose})=>{
               :<div style={{width:80,height:80,borderRadius:"50%",background:"#FFFFFF",border:"2px dashed #E8DDD0",display:"flex",alignItems:"center",justifyContent:"center",color:"#5A4535"}}><Ic n="camera" s={24} c="#5A4535"/></div>}
             <div style={{position:"absolute",bottom:0,right:0,background:"#2D7D6F",borderRadius:"50%",padding:5}}><Ic n="camera" s={11} c="#FAF6F0"/></div>
           </div>
-          <input ref={profPhotoRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=ev=>set("photo",ev.target.result);r.readAsDataURL(file);}}/>
+          <input ref={profPhotoRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{const file=e.target.files[0];if(!file)return;resizeImageFile(file).then(dataUrl=>set("photo",dataUrl)).catch(()=>{const r=new FileReader();r.onload=ev=>set("photo",ev.target.result);r.readAsDataURL(file);});}}/>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <Field label="Full Name" col="1/-1"><input maxLength={150} value={f.fullName} onChange={e=>set("fullName",e.target.value)} placeholder="Jane Smith"/></Field>
