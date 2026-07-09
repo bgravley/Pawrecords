@@ -1020,6 +1020,9 @@ const AIScanModal=({dog,state,userId,userEmail,dispatch,onSave,onClose,onUpgrade
     setSaving(true);
     try{
       const dt=extracted.documentType;
+      // Used to save the source scan itself as a Document below, and to
+      // correlate it with a vet visit by date (see docsForVisit in RecordsTab).
+      const docDate=extracted?.vetVisit?.visitDate||extracted?.healthCertificate?.visitDate||today();
 
       // VET VISIT or HEALTH CERT — save visit, vaccines, weight, medications, allergies
       if(dt==="vet_visit"||dt==="health_certificate"||dt==="vaccine_record"||dt==="unknown"){
@@ -1081,6 +1084,37 @@ const AIScanModal=({dog,state,userId,userEmail,dispatch,onSave,onClose,onUpgrade
       // ESA LETTER
       if(dt==="esa_letter"&&include.classification){
         await supabase.from("dogs").update({pet_type:"esa"}).eq("id",dog.id);
+      }
+
+      // Save the actual scanned file(s) as Documents -- previously this never
+      // happened at all: the AI extracted structured data from the upload
+      // and then discarded the image, so there was never anything to look
+      // back at, even though the data clearly came from a real document.
+      const docTypeNames={
+        vet_visit:"Vet Visit Record",service_animal_cert:"Service Animal Certificate",
+        esa_letter:"ESA Letter",health_certificate:"Health Certificate",
+        vaccine_record:"Vaccine Record",unknown:"Scanned Document",
+      };
+      for(const[i,img]of images.entries()){
+        try{
+          const blob=await(await fetch(img.dataUrl)).blob();
+          const ext=img.dataUrl.split(";")[0].split("/")[1]||"jpg";
+          const file=new File([blob],`scan-${i}.${ext}`,{type:blob.type||"image/jpeg"});
+          const baseName=docTypeNames[dt]||"Scanned Document";
+          await db.addDocument(userId,{
+            dogId:dog.id,
+            name:images.length>1?`${baseName} (${i+1}/${images.length})`:baseName,
+            date:docDate,
+            type:dt,
+            notes:"Saved from AI Scan",
+          },file);
+        }catch(docErr){
+          // Don't let a storage hiccup block saving the extracted health
+          // data above -- that's already saved and is the more important
+          // part. Log it so it's visible, but continue.
+          console.error("Failed to save scanned document image:",docErr.message);
+          await logError(userId,userEmail||null,"ai_scan_document_save",docErr.message);
+        }
       }
 
       setSaved(true);
@@ -1682,6 +1716,7 @@ const RecordsTab=({dog,state,dispatch,userId})=>{
           {filtered.map((v,idx)=>{
             const wt=weightForVisit(v);
             const vDocs=docsForVisit(v);
+            const hasNarrative=v.diagnosis||v.treatment||v.notes;
             return(
             <div key={v.id} style={{display:"flex",gap:14,paddingBottom:16,position:"relative"}}>
               {/* Timeline dot */}
@@ -1690,28 +1725,49 @@ const RecordsTab=({dog,state,dispatch,userId})=>{
               </div>
               {/* Card */}
               <div style={{flex:1,background:"#FFFFFF",border:"1px solid #E8DDD0",borderRadius:14,padding:"14px 16px",boxShadow:"0 2px 8px rgba(44,32,23,0.06)"}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
-                  <div style={{flex:1}}>
-                    <div style={{fontWeight:700,fontSize:15,marginBottom:2}}>{v.reason}</div>
-                    <div style={{fontSize:12,color:"#8B7355",display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
-                      <Ic n="cal" s={12} c="#8B7355"/>
-                      {fmt(v.visit_date)}
-                      {v.vet_name&&<><span>·</span>{v.vet_name}</>}
-                      {v.clinic&&<><span>·</span>{v.clinic}</>}
-                      {wt&&<><span>·</span>{wt.weight_lbs} lbs</>}
-                    </div>
-                  </div>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
+                  <div style={{fontWeight:700,fontSize:15,flex:1}}>{v.reason}</div>
                   <div style={{display:"flex",gap:5,marginLeft:8}}>
                     <button onClick={()=>setModal({type:"edit",v})} style={{background:"#FFFFFF",border:"1px solid #E8DDD0",borderRadius:8,padding:"5px 8px",color:"#5A4535"}}><Ic n="edit" s={13}/></button>
                     <button onClick={()=>delVisit(v.id)} style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:8,padding:"5px 8px",color:"#C4714A"}}><Ic n="trash" s={13}/></button>
                   </div>
                 </div>
-                {v.diagnosis&&<div style={{fontSize:13,color:"#2C2017",marginBottom:3}}><span style={{color:"#8B7355",fontWeight:600}}>Dx: </span>{v.diagnosis}</div>}
-                {v.treatment&&<div style={{fontSize:13,color:"#2C2017",marginBottom:3}}><span style={{color:"#8B7355",fontWeight:600}}>Tx: </span>{v.treatment}</div>}
-                {v.notes&&<div style={{fontSize:13,color:"#2C2017",marginBottom:3}}><span style={{color:"#8B7355",fontWeight:600}}>Notes: </span>{v.notes}</div>}
-                {v.cost&&<div style={{fontSize:13,color:"#2D7D6F",fontWeight:600,marginTop:4}}>${v.cost}</div>}
+
+                {/* At-a-glance stats — date, doctor, weight, cost. Not
+                    narrative text, just the facts someone would scan for. */}
+                <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:hasNarrative?12:0}}>
+                  <div style={{display:"flex",alignItems:"center",gap:5,fontSize:12,fontWeight:600,color:"#5A4535",background:"#FAF6F0",border:"1px solid #E8DDD0",borderRadius:8,padding:"4px 10px"}}>
+                    <Ic n="cal" s={12} c="#8B7355"/> {fmt(v.visit_date)}
+                  </div>
+                  {v.vet_name&&(
+                    <div style={{display:"flex",alignItems:"center",gap:5,fontSize:12,fontWeight:600,color:"#5A4535",background:"#FAF6F0",border:"1px solid #E8DDD0",borderRadius:8,padding:"4px 10px"}}>
+                      <Ic n="stethoscope" s={12} c="#8B7355"/> {v.vet_name}{v.clinic?` · ${v.clinic}`:""}
+                    </div>
+                  )}
+                  {wt&&(
+                    <div style={{display:"flex",alignItems:"center",gap:5,fontSize:12,fontWeight:700,color:"#2D7D6F",background:"#2D7D6F14",border:"1px solid #2D7D6F33",borderRadius:8,padding:"4px 10px"}}>
+                      <Ic n="weight" s={12} c="#2D7D6F"/> {wt.weight_lbs} lbs
+                    </div>
+                  )}
+                  {v.cost&&(
+                    <div style={{display:"flex",alignItems:"center",gap:5,fontSize:12,fontWeight:700,color:"#2D7D6F",background:"#2D7D6F14",border:"1px solid #2D7D6F33",borderRadius:8,padding:"4px 10px"}}>
+                      ${v.cost}
+                    </div>
+                  )}
+                </div>
+
+                {/* Narrative — what the vet actually wrote/said, kept visually
+                    distinct from the stats above so it reads as notes, not facts. */}
+                {hasNarrative&&(
+                  <div style={{background:"#FAF6F0",borderRadius:10,padding:"10px 12px",display:"flex",flexDirection:"column",gap:4}}>
+                    {v.diagnosis&&<div style={{fontSize:13,color:"#2C2017"}}><span style={{color:"#8B7355",fontWeight:600}}>Diagnosis: </span>{v.diagnosis}</div>}
+                    {v.treatment&&<div style={{fontSize:13,color:"#2C2017"}}><span style={{color:"#8B7355",fontWeight:600}}>Treatment: </span>{v.treatment}</div>}
+                    {v.notes&&<div style={{fontSize:13,color:"#2C2017"}}><span style={{color:"#8B7355",fontWeight:600}}>Notes: </span>{v.notes}</div>}
+                  </div>
+                )}
+
                 {vDocs.length>0
-                  ?<div style={{display:"flex",flexWrap:"wrap",gap:8,marginTop:8}}>
+                  ?<div style={{display:"flex",flexWrap:"wrap",gap:8,marginTop:10}}>
                       {vDocs.map(d=>(
                         <a key={d.id} href={docUrl(d)} target="_blank" rel="noopener noreferrer"
                           style={{display:"flex",alignItems:"center",gap:5,fontSize:12,fontWeight:600,color:"#2D7D6F",background:"#2D7D6F14",border:"1px solid #2D7D6F33",borderRadius:8,padding:"5px 10px",textDecoration:"none"}}>
@@ -1719,7 +1775,7 @@ const RecordsTab=({dog,state,dispatch,userId})=>{
                         </a>
                       ))}
                     </div>
-                  :<div style={{display:"flex",alignItems:"center",gap:5,fontSize:12,fontWeight:600,color:"#B8AFA0",background:"#F5F1EA",border:"1px solid #E8DDD0",borderRadius:8,padding:"5px 10px",marginTop:8,width:"fit-content"}}>
+                  :<div style={{display:"flex",alignItems:"center",gap:5,fontSize:12,fontWeight:600,color:"#B8AFA0",background:"#F5F1EA",border:"1px solid #E8DDD0",borderRadius:8,padding:"5px 10px",marginTop:10,width:"fit-content"}}>
                       <Ic n="doc" s={12} c="#B8AFA0"/> No document on file
                     </div>}
               </div>
@@ -2010,7 +2066,7 @@ const DogDetail=({dog,state,dispatch,userId,tier,onBack,onUpgrade,userEmail})=>{
     {showDelete&&<DeletePetModal dog={dog} onConfirm={handleDeletePet} onClose={()=>setShowDelete(false)}/>}
     {modal==="share"&&<ShareModal dog={dog} onClose={()=>setModal(null)}/>}
     {modal==="emailRecord"&&<EmailRecordModal dog={dog} state={state} userEmail={userEmail} onClose={()=>setModal(null)}/>}
-    {showScan&&<AIScanModal dog={dog} state={state} userId={userId} userEmail={userEmail} dispatch={dispatch} onUpgrade={onUpgrade} onSave={async()=>{const[{data:v},{data:m},{data:vis},{data:al}]=await Promise.all([db.getVaccinations(userId),db.getMedications(userId),db.getVisits(userId),db.getAllergies(userId)]);dispatch({t:'LOAD',s:{dogs:state.dogs,vaccinations:v||[],medications:m||[],allergies:al||[],visits:vis||[],weights:state.weights,vets:state.vets,documents:state.documents}});}} onClose={()=>setShowScan(false)}/>}
+    {showScan&&<AIScanModal dog={dog} state={state} userId={userId} userEmail={userEmail} dispatch={dispatch} onUpgrade={onUpgrade} onSave={async()=>{const[{data:v},{data:m},{data:vis},{data:al},{data:wt},{data:dc}]=await Promise.all([db.getVaccinations(userId),db.getMedications(userId),db.getVisits(userId),db.getAllergies(userId),db.getWeights(userId),db.getDocuments(userId)]);dispatch({t:'LOAD',s:{dogs:state.dogs,vaccinations:v||[],medications:m||[],allergies:al||[],visits:vis||[],weights:wt||[],vets:state.vets,documents:dc||[]}});}} onClose={()=>setShowScan(false)}/>}
     {showUpgrade&&<UpgradeModal userId={userId} userEmail={userEmail} onClose={()=>setShowUpgrade(false)}/>}
   </div>);
 };
