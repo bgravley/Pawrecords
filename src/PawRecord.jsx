@@ -1449,7 +1449,36 @@ const OverviewTab=({dog,state,userId,tier,setModal,onUpgrade,onScan,dispatch})=>
   const ptFull=dog.pet_type==="service_animal"?"Service Animal":dog.pet_type==="esa"?"Emotional Support Animal":null;
   const ProfileRow=({label,value})=>value?(<div style={{display:"flex",flexDirection:"column",gap:3,padding:"10px 0",borderBottom:"1px solid #F0E8DC"}}><div style={{fontSize:11,fontWeight:700,color:"#8B7355",textTransform:"uppercase",letterSpacing:".06em"}}>{label}</div><div style={{fontWeight:500,fontSize:15,color:"#2C2017"}}>{value}</div></div>):null;
   const age=dog.dob?Math.floor((Date.now()-new Date(dog.dob+"T12:00:00"))/(365.25*86400000)):null;
+  // Health Snapshot — everything below already exists somewhere in the app,
+  // but spread across 3-4 different tabs. This puts the facts someone would
+  // actually scan for (weight+trend, next vaccine due, active meds, allergy
+  // count) in one place, without needing to tap around.
+  const weightsList=state.weights.filter(w=>w.dog_id===dog.id).sort((a,b)=>b.log_date.localeCompare(a.log_date));
+  const latestWeight=weightsList[0];
+  const prevWeight=weightsList[1];
+  const weightTrend=latestWeight&&prevWeight?(parseFloat(latestWeight.weight_lbs)-parseFloat(prevWeight.weight_lbs)):null;
+  const nextVaccine=vaccines.filter(v=>v.next_due).sort((a,b)=>a.next_due.localeCompare(b.next_due))[0];
+  const snapshotTiles=[
+    {label:"Weight",value:latestWeight?`${latestWeight.weight_lbs} lbs`:(dog.weight?`${dog.weight} lbs`:"—"),
+      sub:weightTrend!==null?(weightTrend>0?`▲ ${weightTrend.toFixed(1)}`:weightTrend<0?`▼ ${Math.abs(weightTrend).toFixed(1)}`:"Stable"):null,
+      subColor:weightTrend>0?"#C4714A":weightTrend<0?"#2D7D6F":"#8B7355",icon:"weight"},
+    {label:"Next Vaccine",value:nextVaccine?fmt(nextVaccine.next_due):"None due",
+      sub:nextVaccine?nextVaccine.name:null,subColor:nextVaccine&&daysUntil(nextVaccine.next_due)<0?"#C4714A":"#8B7355",icon:"syringe"},
+    {label:"Active Meds",value:String(meds.length),sub:meds.length>0?meds.map(m=>m.name).slice(0,2).join(", "):null,subColor:"#8B7355",icon:"pill"},
+    {label:"Allergies",value:String(al.length),sub:al.length>0?al.map(a=>a.allergen).slice(0,2).join(", "):"None on file",subColor:al.some(a=>a.severity==="severe")?"#C4714A":"#8B7355",icon:"heart"},
+  ];
   return(<div style={{display:"flex",flexDirection:"column",gap:14}}>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+      {snapshotTiles.map(t=>(
+        <div key={t.label} style={{background:"#FFFFFF",border:"1px solid #E8DDD0",borderRadius:12,padding:"10px 12px"}}>
+          <div style={{display:"flex",alignItems:"center",gap:5,fontSize:11,fontWeight:700,color:"#8B7355",textTransform:"uppercase",letterSpacing:".04em",marginBottom:4}}>
+            <Ic n={t.icon} s={11} c="#8B7355"/> {t.label}
+          </div>
+          <div style={{fontFamily:"'Lora',serif",fontSize:18,fontWeight:700,color:"#2C2017"}}>{t.value}</div>
+          {t.sub&&<div style={{fontSize:11,color:t.subColor,fontWeight:600,marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.sub}</div>}
+        </div>
+      ))}
+    </div>
     {ptFull&&ptColor&&(<Card style={{border:`2px solid ${ptColor}55`,background:ptColor+"0D",padding:16}}>
       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
         <span style={{fontSize:22}}>{dog.pet_type==="service_animal"?"🦺":"💙"}</span>
@@ -1693,6 +1722,7 @@ const RecordsTab=({dog,state,dispatch,userId})=>{
   // between them — correlate by same dog + same date, which covers the
   // common case (weight logged and paperwork uploaded the day of the visit).
   const weightForVisit=v=>state.weights.find(w=>w.dog_id===dog.id&&w.log_date===v.visit_date);
+  const prevWeightBefore=v=>state.weights.filter(w=>w.dog_id===dog.id&&w.log_date<v.visit_date).sort((a,b)=>b.log_date.localeCompare(a.log_date))[0];
   const docsForVisit=v=>state.documents.filter(d=>d.dog_id===dog.id&&d.doc_date===v.visit_date);
   const docUrl=d=>supabase.storage.from("documents").getPublicUrl(d.file_path).data.publicUrl;
 
@@ -1744,11 +1774,16 @@ const RecordsTab=({dog,state,dispatch,userId})=>{
                       <Ic n="stethoscope" s={12} c="#8B7355"/> {v.vet_name}{v.clinic?` · ${v.clinic}`:""}
                     </div>
                   )}
-                  {wt&&(
+                  {wt&&(()=>{
+                    const prevW=prevWeightBefore(v);
+                    const trend=prevW?parseFloat(wt.weight_lbs)-parseFloat(prevW.weight_lbs):null;
+                    return(
                     <div style={{display:"flex",alignItems:"center",gap:5,fontSize:12,fontWeight:700,color:"#2D7D6F",background:"#2D7D6F14",border:"1px solid #2D7D6F33",borderRadius:8,padding:"4px 10px"}}>
                       <Ic n="weight" s={12} c="#2D7D6F"/> {wt.weight_lbs} lbs
+                      {trend!==null&&trend!==0&&<span style={{color:trend>0?"#C4714A":"#2D7D6F"}}>{trend>0?`▲${trend.toFixed(1)}`:`▼${Math.abs(trend).toFixed(1)}`}</span>}
                     </div>
-                  )}
+                    );
+                  })()}
                   {v.cost&&(
                     <div style={{display:"flex",alignItems:"center",gap:5,fontSize:12,fontWeight:700,color:"#2D7D6F",background:"#2D7D6F14",border:"1px solid #2D7D6F33",borderRadius:8,padding:"4px 10px"}}>
                       ${v.cost}
@@ -1867,6 +1902,39 @@ const MoreTab=({dog,state,dispatch,userId,tier,onUpgrade,onScan})=>{
   const back=()=>setSection(null);
   const backBtn=<button onClick={back} style={{background:"#FFFFFF",border:"1px solid #E8DDD0",borderRadius:8,padding:"6px 8px",color:"#5A4535"}}><Ic n="chevL" s={16}/></button>;
 
+  if(section==="timeline"){
+    const visits=state.visits.filter(v=>v.dog_id===dog.id);
+    const vax=state.vaccinations.filter(v=>v.dog_id===dog.id);
+    const meds=state.medications.filter(m=>m.dog_id===dog.id);
+    const events=[
+      ...visits.filter(v=>v.visit_date).map(v=>({date:v.visit_date,type:"visit",icon:"stethoscope",color:"#2D7D6F",title:v.reason||"Vet visit",sub:v.vet_name})),
+      ...vax.filter(v=>v.date_given).map(v=>({date:v.date_given,type:"vaccine",icon:"syringe",color:"#E8A838",title:`Vaccine: ${v.name}`,sub:v.vet_name})),
+      ...meds.filter(m=>m.start_date).map(m=>({date:m.start_date,type:"medication",icon:"pill",color:"#5A4535",title:`Started: ${m.name}`,sub:m.dosage})),
+      ...meds.filter(m=>m.end_date).map(m=>({date:m.end_date,type:"medication",icon:"pill",color:"#8B7355",title:`Ended: ${m.name}`,sub:null})),
+    ].sort((a,b)=>b.date.localeCompare(a.date));
+    return(<div style={{display:"flex",flexDirection:"column",gap:12}}>
+      <div style={{display:"flex",alignItems:"center",gap:10}}>{backBtn}<h3 style={{fontFamily:"'Lora',serif",fontSize:20,flex:1}}>Full Timeline</h3></div>
+      {events.length===0
+        ?<Empty icon="cal" title="No history yet" sub="Vet visits, vaccines, and medications will all show up here together."/>
+        :<div style={{display:"flex",flexDirection:"column",gap:0}}>
+            {events.map((e,i)=>(
+              <div key={i} style={{display:"flex",gap:12,paddingBottom:14}}>
+                <div style={{flexShrink:0,width:32,display:"flex",flexDirection:"column",alignItems:"center"}}>
+                  <div style={{width:28,height:28,borderRadius:"50%",background:e.color+"18",border:`1px solid ${e.color}44`,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                    <Ic n={e.icon} s={13} c={e.color}/>
+                  </div>
+                  {i<events.length-1&&<div style={{width:2,flex:1,background:"#E8DDD0",marginTop:4}}/>}
+                </div>
+                <div style={{flex:1,paddingTop:2}}>
+                  <div style={{fontSize:13,fontWeight:600,color:"#2C2017"}}>{e.title}</div>
+                  <div style={{fontSize:12,color:"#8B7355",marginTop:1}}>{fmt(e.date)}{e.sub?` · ${e.sub}`:""}</div>
+                </div>
+              </div>
+            ))}
+          </div>}
+    </div>);
+  }
+
   if(section==="weight")return(<div style={{display:"flex",flexDirection:"column",gap:12}}>
     <div style={{display:"flex",alignItems:"center",gap:10}}>{backBtn}<h3 style={{fontFamily:"'Lora',serif",fontSize:20,flex:1}}>Weight History</h3>{premium&&<Btn sm onClick={()=>setModal("addWeight")}><Ic n="plus" s={14}/> Log</Btn>}</div>
     {premium?<>
@@ -1932,7 +2000,7 @@ const MoreTab=({dog,state,dispatch,userId,tier,onUpgrade,onScan})=>{
     return <QRSection dog={dog} state={state} backBtn={backBtn}/>;
   }
 
-  const tiles=[{id:"weight",icon:"weight",label:"Weight History",desc:"Track & chart weight over time",color:"#2D7D6F",locked:!premium},{id:"vets",icon:"map",label:"Saved Vets",desc:"Contacts + find vets nearby",color:"#2D7D6F",locked:false},{id:"docs",icon:"doc",label:"Documents",desc:"Upload vet records & certificates",color:"#E8A838",locked:!premium},{id:"qr",icon:"qr",label:"QR Health Card",desc:"Scannable card for any vet",color:"#5A4535",locked:!premium}];
+  const tiles=[{id:"timeline",icon:"cal",label:"Full Timeline",desc:"Visits, vaccines & meds in one chronological view",color:"#2D7D6F",locked:false},{id:"weight",icon:"weight",label:"Weight History",desc:"Track & chart weight over time",color:"#2D7D6F",locked:!premium},{id:"vets",icon:"map",label:"Saved Vets",desc:"Contacts + find vets nearby",color:"#2D7D6F",locked:false},{id:"docs",icon:"doc",label:"Documents",desc:"Upload vet records & certificates",color:"#E8A838",locked:!premium},{id:"qr",icon:"qr",label:"QR Health Card",desc:"Scannable card for any vet",color:"#5A4535",locked:!premium}];
   return(<div style={{display:"flex",flexDirection:"column",gap:12}}>
     <h3 style={{fontFamily:"'Lora',serif",fontSize:20}}>More</h3>
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>{tiles.map(tile=>(<Card key={tile.id} onClick={()=>setSection(tile.id)} style={{padding:20,opacity:tile.locked?.75:1}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div style={{color:tile.color,marginBottom:8}}><Ic n={tile.icon} s={24} c={tile.color}/></div>{tile.locked&&<Ic n="lock" s={14} c="#5A4535"/>}</div><div style={{fontWeight:600,fontSize:15,marginBottom:4}}>{tile.label}</div><div style={{fontSize:12,color:"#5A4535"}}>{tile.desc}</div>{tile.locked&&<div style={{fontSize:11,color:"#E8A838",marginTop:6}}>✦ Premium</div>}</Card>))}</div>
@@ -1980,15 +2048,12 @@ const DogDetail=({dog,state,dispatch,userId,tier,onBack,onUpgrade,userEmail})=>{
   const upgrade=()=>setShowUpgrade(true);
 
   const handleDeletePet=async()=>{
-    // Delete all related records first
-    await Promise.all([
-      supabase.from("vaccinations").delete().eq("dog_id",dog.id),
-      supabase.from("medications").delete().eq("dog_id",dog.id),
-      supabase.from("allergies").delete().eq("dog_id",dog.id),
-      supabase.from("visits").delete().eq("dog_id",dog.id),
-      supabase.from("weights").delete().eq("dog_id",dog.id),
-      supabase.from("documents").delete().eq("dog_id",dog.id),
-    ]);
+    // vaccinations, medications, allergies, vet_visits, weights, and
+    // documents all already have ON DELETE CASCADE from dogs(id) -- deleting
+    // the dog row is sufficient. The previous version manually deleted from
+    // each table, including one named "visits" that has never existed (the
+    // real table is "vet_visits") -- every pet deletion silently left that
+    // pet's vet visit records behind, orphaned, forever.
     await supabase.from("dogs").delete().eq("id",dog.id);
     dispatch({t:"DEL_DOG",id:dog.id});
     onBack();

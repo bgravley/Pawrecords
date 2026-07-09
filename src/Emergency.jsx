@@ -43,14 +43,16 @@ export default function Emergency({ token }) {
     const dog = dogs[0];
 
     // Load all health data for this dog
-    const [{ data: vaccines }, { data: medications }, { data: allergies }, { data: visits }] = await Promise.all([
+    const [{ data: vaccines }, { data: medications }, { data: allergies }, { data: visits }, { data: weights }, { data: documents }] = await Promise.all([
       supabase.from("vaccinations").select("*").eq("dog_id", dog.id).order("date_given", { ascending: false }),
       supabase.from("medications").select("*").eq("dog_id", dog.id).eq("active", true),
       supabase.from("allergies").select("*").eq("dog_id", dog.id),
-      supabase.from("visits").select("*").eq("dog_id", dog.id).order("visit_date", { ascending: false }).limit(5),
+      supabase.from("vet_visits").select("*").eq("dog_id", dog.id).order("visit_date", { ascending: false }).limit(5),
+      supabase.from("weights").select("*").eq("dog_id", dog.id),
+      supabase.from("documents").select("*").eq("dog_id", dog.id),
     ]);
 
-    setData({ dog, vaccines: vaccines || [], medications: medications || [], allergies: allergies || [], visits: visits || [] });
+    setData({ dog, vaccines: vaccines || [], medications: medications || [], allergies: allergies || [], visits: visits || [], weights: weights || [], documents: documents || [] });
     setLoading(false);
   };
 
@@ -80,7 +82,7 @@ export default function Emergency({ token }) {
     </div>
   );
 
-  const { dog, vaccines, medications, allergies, visits } = data;
+  const { dog, vaccines, medications, allergies, visits, weights, documents } = data;
   const ptLabel = dog.pet_type === "service_animal" ? "Service Animal" : dog.pet_type === "esa" ? "Emotional Support Animal" : null;
   const ptColor = dog.pet_type === "service_animal" ? teal : dog.pet_type === "esa" ? gold : null;
   const age = dog.dob ? Math.floor((Date.now() - new Date(dog.dob + "T12:00:00")) / (365.25 * 86400000)) : null;
@@ -234,16 +236,33 @@ export default function Emergency({ token }) {
         {/* Recent Visits */}
         {visits.length > 0 && card(<>
           {sectionTitle("🏥", "Recent Vet Visits")}
-          {visits.slice(0, 3).map(v => (
+          {visits.slice(0, 3).map(v => {
+            const wt = (weights || []).find(w => w.dog_id === dog.id && w.log_date === v.visit_date);
+            const vDocs = (documents || []).filter(d => d.dog_id === dog.id && d.doc_date === v.visit_date);
+            return (
             <div key={v.id} style={{ padding: "8px 0", borderBottom: "1px solid #F0E8DC" }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
                 <span style={{ fontWeight: 600, fontSize: 14 }}>{v.reason}</span>
-                <span style={{ fontSize: 12, color: "#8B7355" }}>{fmt(v.visit_date)}</span>
+                <span style={{ fontSize: 12, color: "#8B7355" }}>{fmt(v.visit_date)}{wt ? ` · ${wt.weight_lbs} lbs` : ""}</span>
               </div>
               {v.diagnosis && <div style={{ fontSize: 13, color: "#5A4535" }}>Dx: {v.diagnosis}</div>}
+              {v.treatment && <div style={{ fontSize: 13, color: "#5A4535" }}>Tx: {v.treatment}</div>}
+              {v.notes && <div style={{ fontSize: 13, color: "#5A4535" }}>Notes: {v.notes}</div>}
               {v.vet_name && <div style={{ fontSize: 12, color: "#8B7355" }}>{v.vet_name}{v.clinic ? ` · ${v.clinic}` : ""}</div>}
+              {vDocs.length > 0 && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
+                  {vDocs.map(d => (
+                    <a key={d.id} href={supabase.storage.from("documents").getPublicUrl(d.file_path).data.publicUrl}
+                      target="_blank" rel="noopener noreferrer"
+                      style={{ fontSize: 12, fontWeight: 600, color: teal, background: teal + "14", border: `1px solid ${teal}33`, borderRadius: 8, padding: "4px 9px", textDecoration: "none" }}>
+                      📄 {d.name || "View Document"}
+                    </a>
+                  ))}
+                </div>
+              )}
             </div>
-          ))}
+            );
+          })}
         </>)}
 
         {/* Footer */}
