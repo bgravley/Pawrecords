@@ -1655,6 +1655,12 @@ const RecordsTab=({dog,state,dispatch,userId})=>{
   const visits=state.visits.filter(v=>v.dog_id===dog.id).sort((a,b)=>b.visit_date.localeCompare(a.visit_date));
   const filtered=visits.filter(v=>!filter||v.reason?.toLowerCase().includes(filter.toLowerCase())||v.vet_name?.toLowerCase().includes(filter.toLowerCase())||v.diagnosis?.toLowerCase().includes(filter.toLowerCase()));
   const delVisit=async(id)=>{await db.deleteVisit(id);dispatch({t:"DEL_VISIT",id});};
+  // Visits, weights, and documents are separate tables with no direct link
+  // between them — correlate by same dog + same date, which covers the
+  // common case (weight logged and paperwork uploaded the day of the visit).
+  const weightForVisit=v=>state.weights.find(w=>w.dog_id===dog.id&&w.log_date===v.visit_date);
+  const docsForVisit=v=>state.documents.filter(d=>d.dog_id===dog.id&&d.doc_date===v.visit_date);
+  const docUrl=d=>supabase.storage.from("documents").getPublicUrl(d.file_path).data.publicUrl;
 
   return(<div style={{display:"flex",flexDirection:"column",gap:12}}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
@@ -1673,7 +1679,10 @@ const RecordsTab=({dog,state,dispatch,userId})=>{
         {/* Timeline line */}
         <div style={{position:"absolute",left:19,top:24,bottom:24,width:2,background:"#E8DDD0",zIndex:0}}/>
         <div style={{display:"flex",flexDirection:"column",gap:0}}>
-          {filtered.map((v,idx)=>(
+          {filtered.map((v,idx)=>{
+            const wt=weightForVisit(v);
+            const vDocs=docsForVisit(v);
+            return(
             <div key={v.id} style={{display:"flex",gap:14,paddingBottom:16,position:"relative"}}>
               {/* Timeline dot */}
               <div style={{flexShrink:0,width:40,display:"flex",flexDirection:"column",alignItems:"center",paddingTop:16}}>
@@ -1684,11 +1693,12 @@ const RecordsTab=({dog,state,dispatch,userId})=>{
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
                   <div style={{flex:1}}>
                     <div style={{fontWeight:700,fontSize:15,marginBottom:2}}>{v.reason}</div>
-                    <div style={{fontSize:12,color:"#8B7355",display:"flex",alignItems:"center",gap:6}}>
+                    <div style={{fontSize:12,color:"#8B7355",display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
                       <Ic n="cal" s={12} c="#8B7355"/>
                       {fmt(v.visit_date)}
                       {v.vet_name&&<><span>·</span>{v.vet_name}</>}
                       {v.clinic&&<><span>·</span>{v.clinic}</>}
+                      {wt&&<><span>·</span>{wt.weight_lbs} lbs</>}
                     </div>
                   </div>
                   <div style={{display:"flex",gap:5,marginLeft:8}}>
@@ -1698,10 +1708,23 @@ const RecordsTab=({dog,state,dispatch,userId})=>{
                 </div>
                 {v.diagnosis&&<div style={{fontSize:13,color:"#2C2017",marginBottom:3}}><span style={{color:"#8B7355",fontWeight:600}}>Dx: </span>{v.diagnosis}</div>}
                 {v.treatment&&<div style={{fontSize:13,color:"#2C2017",marginBottom:3}}><span style={{color:"#8B7355",fontWeight:600}}>Tx: </span>{v.treatment}</div>}
+                {v.notes&&<div style={{fontSize:13,color:"#2C2017",marginBottom:3}}><span style={{color:"#8B7355",fontWeight:600}}>Notes: </span>{v.notes}</div>}
                 {v.cost&&<div style={{fontSize:13,color:"#2D7D6F",fontWeight:600,marginTop:4}}>${v.cost}</div>}
+                {vDocs.length>0
+                  ?<div style={{display:"flex",flexWrap:"wrap",gap:8,marginTop:8}}>
+                      {vDocs.map(d=>(
+                        <a key={d.id} href={docUrl(d)} target="_blank" rel="noopener noreferrer"
+                          style={{display:"flex",alignItems:"center",gap:5,fontSize:12,fontWeight:600,color:"#2D7D6F",background:"#2D7D6F14",border:"1px solid #2D7D6F33",borderRadius:8,padding:"5px 10px",textDecoration:"none"}}>
+                          <Ic n="doc" s={12} c="#2D7D6F"/> {d.name||"View Document"}
+                        </a>
+                      ))}
+                    </div>
+                  :<div style={{display:"flex",alignItems:"center",gap:5,fontSize:12,fontWeight:600,color:"#B8AFA0",background:"#F5F1EA",border:"1px solid #E8DDD0",borderRadius:8,padding:"5px 10px",marginTop:8,width:"fit-content"}}>
+                      <Ic n="doc" s={12} c="#B8AFA0"/> No document on file
+                    </div>}
               </div>
             </div>
-          ))}
+            );})}
           {filter&&filtered.length===0&&<div style={{textAlign:"center",padding:"20px 40px",color:"#8B7355",fontSize:14}}>No visits matching "{filter}"</div>}
         </div>
       </div>}
@@ -1836,6 +1859,10 @@ const MoreTab=({dog,state,dispatch,userId,tier,onUpgrade,onScan})=>{
             <div style={{fontSize:12,color:"#5A4535",marginTop:2}}>{fmt(d.doc_date)}</div>
             {d.doc_type&&<div style={{fontSize:11,color:"#2D7D6F",fontWeight:600,marginTop:3}}>{d.doc_type}</div>}
           </div>
+          <a href={supabase.storage.from("documents").getPublicUrl(d.file_path).data.publicUrl} target="_blank" rel="noopener noreferrer"
+            style={{background:"#2D7D6F14",border:"1px solid #2D7D6F44",borderRadius:8,padding:"5px 8px",color:"#2D7D6F",textDecoration:"none",display:"flex",alignItems:"center"}}>
+            <Ic n="download" s={13}/>
+          </a>
           <button onClick={async()=>{await db.deleteDocument(d.id,d.file_path);dispatch({t:"DEL_DOC",id:d.id});}} style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:8,padding:"5px 8px",color:"#C4714A"}}>
             <Ic n="trash" s={13}/>
           </button>
