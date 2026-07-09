@@ -2276,7 +2276,7 @@ const BugReportModal=({userId,userEmail,onClose})=>{
   </Modal>);
 };
 
-const OwnerProfileModal=({userId,tier,userEmail,onUpgrade,onClose})=>{
+const OwnerProfileModal=({userId,tier,userEmail,isAffiliate,onOpenAffiliate,onUpgrade,onClose})=>{
   const[f,setF]=useState({fullName:"",phoneCode:"+1",phone:"",whatsapp:"",whatsappCode:"+1",country:"",city:"",state:"",zip:"",address:"",instagram:"",facebook:"",twitter:"",photo:""});
   const[contacts,setContacts]=useState([]);
   const[loading,setLoading]=useState(true);
@@ -2371,6 +2371,25 @@ const OwnerProfileModal=({userId,tier,userEmail,onUpgrade,onClose})=>{
           </div>
           <input ref={profPhotoRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>{const file=e.target.files[0];if(!file)return;resizeImageFile(file).then(dataUrl=>set("photo",dataUrl)).catch(()=>{const r=new FileReader();r.onload=ev=>set("photo",ev.target.result);r.readAsDataURL(file);});}}/>
         </div>
+        {userEmail&&(
+          <div style={{textAlign:"center",marginBottom:14}}>
+            <div style={{fontSize:11,fontWeight:700,color:"#8B7355",textTransform:"uppercase",letterSpacing:".06em",marginBottom:2}}>Email</div>
+            <div style={{fontSize:14,color:"#2C2017",fontWeight:500}}>{userEmail}</div>
+            <div style={{fontSize:11,color:"#8B7355",marginTop:2}}>This is what you sign in with — contact support to change it.</div>
+          </div>
+        )}
+        {isAffiliate&&onOpenAffiliate&&(
+          <button onClick={onOpenAffiliate} style={{display:"flex",alignItems:"center",justifyContent:"space-between",width:"100%",background:"#E8A83814",border:"1px solid #E8A83844",borderRadius:12,padding:"12px 16px",marginBottom:14,cursor:"pointer",textAlign:"left"}}>
+            <div style={{display:"flex",alignItems:"center",gap:10}}>
+              <span style={{fontSize:20}}>🤝</span>
+              <div>
+                <div style={{fontWeight:700,fontSize:14,color:"#2C2017"}}>Affiliate Dashboard</div>
+                <div style={{fontSize:12,color:"#8B7355"}}>Your referral link, code, and earnings</div>
+              </div>
+            </div>
+            <Ic n="chevR" s={16} c="#8B7355"/>
+          </button>
+        )}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <Field label="Full Name" col="1/-1"><input maxLength={150} value={f.fullName} onChange={e=>set("fullName",e.target.value)} placeholder="Jane Smith"/></Field>
           <Field label="Phone Country Code">
@@ -2565,7 +2584,7 @@ const Home=({state,dispatch,userId,tier,userEmail,onSignOut,isAdmin,onOpenAdmin,
               <circle cx="12" cy="7" r="4"/>
             </svg>
           </button>
-          {isAffiliate&&!isAdmin&&<button onClick={onOpenAffiliate} style={{background:"#E8A838",border:"none",borderRadius:10,padding:"7px 10px",color:"#FFFFFF",cursor:"pointer",fontSize:11,fontWeight:700}}>🤝 Affiliate</button>}
+          {isAffiliate&&<button onClick={onOpenAffiliate} style={{background:"#E8A838",border:"none",borderRadius:10,padding:"7px 10px",color:"#FFFFFF",cursor:"pointer",fontSize:11,fontWeight:700}}>🤝 Affiliate</button>}
           {isAdmin&&<button onClick={onOpenAdmin} title="Admin Dashboard" style={{position:"relative",background:"#1E5C52",border:"1px solid #2D7D6F44",borderRadius:10,padding:"7px 10px",color:"#FFFFFF",cursor:"pointer",fontSize:11,fontWeight:700}}>
   ⚙ Admin
   {errorCount>0&&<span style={{position:"absolute",top:-6,right:-6,background:"#C4714A",color:"#fff",borderRadius:"50%",width:18,height:18,fontSize:10,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700}}>{errorCount}</span>}
@@ -2652,7 +2671,7 @@ const Home=({state,dispatch,userId,tier,userEmail,onSignOut,isAdmin,onOpenAdmin,
     </div>
     {addDog&&<DogForm userId={userId} userEmail={userEmail} onSave={d=>{dispatch({t:"ADD_DOG",d});setAddDog(false);}} onClose={()=>setAddDog(false)}/>}
     {showUpgrade&&<UpgradeModal userId={userId} userEmail={userEmail} onClose={()=>setShowUpgrade(false)}/>}
-    {showProfile&&<OwnerProfileModal userId={userId} tier={tier} userEmail={userEmail} onUpgrade={()=>{setShowProfile(false);setShowUpgrade(true);}} onClose={()=>setShowProfile(false)}/>}
+    {showProfile&&<OwnerProfileModal userId={userId} tier={tier} userEmail={userEmail} isAffiliate={isAffiliate} onOpenAffiliate={onOpenAffiliate} onUpgrade={()=>{setShowProfile(false);setShowUpgrade(true);}} onClose={()=>setShowProfile(false)}/>}
     {showBugReport&&<BugReportModal userId={userId} userEmail={userEmail} onClose={()=>setShowBugReport(false)}/>}
     {showAlerts&&<AlertsModal state={state} onClose={()=>setShowAlerts(false)} onSelectDog={(id)=>setSelDog(id)}/>}
     {/* Bottom nav */}
