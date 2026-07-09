@@ -60,6 +60,7 @@ export default function Admin({ onBack }) {
   const [showCreateAffiliate, setShowCreateAffiliate] = useState(false);
   const [newAffiliate, setNewAffiliate] = useState({ userId: '', referralCode: '', commissionRate: 25, notes: '' });
   const [affiliateError, setAffiliateError] = useState('');
+  const [creatingAffiliate, setCreatingAffiliate] = useState(false);
   const [loading, setLoading] = useState(true);
   const [editUser, setEditUser] = useState(null);
   const [showDeleteUserConfirm, setShowDeleteUserConfirm] = useState(false);
@@ -631,8 +632,10 @@ export default function Admin({ onBack }) {
           return `${prefix}${rand}`;
         };
         const createAffiliate = async () => {
-          if (!newAffiliate.userId) return;
+          if (!newAffiliate.userId || creatingAffiliate) return;
+          setCreatingAffiliate(true);
           setAffiliateError('');
+          try {
           const user = users.find(u => u.id === newAffiliate.userId);
           const typed = (newAffiliate.referralCode || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
           const code = typed || genCode(user?.email || '');
@@ -664,14 +667,17 @@ export default function Admin({ onBack }) {
               console.error('Affiliate welcome email failed (non-critical):', e.message);
             }
           } else {
-            // Most likely cause: that code is already taken (referral_code is
-            // unique in the database) -- surface that clearly instead of
-            // silently doing nothing.
+            // Two things are now unique at the DB level: referral_code, and
+            // (as of July 2026) user_id itself -- so a 409 here means either
+            // the code is taken, or this person is already an affiliate.
             setAffiliateError(
               (res.error || '').includes('409') || (res.error || '').toLowerCase().includes('duplicate')
-                ? `"${code}" is already taken — try a different code.`
+                ? `Either "${code}" is already taken, or ${user?.email || 'this person'} is already an affiliate — check the list below.`
                 : (res.error || 'Could not create affiliate. Please try again.')
             );
+          }
+          } finally {
+            setCreatingAffiliate(false);
           }
         };
         const toggleStatus = async (aff) => {
@@ -869,9 +875,9 @@ export default function Admin({ onBack }) {
                         style={{ flex: 1, background: 'transparent', border: `1px solid ${C.border}`, borderRadius: 8, padding: 10, color: C.sub, cursor: 'pointer', fontWeight: 600 }}>
                         Cancel
                       </button>
-                      <button onClick={createAffiliate}
-                        style={{ flex: 1, background: C.accent, border: 'none', borderRadius: 8, padding: 10, color: '#fff', cursor: 'pointer', fontWeight: 600 }}>
-                        Create Affiliate
+                      <button onClick={createAffiliate} disabled={creatingAffiliate}
+                        style={{ flex: 1, background: C.accent, border: 'none', borderRadius: 8, padding: 10, color: '#fff', cursor: creatingAffiliate ? 'default' : 'pointer', fontWeight: 600, opacity: creatingAffiliate ? 0.6 : 1 }}>
+                        {creatingAffiliate ? 'Creating...' : 'Create Affiliate'}
                       </button>
                     </div>
                   </div>

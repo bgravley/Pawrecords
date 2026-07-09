@@ -224,3 +224,19 @@ FROM pg_proc p
 WHERE p.pronamespace = 'public'::regnamespace
   AND p.proname IN ('notify_new_signup', 'notify_new_error')
   AND pg_get_functiondef(p.oid) ~ 'body\s*:=.*::text';
+
+
+-- ── CHECK D14: no duplicate affiliate records per user ────────────────────────
+-- affiliates.user_id now has a UNIQUE constraint (added July 2026), so this
+-- should be structurally impossible -- but if the constraint is ever
+-- dropped or worked around, this catches it. Found live: an admin
+-- double-submit created two affiliate rows for the same person one second
+-- apart, which broke that user's affiliate-status detection entirely
+-- (the frontend used .single(), which errors -- not just returns null --
+-- when more than one row matches, silently making a real affiliate look
+-- like a non-affiliate). Expect: zero rows.
+SELECT user_id, count(*) AS duplicate_count
+FROM affiliates
+WHERE user_id IS NOT NULL
+GROUP BY user_id
+HAVING count(*) > 1;

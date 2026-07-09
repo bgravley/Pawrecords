@@ -169,8 +169,12 @@ export default function App() {
     if (error) console.error("Failed to load profile:", error);
     setProfile(data);
     setLoading(false);
-    // Check if this user is an affiliate (uses RLS — only returns their own record if exists)
-    const { data: affData } = await supabase.from("affiliates").select("id").eq("user_id", userId).single();
+    // Check if this user is an affiliate (uses RLS — only returns their own record if exists).
+    // .maybeSingle() (not .single()) so this can't silently become "not an
+    // affiliate" if a duplicate row ever exists again for any reason — a DB
+    // unique constraint now prevents that at the source, but this stays
+    // resilient either way rather than trusting a single layer of defense.
+    const { data: affData } = await supabase.from("affiliates").select("id").eq("user_id", userId).limit(1).maybeSingle();
     setIsAffiliate(!!affData);
   };
 
