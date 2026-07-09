@@ -529,9 +529,14 @@ export default function Admin({ onBack }) {
                     </div>
                     <span style={{ fontSize: 12, color: C.sub }}>{fmtTime(report.created_at)}</span>
                   </div>
-                  <div style={{ background: C.bg, borderRadius: 8, padding: 12, fontSize: 13, color: C.text, marginBottom: report.status === 'pending' ? 12 : (report.reward_type ? 8 : 0), whiteSpace: "pre-wrap" }}>
+                  <div style={{ background: C.bg, borderRadius: 8, padding: 12, fontSize: 13, color: C.text, marginBottom: (report.status === 'pending' || report.screenshot_url) ? 12 : (report.reward_type ? 8 : 0), whiteSpace: "pre-wrap" }}>
                     {report.description}
                   </div>
+                  {report.screenshot_url && (
+                    <a href={report.screenshot_url} target="_blank" rel="noopener noreferrer" style={{ display: "block", marginBottom: report.status === 'pending' ? 12 : (report.reward_type ? 8 : 0) }}>
+                      <img src={report.screenshot_url} alt="Bug screenshot" style={{ maxWidth: "100%", maxHeight: 220, borderRadius: 8, border: `1px solid ${C.border}` }} />
+                    </a>
+                  )}
                   {report.reward_type && (
                     <div style={{ fontSize: 12, color: C.sub, marginBottom: 0 }}>
                       Reward: <strong style={{ color: C.text }}>{report.reward_type.replace(/_/g, ' ')}</strong>

@@ -210,3 +210,17 @@ SELECT unnest(ARRAY['vaccinations','medications','allergies','vet_visits','weigh
 EXCEPT
 SELECT tablename FROM pg_policies
 WHERE schemaname = 'public' AND policyname = 'Public can view via dog emergency token';
+
+
+-- ── CHECK D13: notify functions don't cast net.http_post's body to ::text ────
+-- net.http_post's real signature takes body as JSONB. Casting it to ::text
+-- makes the call unresolvable ("function net.http_post(...) does not
+-- exist"), which silently rolled back every profiles insert on signup for
+-- about a month (notify_new_signup fires as a trigger ON the profiles
+-- insert itself) and broke error_log the same way (notify_new_error fires
+-- on error_log). Fixed July 2026. Expect: zero rows.
+SELECT p.proname
+FROM pg_proc p
+WHERE p.pronamespace = 'public'::regnamespace
+  AND p.proname IN ('notify_new_signup', 'notify_new_error')
+  AND pg_get_functiondef(p.oid) ~ 'body\s*:=.*::text';

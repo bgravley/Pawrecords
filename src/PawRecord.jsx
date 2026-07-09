@@ -2194,17 +2194,43 @@ const BillingSection=({userId,tier,userEmail})=>{
 
 const BugReportModal=({userId,userEmail,onClose})=>{
   const[description,setDescription]=useState("");
+  const[screenshot,setScreenshot]=useState(null); // {dataUrl, file}
   const[sending,setSending]=useState(false);
   const[sent,setSent]=useState(false);
   const[err,setErr]=useState(null);
+
+  const onPickScreenshot=async e=>{
+    const file=e.target.files[0];
+    if(!file)return;
+    try{
+      const dataUrl=await resizeImageFile(file,1200,0.85); // screenshots need more detail than an avatar, but still compressed
+      setScreenshot({dataUrl});
+    }catch(err){
+      console.error("Screenshot resize failed:",err.message);
+    }
+  };
 
   const submit=async()=>{
     if(!description.trim())return setErr("Please describe the bug before submitting.");
     setSending(true);setErr(null);
     try{
+      let screenshotUrl=null;
+      if(screenshot?.dataUrl){
+        try{
+          const blob=await(await fetch(screenshot.dataUrl)).blob();
+          const path=`bug-reports/${userId||"anon"}/${Date.now()}.jpg`;
+          const{error:upErr}=await supabase.storage.from("documents").upload(path,blob,{upsert:true,contentType:"image/jpeg"});
+          if(upErr)throw upErr;
+          screenshotUrl=supabase.storage.from("documents").getPublicUrl(path).data.publicUrl;
+        }catch(shotErr){
+          // Don't block the report over a failed screenshot upload — the
+          // description alone is still useful.
+          console.error("Screenshot upload failed (non-critical):",shotErr.message);
+        }
+      }
       const res=await fetch('/api/report-bug',{
         method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({userId,userEmail,description:description.trim()})
+        body:JSON.stringify({userId,userEmail,description:description.trim(),screenshotUrl})
       });
       const data=await res.json();
       if(!res.ok||data.error)throw new Error(data.error||'Could not submit report');
@@ -2228,6 +2254,17 @@ const BugReportModal=({userId,userEmail,onClose})=>{
         </div>
         <Field label="What went wrong?">
           <textarea maxLength={2000} value={description} onChange={e=>setDescription(e.target.value)} placeholder="e.g. When I tap Export on Biscuit's page, nothing happens..." style={{minHeight:120}}/>
+        </Field>
+        <Field label="Screenshot (optional, but really helpful)">
+          {screenshot
+            ?<div style={{position:"relative",width:"fit-content"}}>
+                <img src={screenshot.dataUrl} alt="Bug screenshot" style={{maxWidth:"100%",maxHeight:180,borderRadius:10,border:"1px solid #E8DDD0",display:"block"}}/>
+                <button onClick={()=>setScreenshot(null)} style={{position:"absolute",top:6,right:6,background:"#2C2017CC",border:"none",borderRadius:20,width:26,height:26,color:"#fff",cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+              </div>
+            :<label style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,border:"1.5px dashed #E8DDD0",borderRadius:10,padding:"16px",color:"#8B7355",fontSize:13,cursor:"pointer",background:"#FAF6F0"}}>
+                <Ic n="camera" s={16} c="#8B7355"/> Tap to add a screenshot
+                <input type="file" accept="image/*" style={{display:"none"}} onChange={onPickScreenshot}/>
+              </label>}
         </Field>
         {err&&<div style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:10,padding:"10px 14px",fontSize:13,color:"#C4714A"}}>{err}</div>}
         <div style={{display:"flex",gap:10}}>
