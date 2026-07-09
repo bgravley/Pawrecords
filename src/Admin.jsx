@@ -49,6 +49,8 @@ export default function Admin({ onBack }) {
   const [users, setUsers] = useState([]);
   const [aiLogs, setAiLogs] = useState([]);
   const [prewarmStatus, setPrewarmStatus] = useState(null);
+  const [prewarmRoutes, setPrewarmRoutes] = useState([]);
+  const [prewarmSuggestions, setPrewarmSuggestions] = useState([]);
   const [activityLogs, setActivityLogs] = useState([]);
   const [errorLogs, setErrorLogs] = useState([]);
   const [bugReports, setBugReports] = useState([]);
@@ -81,7 +83,7 @@ export default function Admin({ onBack }) {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [usersRes, aiRes, actRes, errRes, affRes, commRes, bugRes, payoutRes] = await Promise.all([
+      const [usersRes, aiRes, actRes, errRes, affRes, commRes, bugRes, payoutRes, prewarmRoutesRes, prewarmSuggRes] = await Promise.all([
         adminFetch('users'),
         adminFetch('ai_logs'),
         adminFetch('activity'),
@@ -90,6 +92,8 @@ export default function Admin({ onBack }) {
         adminFetch('affiliate_commissions'),
         adminFetch('bug_reports'),
         adminFetch('payout_summary'),
+        adminFetch('prewarm_routes'),
+        adminFetch('prewarm_route_suggestions'),
       ]);
       setUsers(usersRes.data || []);
       setAiLogs(aiRes.data || []);
@@ -99,6 +103,8 @@ export default function Admin({ onBack }) {
       setAffiliateCommissions(commRes.data || []);
       setBugReports(bugRes.data || []);
       setPayoutSummary(payoutRes.data || []);
+      setPrewarmRoutes(prewarmRoutesRes.data || []);
+      setPrewarmSuggestions(prewarmSuggRes.data || []);
     } catch(e) {
       console.error('Admin load error:', e);
     }
@@ -192,31 +198,75 @@ export default function Admin({ onBack }) {
           </div>
 
           {/* Pre-warm route cache */}
-          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 20, marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: 15 }}>Pre-warm Route Cache</div>
-              <div style={{ fontSize: 12, color: C.sub, marginTop: 2 }}>Runs automatically every Monday. Use this to trigger it on demand.</div>
+          <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 20, marginBottom: 20 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 15 }}>Pre-warm Route Cache</div>
+                <div style={{ fontSize: 12, color: C.sub, marginTop: 2 }}>Runs automatically every Monday on {prewarmRoutes.filter(r => r.active).length} routes. Use this to trigger it on demand.</div>
+              </div>
+              <button onClick={async () => {
+                setPrewarmStatus('running');
+                try {
+                  const { data: { session } } = await supabase.auth.getSession();
+                  const r = await fetch('/api/prewarm-cache', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
+                    body: JSON.stringify({}),
+                  });
+                  const data = await r.json();
+                  setPrewarmStatus(data.summary ? `Done — ${data.summary.newlyWarmed} generated, ${data.summary.alreadyCached} already cached, ${data.summary.failed} failed` : (data.error || 'Failed'));
+                } catch (e) {
+                  setPrewarmStatus('Failed: ' + e.message);
+                }
+              }} disabled={prewarmStatus === 'running'} style={{ background: C.accent, color: "#fff", border: "none", borderRadius: 8, padding: "10px 18px", fontWeight: 600, cursor: "pointer", fontSize: 13 }}>
+                {prewarmStatus === 'running' ? 'Running (this can take a minute)...' : '🔥 Run Pre-warm Now'}
+              </button>
+              {prewarmStatus && prewarmStatus !== 'running' && (
+                <div style={{ fontSize: 12, color: C.sub, width: "100%" }}>{prewarmStatus}</div>
+              )}
             </div>
-            <button onClick={async () => {
-              setPrewarmStatus('running');
-              try {
-                const { data: { session } } = await supabase.auth.getSession();
-                const r = await fetch('/api/prewarm-cache', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token}` },
-                  body: JSON.stringify({}),
-                });
-                const data = await r.json();
-                setPrewarmStatus(data.summary ? `Done — ${data.summary.newlyWarmed} generated, ${data.summary.alreadyCached} already cached, ${data.summary.failed} failed` : (data.error || 'Failed'));
-              } catch (e) {
-                setPrewarmStatus('Failed: ' + e.message);
-              }
-            }} disabled={prewarmStatus === 'running'} style={{ background: C.accent, color: "#fff", border: "none", borderRadius: 8, padding: "10px 18px", fontWeight: 600, cursor: "pointer", fontSize: 13 }}>
-              {prewarmStatus === 'running' ? 'Running (this can take a minute)...' : '🔥 Run Pre-warm Now'}
-            </button>
-            {prewarmStatus && prewarmStatus !== 'running' && (
-              <div style={{ fontSize: 12, color: C.sub, width: "100%" }}>{prewarmStatus}</div>
+
+            {prewarmSuggestions.length > 0 && (
+              <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${C.border}` }}>
+                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
+                  Suggested additions — real routes people have researched, not yet on the proactive list
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {prewarmSuggestions.map((s, i) => (
+                    <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: C.bg, borderRadius: 8, padding: "8px 12px" }}>
+                      <div style={{ fontSize: 13 }}>{s.originCountry} → {s.destinationCountry} <span style={{ color: C.sub }}>({s.transportationMode})</span></div>
+                      <button onClick={async () => {
+                        const res = await adminFetch('prewarm_route_add', { originCountry: s.originCountry, destinationCountry: s.destinationCountry, transportationMode: s.transportationMode, source: 'auto-detected' });
+                        if (res.data) {
+                          setPrewarmRoutes(p => [res.data, ...p]);
+                          setPrewarmSuggestions(p => p.filter((_, idx) => idx !== i));
+                        } else {
+                          alert(res.error || 'Could not add route.');
+                        }
+                      }} style={{ background: C.accent, border: "none", borderRadius: 6, padding: "5px 10px", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                        + Add to list
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
+
+            <details style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${C.border}` }}>
+              <summary style={{ fontSize: 13, fontWeight: 600, cursor: "pointer" }}>View full list ({prewarmRoutes.length})</summary>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 10 }}>
+                {prewarmRoutes.map(r => (
+                  <div key={r.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13 }}>
+                    <div>{r.origin_country} → {r.destination_country} <span style={{ color: C.sub }}>({r.transportation_mode}, {r.source})</span></div>
+                    <button onClick={async () => {
+                      if (!window.confirm(`Remove ${r.origin_country} → ${r.destination_country} from the proactive list?`)) return;
+                      await adminFetch('prewarm_route_remove', { routeId: r.id });
+                      setPrewarmRoutes(p => p.filter(x => x.id !== r.id));
+                    }} style={{ background: "transparent", border: "none", color: C.danger, fontSize: 12, cursor: "pointer", textDecoration: "underline" }}>Remove</button>
+                  </div>
+                ))}
+              </div>
+            </details>
           </div>
 
           {/* Cost breakdown by provider */}

@@ -394,6 +394,86 @@ export default async function handler(req, res) {
       }
     }
 
+    if (type === 'prewarm_routes') {
+      const r = await checkedFetch(
+        `${supabaseUrl}/rest/v1/prewarm_routes?select=*&order=added_at.desc`,
+        { headers }, 'Load prewarm routes'
+      );
+      const data = await r.json();
+      return res.status(200).json({ data });
+    }
+
+    if (type === 'prewarm_route_suggestions') {
+      // Real routes that have actually been researched (present in
+      // travel_route_cache) but aren't in the curated prewarm_routes list
+      // yet -- candidates for you to review and approve, per your call to
+      // keep this reviewed rather than fully automatic.
+      try {
+        const cacheRes = await checkedFetch(
+          `${supabaseUrl}/rest/v1/travel_route_cache?select=origin_country,destination_country,transportation_mode&order=created_at.desc&limit=500`,
+          { headers }, 'Load cached routes'
+        );
+        const cachedRoutes = await cacheRes.json();
+
+        const routesRes = await checkedFetch(
+          `${supabaseUrl}/rest/v1/prewarm_routes?select=origin_country,destination_country,transportation_mode`,
+          { headers }, 'Load existing prewarm routes'
+        );
+        const existingRoutes = await routesRes.json();
+        const existingKeys = new Set(existingRoutes.map(r =>
+          `${r.origin_country.toLowerCase()}|${r.destination_country.toLowerCase()}|${r.transportation_mode.toLowerCase()}`
+        ));
+
+        const seen = new Set();
+        const suggestions = [];
+        for (const c of cachedRoutes) {
+          const key = `${(c.origin_country||'').toLowerCase()}|${(c.destination_country||'').toLowerCase()}|${(c.transportation_mode||'').toLowerCase()}`;
+          if (existingKeys.has(key) || seen.has(key)) continue;
+          seen.add(key);
+          suggestions.push({
+            originCountry: c.origin_country,
+            destinationCountry: c.destination_country,
+            transportationMode: c.transportation_mode,
+          });
+        }
+        return res.status(200).json({ data: suggestions });
+      } catch (err) {
+        console.error('prewarm_route_suggestions failed:', err.message);
+        return res.status(500).json({ error: err.message });
+      }
+    }
+
+    if (type === 'prewarm_route_add') {
+      const { originCountry, destinationCountry, transportationMode, source } = req.body;
+      if (!originCountry || !destinationCountry) return res.status(400).json({ error: 'originCountry and destinationCountry required' });
+      const r = await fetch(`${supabaseUrl}/rest/v1/prewarm_routes`, {
+        method: 'POST',
+        headers: { ...headers, 'Prefer': 'return=representation' },
+        body: JSON.stringify({
+          origin_country: originCountry,
+          destination_country: destinationCountry,
+          transportation_mode: transportationMode || 'air',
+          source: source || 'auto-detected',
+        }),
+      });
+      if (!r.ok) {
+        const errText = await r.text().catch(() => '');
+        return res.status(409).json({ error: errText.includes('duplicate') ? 'That route is already on the list.' : `Could not add route (${r.status})` });
+      }
+      const data = await r.json();
+      return res.status(200).json({ data: Array.isArray(data) ? data[0] : data });
+    }
+
+    if (type === 'prewarm_route_remove') {
+      const { routeId } = req.body;
+      if (!routeId) return res.status(400).json({ error: 'routeId required' });
+      await checkedFetch(
+        `${supabaseUrl}/rest/v1/prewarm_routes?id=eq.${routeId}`,
+        { method: 'DELETE', headers }, 'Remove prewarm route'
+      );
+      return res.status(200).json({ data: { removed: true } });
+    }
+
     if (type === 'mark_commissions_paid') {
       const { affiliateId, payoutMethod } = req.body;
       if (!affiliateId) return res.status(400).json({ error: 'affiliateId required' });

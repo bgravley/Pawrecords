@@ -3,33 +3,28 @@
 // so the FIRST real customer asking about a popular route gets an instant,
 // free result instead of paying the full research cost themselves.
 //
+// The route list itself lives in the prewarm_routes table (not hardcoded
+// here anymore) so it can grow over time as real routes get researched,
+// reviewed and approved in Admin -> Pre-warm Route Cache, without a code
+// deploy. See admin-data.js: prewarm_routes / prewarm_route_suggestions /
+// prewarm_route_add / prewarm_route_remove.
+//
 // Can be triggered two ways:
 // 1. Manually, on demand, from Admin (POST with a specific route)
-// 2. Automatically every week via Vercel cron (runs the full COMMON_ROUTES list)
+// 2. Automatically every week via Vercel cron (runs the full active list)
 
-const COMMON_ROUTES = [
-  // [originCountry, destinationCountry, transportationType]
-  ['United States', 'Mexico', 'air'],
-  ['United States', 'Mexico', 'land'],
-  ['United States', 'Canada', 'air'],
-  ['United States', 'Canada', 'land'],
-  ['United States', 'United Kingdom', 'air'],
-  ['United States', 'France', 'air'],
-  ['United States', 'Germany', 'air'],
-  ['United States', 'Italy', 'air'],
-  ['United States', 'Spain', 'air'],
-  ['United States', 'Japan', 'air'],
-  ['United States', 'Australia', 'air'],
-  ['United States', 'Costa Rica', 'air'],
-  ['United States', 'Colombia', 'air'],
-  ['United States', 'Brazil', 'air'],
-  ['United States', 'Puerto Rico', 'air'], // domestic but commonly asked
-  ['Canada', 'United States', 'air'],
-  ['Canada', 'United States', 'land'],
-  ['United Kingdom', 'United States', 'air'],
-  ['United Kingdom', 'France', 'air'],
-  ['United Kingdom', 'Spain', 'air'],
-];
+async function loadActiveRoutes() {
+  const res = await fetch(
+    `${process.env.SUPABASE_URL}/rest/v1/prewarm_routes?active=eq.true&select=origin_country,destination_country,transportation_mode`,
+    { headers: { 'apikey': process.env.SUPABASE_SERVICE_KEY, 'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}` } }
+  );
+  if (!res.ok) {
+    console.error('Failed to load prewarm_routes:', res.status, await res.text().catch(() => ''));
+    return [];
+  }
+  const rows = await res.json();
+  return rows.map(r => [r.origin_country, r.destination_country, r.transportation_mode]);
+}
 
 const CRON_SECRET = process.env.CRON_SECRET;
 const APP_URL = process.env.VITE_APP_URL || 'https://yourpetpass.com';
@@ -108,8 +103,8 @@ export default async function handler(req, res) {
     // Single specific route, triggered manually from Admin
     routesToWarm = [[req.body.originCountry, req.body.destinationCountry, req.body.transportationType || 'air']];
   } else {
-    // Full curated list — either the weekly cron, or an admin manually running it all
-    routesToWarm = COMMON_ROUTES;
+    // Full active list — either the weekly cron, or an admin manually running it all
+    routesToWarm = await loadActiveRoutes();
   }
 
   // Run in parallel — sequential would risk exceeding even a 5-minute

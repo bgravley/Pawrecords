@@ -57,7 +57,7 @@ WHERE proname = 'handle_new_user';
 SELECT unnest(ARRAY[
   'activity_log','affiliate_commissions','affiliates','ai_usage_log','allergies',
   'bug_reports','documents','dogs','emergency_contacts','error_log','medications',
-  'newsletter_subscribers','profiles','rate_limit_log','saved_vets',
+  'newsletter_subscribers','prewarm_routes','profiles','rate_limit_log','saved_vets',
   'travel_route_cache','trip_checklist_items','trip_documents','trips',
   'vaccinations','vet_visits','weights'
 ]) AS expected_table
