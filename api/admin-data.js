@@ -12,6 +12,21 @@ async function checkedFetch(url, options, label) {
   return r;
 }
 
+// Writes admin-action failures to error_log so they show up in the admin
+// Errors tab, not just Vercel's function logs. Never throws itself — a
+// logging failure must never mask or replace the original error.
+async function logAdminError(supabaseUrl, headers, context, userEmail, message) {
+  try {
+    await fetch(`${supabaseUrl}/rest/v1/error_log`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ context, user_email: userEmail || null, error_message: message }),
+    });
+  } catch (_) {
+    // best-effort only
+  }
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -196,51 +211,45 @@ export default async function handler(req, res) {
       const { targetUserId } = req.body;
       if (!targetUserId) return res.status(400).json({ error: 'targetUserId required' });
 
+      // Every user-owned table already has a proper FK to profiles(id) with
+      // either ON DELETE CASCADE (allergies, documents, dogs,
+      // emergency_contacts, medications, saved_vets, trip_checklist_items,
+      // trip_documents, trips, vaccinations, vet_visits, weights -- all of
+      // it, pet records and trip records both) or ON DELETE SET NULL
+      // (activity_log, ai_usage_log, bug_reports, error_log -- these are
+      // anonymized, not deleted, preserving aggregate history). Deleting the
+      // profile row is sufficient; the database does the rest correctly.
+      //
+      // A previous version of this handler manually deleted from each table
+      // one at a time, including a call to a table named "vets" that has
+      // never existed (the real table is "saved_vets") -- every delete
+      // attempt failed on that step. Relying on the DB's own cascade rules
+      // removes an entire class of exactly this bug. Verified live: created
+      // a throwaway test account with a dog, vaccination, saved vet, trip,
+      // and activity_log row, deleted the profile, confirmed every
+      // CASCADE table emptied and every SET NULL table anonymized correctly.
+
+      let targetEmail = null;
       try {
-        const dogsRes = await checkedFetch(`${supabaseUrl}/rest/v1/dogs?user_id=eq.${targetUserId}&select=id`, { headers }, 'Load pets for deletion');
-        const dogs = await dogsRes.json();
-        const dogIds = (dogs || []).map(d => d.id);
+        const profLookup = await fetch(`${supabaseUrl}/rest/v1/profiles?id=eq.${targetUserId}&select=email`, { headers });
+        const profData = await profLookup.json().catch(() => []);
+        targetEmail = profData?.[0]?.email || null;
+      } catch (_) { /* best-effort, only used for error log context */ }
 
-        for (const dogId of dogIds) {
-          const results = await Promise.all([
-            fetch(`${supabaseUrl}/rest/v1/vaccinations?dog_id=eq.${dogId}`, { method: 'DELETE', headers }),
-            fetch(`${supabaseUrl}/rest/v1/medications?dog_id=eq.${dogId}`, { method: 'DELETE', headers }),
-            fetch(`${supabaseUrl}/rest/v1/allergies?dog_id=eq.${dogId}`, { method: 'DELETE', headers }),
-            fetch(`${supabaseUrl}/rest/v1/vet_visits?dog_id=eq.${dogId}`, { method: 'DELETE', headers }),
-            fetch(`${supabaseUrl}/rest/v1/weights?dog_id=eq.${dogId}`, { method: 'DELETE', headers }),
-            fetch(`${supabaseUrl}/rest/v1/documents?dog_id=eq.${dogId}`, { method: 'DELETE', headers }),
-            fetch(`${supabaseUrl}/rest/v1/emergency_contacts?dog_id=eq.${dogId}`, { method: 'DELETE', headers }),
-          ]);
-          const failed = results.filter(r => !r.ok);
-          if (failed.length) throw new Error(`Failed to delete ${failed.length} pet-record table(s) for pet ${dogId}`);
-        }
-
-        const tripsRes = await checkedFetch(`${supabaseUrl}/rest/v1/trips?user_id=eq.${targetUserId}&select=id`, { headers }, 'Load trips for deletion');
-        const trips = await tripsRes.json();
-        for (const trip of (trips || [])) {
-          const results = await Promise.all([
-            fetch(`${supabaseUrl}/rest/v1/trip_checklist_items?trip_id=eq.${trip.id}`, { method: 'DELETE', headers }),
-            fetch(`${supabaseUrl}/rest/v1/trip_documents?trip_id=eq.${trip.id}`, { method: 'DELETE', headers }),
-          ]);
-          const failed = results.filter(r => !r.ok);
-          if (failed.length) throw new Error(`Failed to delete trip records for trip ${trip.id}`);
-        }
-
-        const coreResults = await Promise.all([
-          fetch(`${supabaseUrl}/rest/v1/trips?user_id=eq.${targetUserId}`, { method: 'DELETE', headers }),
-          fetch(`${supabaseUrl}/rest/v1/dogs?user_id=eq.${targetUserId}`, { method: 'DELETE', headers }),
-          fetch(`${supabaseUrl}/rest/v1/vets?user_id=eq.${targetUserId}`, { method: 'DELETE', headers }),
-        ]);
-        const coreFailed = coreResults.filter(r => !r.ok);
-        if (coreFailed.length) throw new Error('Failed to delete core trips/pets/vets records');
-
+      try {
+        // Explicit status update: the FK's ON DELETE SET NULL will null out
+        // affiliates.user_id automatically, but won't touch status -- do
+        // that here so the affiliate record is left clearly cancelled.
         const affRes = await fetch(`${supabaseUrl}/rest/v1/affiliates?user_id=eq.${targetUserId}`, {
-          method: 'PATCH', headers, body: JSON.stringify({ status: 'cancelled', user_id: null }),
+          method: 'PATCH', headers, body: JSON.stringify({ status: 'cancelled' }),
         });
         if (!affRes.ok) console.error('Affiliate deactivation failed (non-critical):', affRes.status);
 
         const profDelRes = await fetch(`${supabaseUrl}/rest/v1/profiles?id=eq.${targetUserId}`, { method: 'DELETE', headers });
-        if (!profDelRes.ok) throw new Error('Failed to delete profile row');
+        if (!profDelRes.ok) {
+          const errText = await profDelRes.text().catch(() => '');
+          throw new Error(`Failed to delete profile row (${profDelRes.status}): ${errText}`);
+        }
 
         const authDeleteRes = await fetch(`${supabaseUrl}/auth/v1/admin/users/${targetUserId}`, {
           method: 'DELETE',
@@ -250,12 +259,15 @@ export default async function handler(req, res) {
         if (!authDeleteRes.ok && authDeleteRes.status !== 404) {
           const errText = await authDeleteRes.text();
           console.error('Auth user deletion failed:', errText);
+          await logAdminError(supabaseUrl, headers, 'user_delete_partial', targetEmail,
+            `Profile data deleted, but auth login removal failed: ${errText}`);
           return res.status(200).json({ data: { partial: true, warning: 'Account data deleted, but the auth login itself could not be removed. Contact Supabase support if this persists.' } });
         }
 
         return res.status(200).json({ data: { deleted: true } });
       } catch (err) {
         console.error('delete_user failed:', err.message);
+        await logAdminError(supabaseUrl, headers, 'user_delete_failed', targetEmail, err.message);
         return res.status(500).json({ error: err.message });
       }
     }
