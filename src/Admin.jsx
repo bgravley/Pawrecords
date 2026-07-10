@@ -203,7 +203,7 @@ export default function Admin({ onBack }) {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
               <div>
                 <div style={{ fontWeight: 700, fontSize: 15 }}>Pre-warm Route Cache</div>
-                <div style={{ fontSize: 12, color: C.sub, marginTop: 2 }}>Runs automatically every Monday on {prewarmRoutes.filter(r => r.active).length} routes. Use this to trigger it on demand.</div>
+                <div style={{ fontSize: 12, color: C.sub, marginTop: 2 }}>Runs automatically every 2 weeks on {prewarmRoutes.filter(r => r.active).length} routes. Use this to trigger it on demand.</div>
               </div>
               <button onClick={async () => {
                 setPrewarmStatus('running');
