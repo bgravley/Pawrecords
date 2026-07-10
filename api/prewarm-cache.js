@@ -10,8 +10,11 @@
 // prewarm_route_add / prewarm_route_remove.
 //
 // Can be triggered two ways:
-// 1. Manually, on demand, from Admin (POST with a specific route)
-// 2. Automatically every week via Vercel cron (runs the full active list)
+// 1. Manually, on demand, from Admin (POST with a specific route) -- always runs immediately
+// 2. Automatically via Vercel cron, which fires weekly but only actually
+//    does anything every OTHER week (see isBiweeklyRunWeek below) --
+//    effectively every 2 weeks, to avoid spending on AI research while
+//    there's no real user traffic yet.
 
 async function loadActiveRoutes() {
   const res = await fetch(
@@ -98,13 +101,39 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
+  // Vercel cron only supports fixed weekly/daily-style schedules, not "every
+  // N weeks" directly. Kept the trigger itself weekly (Monday 6am) and gate
+  // it here instead: ISO week parity alternates every single week, with no
+  // drift and no stored state needed, so the automatic run only actually
+  // does anything every OTHER week -- a true 14-day cadence. Only applies to
+  // the automatic cron trigger; clicking "Run Pre-warm Now" in Admin always
+  // runs immediately regardless of week parity. (One acceptable edge case:
+  // ISO week numbering can occasionally produce back-to-back "on" weeks
+  // right at a year boundary -- rare enough not to matter for a cost-saving
+  // background job.)
+  const isoWeekNumber = (d) => {
+    const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    t.setUTCDate(t.getUTCDate() + 4 - (t.getUTCDay() || 7));
+    const yearStart = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+    return Math.ceil(((t - yearStart) / 86400000 + 1) / 7);
+  };
+  const isBiweeklyRunWeek = isoWeekNumber(new Date()) % 2 === 0;
+
   let routesToWarm;
+  let skippedForBiweeklySchedule = false;
   if (req.body?.originCountry) {
     // Single specific route, triggered manually from Admin
     routesToWarm = [[req.body.originCountry, req.body.destinationCountry, req.body.transportationType || 'air']];
+  } else if (isCron && !isBiweeklyRunWeek) {
+    skippedForBiweeklySchedule = true;
+    routesToWarm = [];
   } else {
-    // Full active list — either the weekly cron, or an admin manually running it all
+    // Full active list — either an "on" week for the cron, or an admin manually running it all
     routesToWarm = await loadActiveRoutes();
+  }
+
+  if (skippedForBiweeklySchedule) {
+    return res.status(200).json({ summary: { newlyWarmed: 0, alreadyCached: 0, failed: 0, skipped: true, reason: 'Off week — pre-warm now runs every 2 weeks instead of weekly.' } });
   }
 
   // Run in parallel — sequential would risk exceeding even a 5-minute
