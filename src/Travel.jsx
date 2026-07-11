@@ -353,27 +353,59 @@ Each item must have these exact fields:
 };
 
 // ── TRIP FORM ────────────────────────────────────────────
+const emptyLeg = () => ({
+  originCity: "", originCountry: "United States", originAirportCode: "",
+  destinationCity: "", destinationCountry: "", destinationAirportCode: "",
+  departureDate: "", transportationType: "air", airline: "", flightNumber: "",
+});
+
 const TripForm = ({ trip, userId, dogs, onSave, onClose }) => {
   const [f, setF] = useState(trip ? {
     name: trip.name || "",
-    originCity: trip.origin_city || "",
-    originCountry: trip.origin_country || "United States",
-    destinationCity: trip.destination_city || "",
-    destinationCountry: trip.destination_country || "",
-    departureDate: trip.departure_date || "",
     returnDate: trip.return_date || "",
-    transportationType: trip.transportation_type || "air",
-    airline: trip.airline || "",
     notes: trip.notes || "",
     selectedPets: trip.pet_ids || [],
   } : {
-    name: "", originCity: "", originCountry: "United States", destinationCity: "",
-    destinationCountry: "", departureDate: "", returnDate: "", transportationType: "air",
-    airline: "", notes: "", selectedPets: [],
+    name: "", returnDate: "", notes: "", selectedPets: [],
   });
+  // Legs default to a single empty one (matches the simple, common case).
+  // When editing a trip that has real trip_legs rows, those load in below;
+  // otherwise a single leg is reconstructed from the trip's own flat columns.
+  const [legs, setLegs] = useState(trip ? [{
+    originCity: trip.origin_city || "", originCountry: trip.origin_country || "United States", originAirportCode: "",
+    destinationCity: trip.destination_city || "", destinationCountry: trip.destination_country || "", destinationAirportCode: "",
+    departureDate: trip.departure_date || "", transportationType: trip.transportation_type || "air",
+    airline: trip.airline || "", flightNumber: trip.flight_number || "",
+  }] : [emptyLeg()]);
+  const [legsLoaded, setLegsLoaded] = useState(!trip);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
   const set = (k, v) => setF(p => ({ ...p, [k]: v }));
+
+  useEffect(() => {
+    if (!trip) return;
+    (async () => {
+      const { data } = await supabase.from('trip_legs').select('*').eq('trip_id', trip.id).order('leg_order');
+      if (data && data.length) {
+        setLegs(data.map(l => ({
+          originCity: l.origin_city, originCountry: l.origin_country, originAirportCode: l.origin_airport_code || "",
+          destinationCity: l.destination_city, destinationCountry: l.destination_country, destinationAirportCode: l.destination_airport_code || "",
+          departureDate: l.departure_date, transportationType: l.transportation_type,
+          airline: l.airline || "", flightNumber: l.flight_number || "",
+        })));
+      }
+      setLegsLoaded(true);
+    })();
+  }, [trip?.id]);
+
+  const updateLeg = (i, k, v) => setLegs(prev => prev.map((l, idx) => idx === i ? { ...l, [k]: v } : l));
+  const addLeg = () => setLegs(prev => {
+    const last = prev[prev.length - 1];
+    // Pre-fill the new leg's origin with the previous leg's destination —
+    // that's the connection, most of the time.
+    return [...prev, { ...emptyLeg(), originCity: last.destinationCity, originCountry: last.destinationCountry }];
+  });
+  const removeLeg = (i) => setLegs(prev => prev.filter((_, idx) => idx !== i));
 
   const togglePet = (id) => {
     setF(p => ({
@@ -384,17 +416,21 @@ const TripForm = ({ trip, userId, dogs, onSave, onClose }) => {
     }));
   };
 
+  const legsValid = legs.length > 0 && legs.every(l => l.originCity && l.destinationCity && l.departureDate);
+
   const save = async () => {
-    if (!f.originCity || !f.destinationCity || !f.departureDate) return;
+    if (!legsValid) return;
     setSaving(true);
     setSaveError(null);
+    const first = legs[0], lastLeg = legs[legs.length - 1];
     const payload = {
       user_id: userId,
-      name: f.name || `${f.originCity} → ${f.destinationCity}`,
-      origin_city: f.originCity, origin_country: f.originCountry,
-      destination_city: f.destinationCity, destination_country: f.destinationCountry,
-      departure_date: f.departureDate, return_date: f.returnDate || null,
-      transportation_type: f.transportationType, airline: f.airline, flight_number: f.flightNumber || null, notes: f.notes, pet_ids: f.selectedPets,
+      name: f.name || `${first.originCity} → ${lastLeg.destinationCity}`,
+      origin_city: first.originCity, origin_country: first.originCountry,
+      destination_city: lastLeg.destinationCity, destination_country: lastLeg.destinationCountry,
+      departure_date: first.departureDate, return_date: f.returnDate || null,
+      transportation_type: first.transportationType, airline: first.airline, flight_number: first.flightNumber || null,
+      notes: f.notes, pet_ids: f.selectedPets,
     };
     let result, error;
     if (trip) {
@@ -411,6 +447,23 @@ const TripForm = ({ trip, userId, dogs, onSave, onClose }) => {
       return;
     }
     if (result) {
+      // Replace all legs with the current set. Simplest correct approach
+      // given legs can be added/removed/reordered freely in this form --
+      // trying to diff and patch individual rows isn't worth the
+      // complexity for what's a handful of rows per trip. Always writes at
+      // least one leg row (even for a simple single-destination trip) so
+      // airport codes entered in the form are never silently lost.
+      await supabase.from('trip_legs').delete().eq('trip_id', result.id);
+      const legRows = legs.map((l, i) => ({
+        trip_id: result.id, user_id: userId, leg_order: i + 1,
+        origin_city: l.originCity, origin_country: l.originCountry, origin_airport_code: l.originAirportCode || null,
+        destination_city: l.destinationCity, destination_country: l.destinationCountry, destination_airport_code: l.destinationAirportCode || null,
+        departure_date: l.departureDate, transportation_type: l.transportationType,
+        airline: l.airline || null, flight_number: l.flightNumber || null,
+        is_layover: i < legs.length - 1,
+      }));
+      const { error: legsErr } = await supabase.from('trip_legs').insert(legRows);
+      if (legsErr) console.error('Trip legs save failed (trip itself saved fine):', legsErr.message);
       onSave(result);
       if (!trip) { // only notify/log on NEW trips, not edits
         supabase.auth.getUser().then(({ data }) => {
@@ -428,77 +481,84 @@ const TripForm = ({ trip, userId, dogs, onSave, onClose }) => {
     setSaving(false);
   };
 
+  const transportOpts = [["air", "✈️", "Flying"], ["sea", "🚢", "By Sea"], ["land", "🚗", "Driving"], ["bus", "🚌", "Bus"]];
+
   return (
     <Modal title={trip ? "Edit Trip" : "Plan New Trip"} onClose={onClose} wide>
+      {!legsLoaded ? (
+        <div style={{ textAlign: "center", padding: 30, color: C.muted }}>Loading...</div>
+      ) : (
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         <Field label="Trip Name (optional)">
           <input maxLength={150} style={inp} value={f.name} onChange={e => set("name", e.target.value)} placeholder="e.g. Panama to Miami Summer 2026" />
         </Field>
 
-        <div style={{ background: C.bg, borderRadius: 12, padding: 16 }}>
-          <div style={{ fontWeight: 800, fontSize: 12, color: C.sub, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 12 }}>📍 Origin</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <Field label="City"><input maxLength={150} style={inp} value={f.originCity} onChange={e => set("originCity", e.target.value)} placeholder="Panama City" /></Field>
-            <Field label="Country">
-              <select style={{...inp, appearance:"none"}} value={f.originCountry} onChange={e => set("originCountry", e.target.value)}>
-                <option value="">Select country...</option>
-                {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </Field>
-          </div>
-        </div>
+        {legs.map((leg, i) => (
+          <div key={i} style={{ background: C.bg, borderRadius: 14, padding: 16, border: `1px solid ${C.border}` }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <div style={{ fontWeight: 800, fontSize: 12, color: C.sub, textTransform: "uppercase", letterSpacing: ".08em" }}>
+                {legs.length === 1 ? "✈️ Route" : i === 0 ? "✈️ Leg 1 — Departure" : `✈️ Leg ${i + 1}${i === legs.length - 1 ? " — Final Arrival" : " — Connection"}`}
+              </div>
+              {legs.length > 1 && (
+                <button onClick={() => removeLeg(i)} type="button" style={{ background: "none", border: "none", color: C.danger, fontSize: 12, cursor: "pointer", fontWeight: 600 }}>Remove</button>
+              )}
+            </div>
 
-        <div style={{ background: C.bg, borderRadius: 12, padding: 16 }}>
-          <div style={{ fontWeight: 800, fontSize: 12, color: C.sub, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 12 }}>🛬 Destination</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <Field label="City"><input maxLength={150} style={inp} value={f.destinationCity} onChange={e => set("destinationCity", e.target.value)} placeholder="Miami" /></Field>
-            <Field label="Country">
-              <select style={{...inp, appearance:"none"}} value={f.destinationCountry} onChange={e => set("destinationCountry", e.target.value)}>
-                <option value="">Select country...</option>
-                {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </Field>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+              <Field label="From City"><input maxLength={150} style={inp} value={leg.originCity} onChange={e => updateLeg(i, "originCity", e.target.value)} placeholder="Panama City" /></Field>
+              <Field label="From Country">
+                <select style={{ ...inp, appearance: "none" }} value={leg.originCountry} onChange={e => updateLeg(i, "originCountry", e.target.value)}>
+                  <option value="">Select country...</option>
+                  {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </Field>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+              <Field label="To City"><input maxLength={150} style={inp} value={leg.destinationCity} onChange={e => updateLeg(i, "destinationCity", e.target.value)} placeholder="Miami" /></Field>
+              <Field label="To Country">
+                <select style={{ ...inp, appearance: "none" }} value={leg.destinationCountry} onChange={e => updateLeg(i, "destinationCountry", e.target.value)}>
+                  <option value="">Select country...</option>
+                  {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </Field>
+            </div>
+            {leg.transportationType === "air" && (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+                <Field label="Departure Airport Code (optional)"><input maxLength={4} style={{...inp,textTransform:"uppercase"}} value={leg.originAirportCode} onChange={e => updateLeg(i, "originAirportCode", e.target.value.toUpperCase())} placeholder="PTY" /></Field>
+                <Field label="Arrival Airport Code (optional)"><input maxLength={4} style={{...inp,textTransform:"uppercase"}} value={leg.destinationAirportCode} onChange={e => updateLeg(i, "destinationAirportCode", e.target.value.toUpperCase())} placeholder="MIA" /></Field>
+              </div>
+            )}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 10, marginBottom: 10 }}>
+              <Field label="Departure Date"><input style={inp} type="date" value={leg.departureDate} onChange={e => updateLeg(i, "departureDate", e.target.value)} /></Field>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, marginBottom: leg.transportationType !== "land" ? 10 : 0 }}>
+              {transportOpts.map(([val, icon, label]) => (
+                <button key={val} onClick={() => updateLeg(i, "transportationType", val)} type="button"
+                  style={{ padding: "8px 4px", borderRadius: 8, textAlign: "center", cursor: "pointer", border: leg.transportationType === val ? `2px solid ${C.accent}` : `1px solid ${C.border}`, background: leg.transportationType === val ? `${C.accent}14` : "#fff" }}>
+                  <div style={{ fontSize: 15 }}>{icon}</div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: leg.transportationType === val ? C.accent : C.sub }}>{label}</div>
+                </button>
+              ))}
+            </div>
+            {leg.transportationType === "air" && (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <Field label="Airline (optional)"><input maxLength={150} style={inp} value={leg.airline} onChange={e => updateLeg(i, "airline", e.target.value)} placeholder="e.g. Copa Airlines" /></Field>
+                <Field label="Flight # (optional)"><input maxLength={150} style={inp} value={leg.flightNumber} onChange={e => updateLeg(i, "flightNumber", e.target.value)} placeholder="CM205" autoCapitalize="characters" /></Field>
+              </div>
+            )}
+            {(leg.transportationType === "sea" || leg.transportationType === "bus") && (
+              <Field label={leg.transportationType === "sea" ? "Cruise Line / Ferry (optional)" : "Bus Company (optional)"}>
+                <input maxLength={150} style={inp} value={leg.airline} onChange={e => updateLeg(i, "airline", e.target.value)} />
+              </Field>
+            )}
           </div>
-        </div>
+        ))}
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-          <Field label="Departure Date"><input style={inp} type="date" value={f.departureDate} onChange={e => set("departureDate", e.target.value)} /></Field>
-          <Field label="Return Date (optional)"><input style={inp} type="date" value={f.returnDate} onChange={e => set("returnDate", e.target.value)} /></Field>
-        </div>
+        <button onClick={addLeg} type="button" style={{ background: "none", border: `1.5px dashed ${C.border}`, borderRadius: 12, padding: "12px", color: C.accent, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+          + Add a connection / stop
+        </button>
 
-        <div>
-          <div style={{ fontWeight: 800, fontSize: 12, color: C.sub, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 10 }}>How Are You Traveling?</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
-            {[["air", "✈️", "Flying"], ["sea", "🚢", "By Sea"], ["land", "🚗", "Driving"], ["bus", "🚌", "Bus"]].map(([val, icon, label]) => (
-              <button key={val} onClick={() => set("transportationType", val)} type="button"
-                style={{ padding: "12px 6px", borderRadius: 10, textAlign: "center", cursor: "pointer", border: f.transportationType === val ? `2px solid ${C.accent}` : `1px solid ${C.border}`, background: f.transportationType === val ? `${C.accent}14` : "#fff" }}>
-                <div style={{ fontSize: 20, marginBottom: 4 }}>{icon}</div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: f.transportationType === val ? C.accent : C.sub }}>{label}</div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {f.transportationType === "air" && (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <Field label="Airline (optional)">
-              <input maxLength={150} style={inp} value={f.airline} onChange={e => set("airline", e.target.value)} placeholder="e.g. Copa Airlines" />
-            </Field>
-            <Field label="Flight Number (optional)">
-              <input maxLength={150} style={inp} value={f.flightNumber || ""} onChange={e => set("flightNumber", e.target.value)} placeholder="CM205" autoCapitalize="characters" />
-            </Field>
-          </div>
-        )}
-        {f.transportationType === "sea" && (
-          <Field label="Cruise Line / Ferry Company (optional)">
-            <input maxLength={150} style={inp} value={f.airline} onChange={e => set("airline", e.target.value)} placeholder="e.g. Royal Caribbean" />
-          </Field>
-        )}
-        {f.transportationType === "bus" && (
-          <Field label="Bus Company (optional)">
-            <input maxLength={150} style={inp} value={f.airline} onChange={e => set("airline", e.target.value)} placeholder="e.g. Greyhound" />
-          </Field>
-        )}
+        <Field label="Return Date (optional)"><input style={inp} type="date" value={f.returnDate} onChange={e => set("returnDate", e.target.value)} /></Field>
 
         <div>
           <div style={{ fontWeight: 800, fontSize: 12, color: C.sub, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 10 }}>🐾 Which Pets Are Coming?</div>
@@ -529,12 +589,68 @@ const TripForm = ({ trip, userId, dogs, onSave, onClose }) => {
 
         <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
           <Btn v="secondary" onClick={onClose} full>Cancel</Btn>
-          <Btn onClick={save} disabled={saving || !f.originCity || !f.destinationCity || !f.departureDate} full>
+          <Btn onClick={save} disabled={saving || !legsValid} full>
             {saving ? "Saving..." : (trip ? "Save Changes" : "Create Trip")}
           </Btn>
         </div>
       </div>
+      )}
     </Modal>
+  );
+};
+
+// ── TIMELINE VIEW ────────────────────────────────────────
+// Groups checklist items by when they actually need to happen, instead of
+// the flat/category-ish order they were generated in. This is the "what's
+// due when, at a glance" view.
+const categoryIcons = {
+  health_certificate: "🩺", vaccination: "💉", treatment: "💊", documentation: "📄",
+  airline: "✈️", government_form: "🏛️", entry_document: "🛂", other: "📌",
+};
+const ChecklistTimeline = ({ checklist, onEdit }) => {
+  const buckets = [
+    { key: "overdue", label: "⚠️ Overdue", color: C.danger },
+    { key: "week", label: "This Week", color: C.warn },
+    { key: "month", label: "This Month", color: C.accent },
+    { key: "later", label: "Later", color: C.muted },
+    { key: "none", label: "No Deadline Set", color: C.muted },
+  ];
+  const bucketed = { overdue: [], week: [], month: [], later: [], none: [] };
+  for (const item of checklist) {
+    const d = daysUntil(item.deadline_date || null);
+    if (d === null) bucketed.none.push(item);
+    else if (d < 0) bucketed.overdue.push(item);
+    else if (d <= 7) bucketed.week.push(item);
+    else if (d <= 30) bucketed.month.push(item);
+    else bucketed.later.push(item);
+  }
+  for (const key of Object.keys(bucketed)) {
+    bucketed[key].sort((a, b) => (a.deadline_date || "").localeCompare(b.deadline_date || ""));
+  }
+  return (
+    <div>
+      {buckets.map(b => bucketed[b.key].length > 0 && (
+        <div key={b.key} style={{ marginBottom: 20 }}>
+          <div style={{ fontWeight: 800, fontSize: 12, color: b.color, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
+            {b.label} <span style={{ background: b.color + "22", color: b.color, borderRadius: 20, padding: "1px 8px", fontSize: 11 }}>{bucketed[b.key].length}</span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {bucketed[b.key].map(item => (
+              <div key={item.id} onClick={() => onEdit(item)} style={{
+                display: "flex", alignItems: "center", gap: 10, background: "#fff", border: `1px solid ${C.border}`,
+                borderRadius: 10, padding: "10px 12px", cursor: "pointer", opacity: item.is_completed ? 0.55 : 1,
+              }}>
+                <span style={{ fontSize: 16 }}>{item.is_completed ? "✅" : (categoryIcons[item.category] || "📌")}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, textDecoration: item.is_completed ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</div>
+                </div>
+                <div style={{ fontSize: 12, color: C.muted, flexShrink: 0 }}>{item.deadline_date ? fmt(item.deadline_date) : ""}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
   );
 };
 
@@ -738,8 +854,57 @@ const EditChecklistItemModal = ({ item, onSave, onClose }) => {
   );
 };
 
+const AirportReliefButton = ({ code }) => {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const lookup = async () => {
+    setLoading(true); setError(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch('/api/airport-relief', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token || ''}` },
+        body: JSON.stringify({ airportCode: code }),
+      });
+      const json = await res.json();
+      if (!res.ok || json.error) throw new Error(json.error || 'Could not look this up right now.');
+      setData(json.data);
+    } catch (e) { setError(e.message); }
+    setLoading(false);
+  };
+
+  if (!data) {
+    return (
+      <div style={{ marginTop: 6 }}>
+        <button onClick={lookup} disabled={loading} type="button"
+          style={{ background: C.accentDim, border: `1px solid ${C.accent}44`, borderRadius: 8, padding: "6px 12px", color: C.accent, fontSize: 12, fontWeight: 700, cursor: loading ? "default" : "pointer" }}>
+          {loading ? "Looking up..." : `🐾 Find pet relief areas at ${code}`}
+        </button>
+        {error && <div style={{ fontSize: 12, color: C.danger, marginTop: 4 }}>{error}</div>}
+      </div>
+    );
+  }
+  return (
+    <div style={{ marginTop: 8, background: C.bg, borderRadius: 10, padding: 12, border: `1px solid ${C.border}` }}>
+      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 6 }}>🐾 {data.airportName || code} — Pet Relief Areas</div>
+      {(!data.areas || data.areas.length === 0)
+        ? <div style={{ fontSize: 12, color: C.muted }}>No confirmed relief area info found for this airport yet.</div>
+        : data.areas.map((a, i) => (
+          <div key={i} style={{ fontSize: 12, color: C.text, marginBottom: 6 }}>
+            <span style={{ fontWeight: 600 }}>{a.location}</span>{a.terminal ? ` (${a.terminal})` : ""}
+            <div style={{ color: C.muted }}>{a.type === "indoor" ? "🏢 Indoor" : "🌳 Outdoor"}{a.notes ? ` · ${a.notes}` : ""}</div>
+          </div>
+        ))}
+      {data.summary && <div style={{ fontSize: 12, color: C.muted, marginTop: 4, fontStyle: "italic" }}>{data.summary}</div>}
+    </div>
+  );
+};
+
 const TripDetail = ({ trip, userId, dogs, onBack, onUpdate, onDelete, onEdit, onDuplicate }) => {
   const [checklist, setChecklist] = useState([]);
+  const [legs, setLegs] = useState([]);
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -749,6 +914,7 @@ const TripDetail = ({ trip, userId, dogs, onBack, onUpdate, onDelete, onEdit, on
   const [showMenu, setShowMenu] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+  const [checklistView, setChecklistView] = useState("list");
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [showAddItem, setShowAddItem] = useState(false);
@@ -785,43 +951,60 @@ const TripDetail = ({ trip, userId, dogs, onBack, onUpdate, onDelete, onEdit, on
 
   const loadData = async () => {
     setLoading(true);
-    const [{ data: cl }, { data: docs }] = await Promise.all([
+    const [{ data: cl }, { data: docs }, { data: legsData }] = await Promise.all([
       supabase.from('trip_checklist_items').select('*').eq('trip_id', trip.id).order('sort_order'),
       supabase.from('trip_documents').select('*').eq('trip_id', trip.id).order('created_at', { ascending: false }),
+      supabase.from('trip_legs').select('*').eq('trip_id', trip.id).order('leg_order'),
     ]);
     setChecklist(cl || []);
     setDocuments(docs || []);
+    setLegs(legsData || []);
     setLoading(false);
   };
 
   const generateRequirements = async () => {
     setGenerating(true); setGenError(null);
     try {
-      const items = await generateChecklist(trip, tripPets, userId);
+      const { data: legs } = await supabase.from('trip_legs').select('*').eq('trip_id', trip.id).order('leg_order');
+      // Single-leg (or no legs row at all -- the common, simple case) behaves
+      // exactly as before: one generation call against the trip itself.
+      // Multi-leg trips generate once PER LEG, since each leg can cross a
+      // different border with entirely different requirements -- a health
+      // certificate deadline for leg 2 needs to count back from leg 2's own
+      // departure date, not the trip's overall first departure date.
+      const legsToProcess = (legs && legs.length > 1) ? legs : [null];
 
-      // Filter by the ACTUAL species on this trip — this is what guarantees
-      // a dog-only trip never shows a cat item even if the underlying cache
-      // entry (shared across species for cost reasons) contains both.
-      // Every item is tagged unambiguously "dog" or "cat" — no middle category.
-      const tripSpecies = new Set(tripPets.map(p => p.species || 'dog'));
-      const filteredItems = items.filter(item => tripSpecies.has(item.applies_to || 'dog'));
+      let allFilteredItems = [];
+      for (const leg of legsToProcess) {
+        const legTripShape = leg ? {
+          origin_city: leg.origin_city, origin_country: leg.origin_country,
+          destination_city: leg.destination_city, destination_country: leg.destination_country,
+          departure_date: leg.departure_date, transportation_type: leg.transportation_type, airline: leg.airline,
+        } : trip;
+        const items = await generateChecklist(legTripShape, tripPets, userId);
+        const tripSpecies = new Set(tripPets.map(p => p.species || 'dog'));
+        const filtered = items.filter(item => tripSpecies.has(item.applies_to || 'dog'))
+          .map(item => ({ ...item, _legId: leg?.id || null, _legDepartureDate: leg?.departure_date || trip.departure_date }));
+        allFilteredItems = allFilteredItems.concat(filtered);
+      }
+      const filteredItems = allFilteredItems;
 
-      const now = new Date().toISOString();
-      const depDate = new Date(trip.departure_date + 'T12:00:00');
-      const daysToDate = (days) => {
+      const daysToDateFrom = (departureDateStr, days) => {
         if (!days && days !== 0) return null;
+        const depDate = new Date(departureDateStr + 'T12:00:00');
         const d = new Date(depDate.getTime() - days * 86400000);
         return d.toISOString().slice(0, 10);
       };
 
+      const now = new Date().toISOString();
       const toInsert = filteredItems.map((item, i) => ({
-        trip_id: trip.id, user_id: userId,
+        trip_id: trip.id, user_id: userId, leg_id: item._legId,
         title: item.title || 'Requirement',
         description: item.description || null,
         category: item.category || 'other',
-        deadline_date: item.deadline_days_before ? daysToDate(item.deadline_days_before) : null,
-        deadline_window_start: item.window_start_days ? daysToDate(item.window_start_days) : null,
-        deadline_window_end: item.window_end_days ? daysToDate(item.window_end_days) : null,
+        deadline_date: item.deadline_days_before ? daysToDateFrom(item._legDepartureDate, item.deadline_days_before) : null,
+        deadline_window_start: item.window_start_days ? daysToDateFrom(item._legDepartureDate, item.window_start_days) : null,
+        deadline_window_end: item.window_end_days ? daysToDateFrom(item._legDepartureDate, item.window_end_days) : null,
         requires_document: item.requires_document === true,
         source_url: item.source_url || null,
         researched_at: now,
@@ -985,8 +1168,10 @@ ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.i
         <div style={{ maxWidth: 680, margin: "0 auto", display: "flex", alignItems: "center", gap: 12, position: "relative" }}>
           <button onClick={onBack} style={{ background: "rgba(255,255,255,0.2)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 10, padding: "8px 12px", color: "#fff", cursor: "pointer", fontSize: 16 }}>←</button>
           <div style={{ flex: 1 }}>
-            <div style={{ fontFamily: "'Lora', serif", fontSize: 20, color: "#fff", fontWeight: 600 }}>{trip.origin_city} → {trip.destination_city}</div>
-            <div style={{ color: "#F5C45E", fontSize: 13, marginTop: 2 }}>{fmt(trip.departure_date)}{trip.return_date ? ` · Return ${fmt(trip.return_date)}` : ""}</div>
+            <div style={{ fontFamily: "'Lora', serif", fontSize: 20, color: "#fff", fontWeight: 600 }}>
+              {legs.length > 1 ? legs.map(l => l.origin_city).concat(legs[legs.length-1]?.destination_city).join(" → ") : `${trip.origin_city} → ${trip.destination_city}`}
+            </div>
+            <div style={{ color: "#F5C45E", fontSize: 13, marginTop: 2 }}>{fmt(trip.departure_date)}{trip.return_date ? ` · Return ${fmt(trip.return_date)}` : ""}{legs.length > 1 ? ` · ${legs.length} legs` : ""}</div>
           </div>
           <Badge label={st.label} color={st.color} />
           <button onClick={() => setShowMenu(s => !s)} title="Trip options" style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 10, padding: "8px 10px", color: "#fff", cursor: "pointer" }}>⋯</button>
@@ -1049,6 +1234,32 @@ ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.i
       )}
 
       <div style={{ maxWidth: 680, margin: "0 auto", padding: "20px 16px" }}>
+        {legs.length > 0 && (
+          <Card style={{ marginBottom: 16 }}>
+            <div style={{ fontWeight: 700, marginBottom: 12 }}>{legs.length > 1 ? `Itinerary (${legs.length} legs)` : "Itinerary"}</div>
+            {legs.map((leg, i) => (
+              <div key={leg.id} style={{ paddingBottom: i < legs.length - 1 ? 14 : 0, marginBottom: i < legs.length - 1 ? 14 : 0, borderBottom: i < legs.length - 1 ? `1px solid ${C.border}` : "none" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>
+                    {legs.length > 1 && <span style={{ color: C.muted, fontWeight: 700, marginRight: 6 }}>Leg {i + 1}:</span>}
+                    {leg.origin_city} → {leg.destination_city}
+                  </div>
+                  <div style={{ fontSize: 12, color: C.muted }}>{fmt(leg.departure_date)}</div>
+                </div>
+                {(leg.airline || leg.flight_number) && (
+                  <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{leg.airline}{leg.flight_number ? ` · ${leg.flight_number}` : ""}</div>
+                )}
+                {leg.transportation_type === "air" && (leg.origin_airport_code || leg.destination_airport_code) && (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                    {leg.origin_airport_code && <AirportReliefButton code={leg.origin_airport_code} />}
+                    {leg.destination_airport_code && leg.destination_airport_code !== leg.origin_airport_code && <AirportReliefButton code={leg.destination_airport_code} />}
+                  </div>
+                )}
+              </div>
+            ))}
+          </Card>
+        )}
+
         {checklist.length > 0 && (
           <Card style={{ marginBottom: 16 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
@@ -1181,9 +1392,25 @@ ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.i
             </Card>
           )}
 
-          {checklist.map(item => (
-            <ChecklistItem key={item.id} item={item} tripPets={tripPets} onTogglePet={togglePet} onToggleAll={toggleAll} onUpload={uploadDoc} onDelete={deleteItem} onEdit={setEditingItem} />
-          ))}
+          {checklist.length > 0 && (
+            <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+              {["list", "timeline"].map(v => (
+                <button key={v} onClick={() => setChecklistView(v)} type="button" style={{
+                  background: checklistView === v ? C.accent : "#fff", color: checklistView === v ? "#fff" : C.sub,
+                  border: `1px solid ${checklistView === v ? C.accent : C.border}`, borderRadius: 20,
+                  padding: "6px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer",
+                }}>
+                  {v === "list" ? "📋 Checklist" : "🗓️ Timeline"}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {checklistView === "timeline" && checklist.length > 0
+            ? <ChecklistTimeline checklist={checklist} onEdit={setEditingItem} />
+            : checklist.map(item => (
+              <ChecklistItem key={item.id} item={item} tripPets={tripPets} onTogglePet={togglePet} onToggleAll={toggleAll} onUpload={uploadDoc} onDelete={deleteItem} onEdit={setEditingItem} />
+            ))}
         </div>
 
         <div style={{ marginBottom: 16 }}>
