@@ -965,29 +965,22 @@ const TripDetail = ({ trip, userId, dogs, onBack, onUpdate, onDelete, onEdit, on
   const generateRequirements = async () => {
     setGenerating(true); setGenError(null);
     try {
-      const { data: legs } = await supabase.from('trip_legs').select('*').eq('trip_id', trip.id).order('leg_order');
-      // Single-leg (or no legs row at all -- the common, simple case) behaves
-      // exactly as before: one generation call against the trip itself.
-      // Multi-leg trips generate once PER LEG, since each leg can cross a
-      // different border with entirely different requirements -- a health
-      // certificate deadline for leg 2 needs to count back from leg 2's own
-      // departure date, not the trip's overall first departure date.
-      const legsToProcess = (legs && legs.length > 1) ? legs : [null];
-
-      let allFilteredItems = [];
-      for (const leg of legsToProcess) {
-        const legTripShape = leg ? {
-          origin_city: leg.origin_city, origin_country: leg.origin_country,
-          destination_city: leg.destination_city, destination_country: leg.destination_country,
-          departure_date: leg.departure_date, transportation_type: leg.transportation_type, airline: leg.airline,
-        } : trip;
-        const items = await generateChecklist(legTripShape, tripPets, userId);
-        const tripSpecies = new Set(tripPets.map(p => p.species || 'dog'));
-        const filtered = items.filter(item => tripSpecies.has(item.applies_to || 'dog'))
-          .map(item => ({ ...item, _legId: leg?.id || null, _legDepartureDate: leg?.departure_date || trip.departure_date }));
-        allFilteredItems = allFilteredItems.concat(filtered);
-      }
-      const filteredItems = allFilteredItems;
+      // Multi-leg trips generate ONE checklist covering the real origin
+      // (where the pet's paperwork starts) and the real final destination
+      // (where it actually needs to be let in) -- exactly like a
+      // single-leg trip. Layover/connection legs never get their own
+      // entry-document research; a pure connection isn't somewhere the pet
+      // is being imported into, and treating it that way produced
+      // confusing, duplicate USA-entry-style items for what's really just
+      // a plane change. trips.origin_city/destination_city/departure_date
+      // already correctly represent the first leg's origin, the last leg's
+      // destination, and the first leg's departure date (see TripForm),
+      // so this is identical to the pre-multi-leg behavior. A layover leg's
+      // only role in the app is the pet relief area lookup on its
+      // Itinerary card, which is unaffected by this.
+      const items = await generateChecklist(trip, tripPets, userId);
+      const tripSpecies = new Set(tripPets.map(p => p.species || 'dog'));
+      const filteredItems = items.filter(item => tripSpecies.has(item.applies_to || 'dog'));
 
       const daysToDateFrom = (departureDateStr, days) => {
         if (!days && days !== 0) return null;
@@ -998,13 +991,13 @@ const TripDetail = ({ trip, userId, dogs, onBack, onUpdate, onDelete, onEdit, on
 
       const now = new Date().toISOString();
       const toInsert = filteredItems.map((item, i) => ({
-        trip_id: trip.id, user_id: userId, leg_id: item._legId,
+        trip_id: trip.id, user_id: userId, leg_id: null,
         title: item.title || 'Requirement',
         description: item.description || null,
         category: item.category || 'other',
-        deadline_date: item.deadline_days_before ? daysToDateFrom(item._legDepartureDate, item.deadline_days_before) : null,
-        deadline_window_start: item.window_start_days ? daysToDateFrom(item._legDepartureDate, item.window_start_days) : null,
-        deadline_window_end: item.window_end_days ? daysToDateFrom(item._legDepartureDate, item.window_end_days) : null,
+        deadline_date: item.deadline_days_before ? daysToDateFrom(trip.departure_date, item.deadline_days_before) : null,
+        deadline_window_start: item.window_start_days ? daysToDateFrom(trip.departure_date, item.window_start_days) : null,
+        deadline_window_end: item.window_end_days ? daysToDateFrom(trip.departure_date, item.window_end_days) : null,
         requires_document: item.requires_document === true,
         source_url: item.source_url || null,
         researched_at: now,
