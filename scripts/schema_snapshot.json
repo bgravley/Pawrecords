@@ -226,7 +226,8 @@
     "notes",
     "sort_order",
     "created_at",
-    "pet_completions"
+    "pet_completions",
+    "leg_id"
   ],
   "trip_documents": [
     "id",
@@ -304,5 +305,31 @@
     "active",
     "source",
     "added_at"
+  ],
+  "trip_legs": [
+    "id",
+    "trip_id",
+    "user_id",
+    "leg_order",
+    "origin_city",
+    "origin_country",
+    "origin_airport_code",
+    "destination_city",
+    "destination_country",
+    "destination_airport_code",
+    "departure_date",
+    "transportation_type",
+    "airline",
+    "flight_number",
+    "is_layover",
+    "created_at"
+  ],
+  "airport_relief_areas": [
+    "id",
+    "airport_code",
+    "airport_name",
+    "relief_areas_json",
+    "researched_at",
+    "created_at"
   ]
 }

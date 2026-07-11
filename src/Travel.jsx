@@ -539,7 +539,7 @@ const TripForm = ({ trip, userId, dogs, onSave, onClose }) => {
 };
 
 // ── CHECKLIST ITEM ───────────────────────────────────────
-const ChecklistItem = ({ item, tripPets, onTogglePet, onToggleAll, onUpload, onDelete }) => {
+const ChecklistItem = ({ item, tripPets, onTogglePet, onToggleAll, onUpload, onDelete, onEdit }) => {
   const fr = useRef();
   const [expanded, setExpanded] = useState(false);
   const days = daysUntil(item.deadline_date || null);
@@ -677,15 +677,68 @@ const ChecklistItem = ({ item, tripPets, onTogglePet, onToggleAll, onUpload, onD
             </div>
           )}
         </div>
-        <button onClick={() => onDelete(item.id)}
-          style={{ background: C.dangerDim, border: `1px solid ${C.danger}44`, borderRadius: 8, padding: "5px 8px", color: C.danger, cursor: "pointer", flexShrink: 0 }}>🗑</button>
+        <div style={{ display: "flex", flexDirection: "column", gap: 5, flexShrink: 0 }}>
+          <button onClick={() => onEdit(item)}
+            style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: "5px 8px", color: C.sub, cursor: "pointer" }}>✏️</button>
+          <button onClick={() => onDelete(item.id)}
+            style={{ background: C.dangerDim, border: `1px solid ${C.danger}44`, borderRadius: 8, padding: "5px 8px", color: C.danger, cursor: "pointer" }}>🗑</button>
+        </div>
       </div>
     </div>
   );
 };
 
 
-const TripDetail = ({ trip, userId, dogs, onBack, onUpdate, onDelete }) => {
+const EditChecklistItemModal = ({ item, onSave, onClose }) => {
+  const [f, setF] = useState({
+    title: item.title || "", description: item.description || "", category: item.category || "other",
+    deadline_date: item.deadline_date || "", deadline_window_start: item.deadline_window_start || "",
+    deadline_window_end: item.deadline_window_end || "", notes: item.notes || "", requires_document: !!item.requires_document,
+  });
+  const [saving, setSaving] = useState(false);
+  const set = (k, v) => setF(p => ({ ...p, [k]: v }));
+  const categoryLabels = {
+    health_certificate: "Health Certificate", vaccination: "Vaccination", treatment: "Treatment",
+    documentation: "Documentation", airline: "Airline", government_form: "Government Form",
+    entry_document: "Entry Document", other: "Other",
+  };
+  const save = async () => {
+    if (!f.title.trim()) return;
+    setSaving(true);
+    const { data, error } = await supabase.from('trip_checklist_items').update({
+      title: f.title.trim(), description: f.description || null, category: f.category,
+      deadline_date: f.deadline_date || null, deadline_window_start: f.deadline_window_start || null,
+      deadline_window_end: f.deadline_window_end || null, notes: f.notes || null, requires_document: f.requires_document,
+    }).eq('id', item.id).select().single();
+    setSaving(false);
+    if (error) { console.error('Checklist item update failed:', error); return; }
+    onSave(data);
+  };
+  return (
+    <Modal title="Edit Checklist Item" onClose={onClose}>
+      <Field label="Title"><input maxLength={200} style={inp} value={f.title} onChange={e => set("title", e.target.value)} /></Field>
+      <Field label="Description / Instructions"><textarea maxLength={2000} style={{ ...inp, minHeight: 90 }} value={f.description} onChange={e => set("description", e.target.value)} /></Field>
+      <Field label="Category">
+        <select style={inp} value={f.category} onChange={e => set("category", e.target.value)}>
+          {Object.entries(categoryLabels).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+        </select>
+      </Field>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+        <Field label="Deadline"><input type="date" style={inp} value={f.deadline_date} onChange={e => set("deadline_date", e.target.value)} /></Field>
+        <Field label="Window Start"><input type="date" style={inp} value={f.deadline_window_start} onChange={e => set("deadline_window_start", e.target.value)} /></Field>
+        <Field label="Window End"><input type="date" style={inp} value={f.deadline_window_end} onChange={e => set("deadline_window_end", e.target.value)} /></Field>
+      </div>
+      <Field label="Notes"><textarea maxLength={1000} style={{ ...inp, minHeight: 60 }} value={f.notes} onChange={e => set("notes", e.target.value)} /></Field>
+      <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: C.text, margin: "10px 0" }}>
+        <input type="checkbox" checked={f.requires_document} onChange={e => set("requires_document", e.target.checked)} />
+        Requires a document upload
+      </label>
+      <Btn full onClick={save} disabled={saving || !f.title.trim()}>{saving ? "Saving..." : "Save Changes"}</Btn>
+    </Modal>
+  );
+};
+
+const TripDetail = ({ trip, userId, dogs, onBack, onUpdate, onDelete, onEdit, onDuplicate }) => {
   const [checklist, setChecklist] = useState([]);
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -693,6 +746,9 @@ const TripDetail = ({ trip, userId, dogs, onBack, onUpdate, onDelete }) => {
   const [genError, setGenError] = useState(null);
   const [buyingCredits, setBuyingCredits] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [showAddItem, setShowAddItem] = useState(false);
@@ -705,6 +761,25 @@ const TripDetail = ({ trip, userId, dogs, onBack, onUpdate, onDelete }) => {
   const tripPets = dogs.filter(d => (trip.pet_ids || []).includes(d.id));
   const st = tripStatus(trip);
   const completed = checklist.filter(i => i.is_completed).length;
+  const overdueCount = checklist.filter(i => !i.is_completed && daysUntil(i.deadline_date) !== null && daysUntil(i.deadline_date) < 0).length;
+  const urgentCount = checklist.filter(i => !i.is_completed && daysUntil(i.deadline_date) !== null && daysUntil(i.deadline_date) >= 0 && daysUntil(i.deadline_date) <= 7).length;
+
+  const cancelTrip = async () => {
+    setCancelling(true);
+    const { data, error } = await supabase.from('trips').update({ status: 'cancelled' }).eq('id', trip.id).select().single();
+    setCancelling(false);
+    if (error) { console.error('Cancel trip failed:', error); setGenError({ message: 'Could not cancel this trip — please try again.' }); return; }
+    setShowMenu(false);
+    onUpdate(data);
+  };
+  const reactivateTrip = async () => {
+    setCancelling(true);
+    const { data, error } = await supabase.from('trips').update({ status: 'planning' }).eq('id', trip.id).select().single();
+    setCancelling(false);
+    if (error) { console.error('Reactivate trip failed:', error); return; }
+    setShowMenu(false);
+    onUpdate(data);
+  };
 
   useEffect(() => { loadData(); }, [trip.id]);
 
@@ -907,14 +982,27 @@ ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.i
   return (
     <div style={{ minHeight: "100vh", background: C.bg, paddingBottom: 40 }}>
       <div style={{ background: C.accentDark, padding: "16px 20px", position: "sticky", top: 0, zIndex: 100 }}>
-        <div style={{ maxWidth: 680, margin: "0 auto", display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ maxWidth: 680, margin: "0 auto", display: "flex", alignItems: "center", gap: 12, position: "relative" }}>
           <button onClick={onBack} style={{ background: "rgba(255,255,255,0.2)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 10, padding: "8px 12px", color: "#fff", cursor: "pointer", fontSize: 16 }}>←</button>
           <div style={{ flex: 1 }}>
             <div style={{ fontFamily: "'Lora', serif", fontSize: 20, color: "#fff", fontWeight: 600 }}>{trip.origin_city} → {trip.destination_city}</div>
             <div style={{ color: "#F5C45E", fontSize: 13, marginTop: 2 }}>{fmt(trip.departure_date)}{trip.return_date ? ` · Return ${fmt(trip.return_date)}` : ""}</div>
           </div>
           <Badge label={st.label} color={st.color} />
-          <button onClick={() => setShowDeleteConfirm(true)} title="Delete Trip" style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 10, padding: "8px 10px", color: "#fff", cursor: "pointer" }}>🗑</button>
+          <button onClick={() => setShowMenu(s => !s)} title="Trip options" style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 10, padding: "8px 10px", color: "#fff", cursor: "pointer" }}>⋯</button>
+          {showMenu && (
+            <>
+              <div onClick={() => setShowMenu(false)} style={{ position: "fixed", inset: 0, zIndex: 998 }} />
+              <div style={{ position: "absolute", top: 44, right: 0, background: "#FFFFFF", borderRadius: 14, boxShadow: "0 8px 24px rgba(44,32,23,0.2)", zIndex: 999, minWidth: 190, overflow: "hidden", border: "1px solid #E8DDD0" }}>
+                <button onClick={() => { setShowMenu(false); onEdit(trip); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", textAlign: "left", cursor: "pointer", fontSize: 14, color: "#2C2017" }}>✏️ Edit Trip</button>
+                <button onClick={() => { setShowMenu(false); onDuplicate(trip); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", textAlign: "left", cursor: "pointer", fontSize: 14, color: "#2C2017", borderTop: "1px solid #F0E8DC" }}>📋 Duplicate Trip</button>
+                {trip.status === 'cancelled'
+                  ? <button onClick={reactivateTrip} disabled={cancelling} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", textAlign: "left", cursor: "pointer", fontSize: 14, color: "#2D7D6F", borderTop: "1px solid #F0E8DC" }}>↩️ Reactivate Trip</button>
+                  : <button onClick={cancelTrip} disabled={cancelling} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", textAlign: "left", cursor: "pointer", fontSize: 14, color: "#E8A838", borderTop: "1px solid #F0E8DC" }}>🚫 Cancel Trip</button>}
+                <button onClick={() => { setShowMenu(false); setShowDeleteConfirm(true); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", textAlign: "left", cursor: "pointer", fontSize: 14, color: "#C4714A", borderTop: "1px solid #F0E8DC" }}>🗑️ Delete Permanently</button>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -939,12 +1027,12 @@ ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.i
               <button
                 onClick={async () => {
                   setDeleting(true);
-                  const { error: e1 } = await supabase.from('trip_checklist_items').delete().eq('trip_id', trip.id);
-                  const { error: e2 } = await supabase.from('trip_documents').delete().eq('trip_id', trip.id);
-                  const { error: e3 } = await supabase.from('trips').delete().eq('id', trip.id);
+                  // trip_checklist_items and trip_documents both already
+                  // cascade from trips(id) -- deleting the trip is enough.
+                  const { error } = await supabase.from('trips').delete().eq('id', trip.id);
                   setDeleting(false);
-                  if (e1 || e2 || e3) {
-                    console.error('Trip delete failed:', e1 || e2 || e3);
+                  if (error) {
+                    console.error('Trip delete failed:', error);
                     setGenError({ message: 'Could not fully delete this trip — please try again, or contact support if it keeps happening.' });
                     return;
                   }
@@ -963,7 +1051,14 @@ ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.i
       <div style={{ maxWidth: 680, margin: "0 auto", padding: "20px 16px" }}>
         {checklist.length > 0 && (
           <Card style={{ marginBottom: 16 }}>
-            <div style={{ fontWeight: 700, marginBottom: 12 }}>Checklist Progress</div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <div style={{ fontWeight: 700 }}>Checklist Progress</div>
+              <div style={{ display: "flex", gap: 6 }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: "#5A4535", background: "#FAF6F0", borderRadius: 20, padding: "3px 10px" }}>{completed}/{checklist.length} done</span>
+                {overdueCount > 0 && <span style={{ fontSize: 12, fontWeight: 700, color: "#fff", background: C.danger, borderRadius: 20, padding: "3px 10px" }}>{overdueCount} overdue</span>}
+                {urgentCount > 0 && <span style={{ fontSize: 12, fontWeight: 700, color: "#2C2017", background: C.warn, borderRadius: 20, padding: "3px 10px" }}>{urgentCount} due soon</span>}
+              </div>
+            </div>
             {tripPets.length > 1 ? (
               // Multiple pets — show one progress bar per pet, since each pet
               // needs their own documents completed (e.g. separate health certificates).
@@ -1087,7 +1182,7 @@ ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.i
           )}
 
           {checklist.map(item => (
-            <ChecklistItem key={item.id} item={item} tripPets={tripPets} onTogglePet={togglePet} onToggleAll={toggleAll} onUpload={uploadDoc} onDelete={deleteItem} />
+            <ChecklistItem key={item.id} item={item} tripPets={tripPets} onTogglePet={togglePet} onToggleAll={toggleAll} onUpload={uploadDoc} onDelete={deleteItem} onEdit={setEditingItem} />
           ))}
         </div>
 
@@ -1118,6 +1213,11 @@ ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.i
         )}
       </div>
 
+      {editingItem && (
+        <EditChecklistItemModal item={editingItem}
+          onSave={updated => { setChecklist(prev => prev.map(i => i.id === updated.id ? updated : i)); setEditingItem(null); }}
+          onClose={() => setEditingItem(null)} />
+      )}
       {showAddItem && (
         <Modal title="Add Requirement" onClose={() => setShowAddItem(false)}>
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -1201,6 +1301,36 @@ export default function Travel({ userId, onBack }) {
     setLoading(false);
   };
 
+  const duplicateTrip = async (trip) => {
+    const { name, origin_city, origin_country, destination_city, destination_country,
+      departure_date, return_date, transportation_type, airline, flight_number, notes, pet_ids } = trip;
+    const { data: newTrip, error } = await supabase.from('trips').insert({
+      user_id: userId,
+      name: name ? `${name} (Copy)` : `${origin_city} → ${destination_city} (Copy)`,
+      origin_city, origin_country, destination_city, destination_country,
+      departure_date, return_date, transportation_type, airline, flight_number, notes, pet_ids,
+      status: 'planning',
+    }).select().single();
+    if (error) { console.error('Duplicate trip failed:', error); return; }
+
+    // Copy legs too, if the original trip has any (multi-leg itinerary).
+    const { data: legs } = await supabase.from('trip_legs').select('*').eq('trip_id', trip.id).order('leg_order');
+    if (legs && legs.length) {
+      const newLegs = legs.map(l => ({
+        trip_id: newTrip.id, user_id: userId, leg_order: l.leg_order,
+        origin_city: l.origin_city, origin_country: l.origin_country, origin_airport_code: l.origin_airport_code,
+        destination_city: l.destination_city, destination_country: l.destination_country, destination_airport_code: l.destination_airport_code,
+        departure_date: l.departure_date, transportation_type: l.transportation_type,
+        airline: l.airline, flight_number: l.flight_number, is_layover: l.is_layover,
+      }));
+      await supabase.from('trip_legs').insert(newLegs);
+    }
+    // Note: checklist items are intentionally NOT copied -- requirements
+    // are date- and route-specific; the new trip should generate its own.
+    setTrips(prev => [...prev, newTrip]);
+    setEditTrip(newTrip); // open it in edit mode immediately so dates can be adjusted
+  };
+
   if (selectedTrip) {
     const trip = trips.find(t => t.id === selectedTrip);
     if (trip) return (
@@ -1208,6 +1338,8 @@ export default function Travel({ userId, onBack }) {
         onBack={() => setSelectedTrip(null)}
         onUpdate={updated => { setTrips(prev => prev.map(t => t.id === updated.id ? updated : t)); }}
         onDelete={deletedId => { setTrips(prev => prev.filter(t => t.id !== deletedId)); setSelectedTrip(null); }}
+        onEdit={setEditTrip}
+        onDuplicate={duplicateTrip}
       />
     );
   }
