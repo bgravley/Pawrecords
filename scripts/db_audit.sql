@@ -55,10 +55,10 @@ WHERE proname = 'handle_new_user';
 -- ── CHECK D4: every table the app writes to actually exists ─────────────────
 -- Expect ALL of these to appear. A missing one means a whole feature is broken.
 SELECT unnest(ARRAY[
-  'activity_log','affiliate_commissions','affiliates','ai_usage_log','allergies',
+  'activity_log','affiliate_commissions','affiliates','ai_usage_log','airport_relief_areas','allergies',
   'bug_reports','documents','dogs','emergency_contacts','error_log','medications',
   'newsletter_subscribers','prewarm_routes','profiles','rate_limit_log','saved_vets',
-  'travel_route_cache','trip_checklist_items','trip_documents','trips',
+  'travel_route_cache','trip_checklist_items','trip_documents','trip_legs','trips',
   'vaccinations','vet_visits','weights'
 ]) AS expected_table
 EXCEPT
