@@ -61,7 +61,24 @@ export default async function handler(req, res) {
     return res.status(429).json({ error: 'Too many submissions. Please wait a while before trying again.' });
   }
 
-  const { name, email, subject, message } = req.body;
+  const { name, email, subject, message, website, elapsedMs } = req.body;
+
+  // Bot detection: a honeypot field real users never see or fill, and a
+  // minimum time-on-page check (a real person needs at least a couple
+  // seconds to read the form and type something). Either signal on its own
+  // can have false positives at the margins, so only reject on the
+  // honeypot (a filled hidden field is essentially never a real person) or
+  // a genuinely instant submission. Return a normal-looking success
+  // response rather than an error -- a bot that gets an error might retry
+  // or adapt; one that thinks it succeeded just moves on.
+  if (website) {
+    console.log('Contact form: honeypot triggered, discarding silently');
+    return res.status(200).json({ sent: true });
+  }
+  if (typeof elapsedMs === 'number' && elapsedMs < 1500) {
+    console.log('Contact form: submitted too fast to be human, discarding silently', elapsedMs);
+    return res.status(200).json({ sent: true });
+  }
 
   if (!name || !email || !message) {
     return res.status(400).json({ error: 'Name, email, and message are required.' });
