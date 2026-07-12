@@ -63,6 +63,8 @@ function StepCard({ num, icon, title, desc }) {
 export default function Marketing({ onLogin, onSignup }) {
   const [newsletterEmail, setNewsletterEmail] = useState("");
   const [newsletterStatus, setNewsletterStatus] = useState(null); // null | 'sending' | 'done' | 'error'
+  const [newsletterWebsite, setNewsletterWebsite] = useState(""); // honeypot -- must stay empty
+  const [pageLoadedAt] = useState(() => Date.now());
   const [installPrompt, setInstallPrompt] = useState(null);
   const [showIOSHelp, setShowIOSHelp] = useState(false);
 
@@ -298,7 +300,7 @@ export default function Marketing({ onLogin, onSignup }) {
               try {
                 const res = await fetch('/api/newsletter-signup', {
                   method: 'POST', headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ email: newsletterEmail }),
+                  body: JSON.stringify({ email: newsletterEmail, website: newsletterWebsite, elapsedMs: Date.now() - pageLoadedAt }),
                 });
                 const data = await res.json();
                 if (!res.ok || data.error) throw new Error(data.error || 'Could not sign up');
@@ -313,6 +315,14 @@ export default function Marketing({ onLogin, onSignup }) {
                 placeholder="your@email.com"
                 style={{ flex: '1 1 220px', padding: '12px 16px', borderRadius: 10, border: 'none', fontSize: 14, fontFamily: "'Nunito', sans-serif" }}
               />
+              {/* Honeypot: invisible to real people, off-screen rather than
+                  display:none since some bots specifically skip display:none
+                  fields. aria-hidden so assistive tech never lands on it. */}
+              <div style={{ position: 'absolute', left: -9999, top: -9999 }} aria-hidden="true">
+                <label htmlFor="newsletter-website">Website</label>
+                <input type="text" id="newsletter-website" tabIndex={-1} autoComplete="off"
+                  value={newsletterWebsite} onChange={e => setNewsletterWebsite(e.target.value)} />
+              </div>
               <button type="submit" disabled={newsletterStatus === 'sending'}
                 style={{ background: '#E8A838', color: '#1E1408', border: 'none', borderRadius: 10, padding: '12px 22px', fontWeight: 800, fontSize: 14, cursor: 'pointer', fontFamily: "'Nunito', sans-serif" }}>
                 {newsletterStatus === 'sending' ? 'Signing up...' : 'Sign Up'}
