@@ -46,7 +46,24 @@ export default async function handler(req, res) {
     return res.status(429).json({ error: 'Too many requests. Please try again later.' });
   }
 
-  const { email } = req.body;
+  const { email, website, elapsedMs } = req.body;
+
+  // Same bot protection as the contact form (see api/contact-form.js for
+  // the full reasoning): a honeypot field real users never see or fill,
+  // and a REQUIRED minimum time-on-page. elapsedMs must be present and a
+  // number -- a bot that skips the real page and POSTs straight to this
+  // endpoint sends neither field, and treating elapsedMs as optional would
+  // let exactly that kind of submission through unchecked. Return a
+  // normal-looking success response in every rejection case so a bot that
+  // thinks it succeeded just moves on instead of retrying or adapting.
+  if (website) {
+    console.log('Newsletter signup: honeypot triggered, discarding silently');
+    return res.status(200).json({ subscribed: true });
+  }
+  if (typeof elapsedMs !== 'number' || elapsedMs < 1500) {
+    console.log('Newsletter signup: missing or too-fast elapsedMs, discarding silently', elapsedMs);
+    return res.status(200).json({ subscribed: true });
+  }
 
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return res.status(400).json({ error: 'Please enter a valid email address.' });
