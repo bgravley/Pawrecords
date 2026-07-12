@@ -65,18 +65,29 @@ export default async function handler(req, res) {
 
   // Bot detection: a honeypot field real users never see or fill, and a
   // minimum time-on-page check (a real person needs at least a couple
-  // seconds to read the form and type something). Either signal on its own
-  // can have false positives at the margins, so only reject on the
-  // honeypot (a filled hidden field is essentially never a real person) or
-  // a genuinely instant submission. Return a normal-looking success
-  // response rather than an error -- a bot that gets an error might retry
-  // or adapt; one that thinks it succeeded just moves on.
+  // seconds to read the form and type something).
+  //
+  // IMPORTANT: elapsedMs is REQUIRED, not just checked when present. A bot
+  // that skips the real HTML page entirely and POSTs straight to this
+  // endpoint (extremely common -- bots scan for any URL that looks like a
+  // form handler, whether or not a page is actually attached to it) sends
+  // neither `website` nor `elapsedMs`. The honeypot check only rejects a
+  // *filled* field, and a missing elapsedMs used to just skip the timing
+  // check entirely instead of failing it -- so a direct API POST evaded
+  // both protections at once. That's exactly the gap a real submission got
+  // through on: random-string junk in every field, the unmistakable
+  // fingerprint of an automated scanner blindly posting to any endpoint it
+  // finds, not a browser that ever rendered the real form.
+  //
+  // Return a normal-looking success response rather than an error in every
+  // rejection case below -- a bot that gets an error might retry or adapt;
+  // one that thinks it succeeded just moves on.
   if (website) {
     console.log('Contact form: honeypot triggered, discarding silently');
     return res.status(200).json({ sent: true });
   }
-  if (typeof elapsedMs === 'number' && elapsedMs < 1500) {
-    console.log('Contact form: submitted too fast to be human, discarding silently', elapsedMs);
+  if (typeof elapsedMs !== 'number' || elapsedMs < 1500) {
+    console.log('Contact form: missing or too-fast elapsedMs, discarding silently', elapsedMs);
     return res.status(200).json({ sent: true });
   }
 
