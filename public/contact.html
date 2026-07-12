@@ -103,6 +103,17 @@
         <label for="message">Message</label>
         <textarea id="message" required placeholder="How can we help?"></textarea>
 
+        <!-- Honeypot: invisible to real people, but a lot of spam bots fill
+             in every field they find. Positioned off-screen rather than
+             display:none, since some bots specifically skip display:none
+             fields -- this stays in the layout flow but off-canvas, and is
+             hidden from screen readers too so it never confuses anyone
+             using assistive tech. Any value here means it wasn't a human. -->
+        <div style="position:absolute; left:-9999px; top:-9999px;" aria-hidden="true">
+          <label for="website">Website</label>
+          <input type="text" id="website" name="website" tabindex="-1" autocomplete="off" />
+        </div>
+
         <button type="submit" class="submit" id="submitBtn">Send Message</button>
       </form>
     </div>
@@ -147,6 +158,7 @@
     const form = document.getElementById('contactForm');
     const statusBox = document.getElementById('statusBox');
     const submitBtn = document.getElementById('submitBtn');
+    const pageLoadedAt = Date.now(); // a real person needs at least a couple seconds to read and type; instant submissions are almost always bots
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -160,6 +172,8 @@
         email: document.getElementById('email').value.trim(),
         subject: document.getElementById('subject').value.trim(),
         message: document.getElementById('message').value.trim(),
+        website: document.getElementById('website').value, // honeypot -- must stay empty
+        elapsedMs: Date.now() - pageLoadedAt,
       };
 
       try {
