@@ -240,3 +240,25 @@ FROM affiliates
 WHERE user_id IS NOT NULL
 GROUP BY user_id
 HAVING count(*) > 1;
+
+
+-- ── CHECK D15: documents storage bucket has upload restrictions ──────────────
+-- Found July 2026: the bucket had allowed_mime_types = NULL and
+-- file_size_limit = NULL -- meaning any authenticated user (a free signup,
+-- trivial to get) could upload literally any file type of any size to a
+-- PUBLIC bucket. Client-side <input accept="..."> is a UI hint only, not
+-- security -- it's trivially bypassed by renaming a file or posting
+-- directly to the API. The real risks: (1) stored XSS if someone uploads
+-- an .html or .svg file and it's opened directly (View Document links open
+-- in a new tab), (2) the platform being used to host/distribute arbitrary
+-- files including malware under a legitimate-looking domain, (3)
+-- uncontrolled storage costs. Fixed by restricting the bucket itself to
+-- the file types the app actually produces (images + PDF) and a 15MB cap.
+-- Note this does not stop a renamed-extension file (evil.exe saved as
+-- .jpg reports as image/jpeg client-side) -- that's a narrower,
+-- lower-severity residual risk since nothing on this platform executes
+-- uploaded file content; it requires a victim to knowingly download and
+-- run the file themselves. Expect: both values non-null.
+SELECT id FROM storage.buckets
+WHERE id = 'documents'
+  AND (allowed_mime_types IS NULL OR file_size_limit IS NULL);
