@@ -12,8 +12,10 @@ function esc(str) {
 }
 const WEBHOOK_SECRET = process.env.SIGNUP_WEBHOOK_SECRET;
 
+import { setCorsHeaders } from './_cors.js';
+
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  setCorsHeaders(req, res);
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();

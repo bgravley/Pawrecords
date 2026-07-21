@@ -1,6 +1,8 @@
 // api/contact-form.js
 // Receives submissions from the public contact form and emails them to Brandon via Resend.
 
+import { setCorsHeaders } from './_cors.js';
+
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const FROM_EMAIL     = 'YourPetPass <notifications@yourpetpass.com>';
 const ADMIN_EMAIL    = 'bgravley@rdmarketingllc.com';
@@ -46,9 +48,8 @@ function esc(str) {
   if (!str) return str;
   return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
-
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  setCorsHeaders(req, res);
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();

@@ -2,6 +2,8 @@
 // Sends a short confirmation email when a user completes a meaningful action.
 // Centralized so new action types are easy to add later — just extend TEMPLATES.
 
+import { setCorsHeaders } from './_cors.js';
+
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const FROM_EMAIL = 'YourPetPass <notifications@yourpetpass.com>';
 
@@ -51,9 +53,8 @@ const TEMPLATES = {
       </p>`,
   }),
 };
-
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  setCorsHeaders(req, res);
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();

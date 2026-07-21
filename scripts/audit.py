@@ -28,7 +28,7 @@ def remind(msg):  reminders.append(msg)
 # ════════════════════════════════════════════════════════════════════════════
 # 1. BUILD SUCCEEDS
 # ════════════════════════════════════════════════════════════════════════════
-print("[ 1/27] Running build...")
+print("[ 1/28] Running build...")
 result = subprocess.run(["npm", "run", "build"], capture_output=True, text=True)
 if result.returncode != 0:
     fail(f"BUILD FAILED:\n{result.stdout[-2000:]}\n{result.stderr[-2000:]}")
@@ -41,7 +41,7 @@ else:
 #    (Travel.jsx, db.js, terms.html have all had this bug — whole file
 #     content copy-pasted onto itself, causing silent double-execution)
 # ════════════════════════════════════════════════════════════════════════════
-print("[ 2/27] Checking for duplicated file content...")
+print("[ 2/28] Checking for duplicated file content...")
 for f in subprocess.run(
     ["find", "public", "-name", "*.html"], capture_output=True, text=True
 ).stdout.split():
@@ -71,7 +71,7 @@ if not any("DOCTYPE" in i or "export default" in i for i in issues):
 # ════════════════════════════════════════════════════════════════════════════
 # 3. BROKEN INTERNAL LINKS AND IMAGE REFERENCES
 # ════════════════════════════════════════════════════════════════════════════
-print("[ 3/27] Checking internal links and image references...")
+print("[ 3/28] Checking internal links and image references...")
 
 def all_html_jsx_files():
     out = []
@@ -107,7 +107,7 @@ if not broken_images: ok("All image references resolve to real files")
 # 4. EVERY HTML PAGE HAS A META DESCRIPTION — NO DUPLICATES
 #    (Bing flagged 3 pages missing this; duplicates hurt SEO ranking)
 # ════════════════════════════════════════════════════════════════════════════
-print("[ 4/27] Checking meta descriptions and page titles...")
+print("[ 4/28] Checking meta descriptions and page titles...")
 descs, titles, missing_desc = {}, {}, []
 for root, dirs, files in os.walk("public"):
     for f in files:
@@ -140,7 +140,7 @@ if not missing_desc:
 #    (pet-health-certificates page claimed to be the moving-page — same
 #     root cause as duplicated content, metadata cross-contaminated)
 # ════════════════════════════════════════════════════════════════════════════
-print("[ 5/27] Checking metadata self-consistency...")
+print("[ 5/28] Checking metadata self-consistency...")
 for root, dirs, files in os.walk("public"):
     for f in files:
         if f.endswith(".html"):
@@ -162,7 +162,7 @@ if not any("og:url" in i or "mainEntityOfPage" in i for i in issues):
 #    (pet names, trip names, contact form fields were going into email HTML
 #     with no escaping — someone could inject HTML/script tags)
 # ════════════════════════════════════════════════════════════════════════════
-print("[ 6/27] Checking for unescaped user input in email templates...")
+print("[ 6/28] Checking for unescaped user input in email templates...")
 RISKY_FIELDS = [
     "name", "email", "subject", "message", "petName", "tripName",
     "ownerName", "description", "fullName", "affiliateName",
@@ -191,7 +191,7 @@ if not any("esc()" in i for i in issues):
 # ════════════════════════════════════════════════════════════════════════════
 # 7. NO LEFTOVER STRIPE TEST-MODE ARTIFACTS
 # ════════════════════════════════════════════════════════════════════════════
-print("[ 7/27] Checking for Stripe test-mode artifacts...")
+print("[ 7/28] Checking for Stripe test-mode artifacts...")
 test_artifacts = subprocess.run(
     ["grep", "-rl",
      "--exclude-dir=scripts", "--exclude-dir=node_modules", "--exclude-dir=.git",
@@ -208,7 +208,7 @@ else:
 # 8. NODE_MODULES / DIST ARE GITIGNORED — NOT TRACKED
 #    (accidentally committed 3,800+ node_modules files in one session)
 # ════════════════════════════════════════════════════════════════════════════
-print("[ 8/27] Checking git-tracked file hygiene...")
+print("[ 8/28] Checking git-tracked file hygiene...")
 tracked = subprocess.run(
     ["git", "ls-tree", "-r", "HEAD", "--name-only"],
     capture_output=True, text=True
@@ -224,7 +224,7 @@ else:
 # ════════════════════════════════════════════════════════════════════════════
 # 9. EVERY PUBLIC PAGE IS IN SITEMAP.XML
 # ════════════════════════════════════════════════════════════════════════════
-print("[ 9/27] Checking sitemap completeness...")
+print("[ 9/28] Checking sitemap completeness...")
 sitemap = open("public/sitemap.xml", errors='ignore').read() \
     if os.path.isfile("public/sitemap.xml") else ""
 sitemap_urls = set(re.findall(
@@ -250,7 +250,7 @@ if not missing_from_sitemap:
 #     (3MB+ blog hero images caused page speed issues — fixed by compressing
 #      them to ~130KB JPEGs; og-image.png is exempt, social platforms cache it)
 # ════════════════════════════════════════════════════════════════════════════
-print("[10/27] Checking image file sizes...")
+print("[10/28] Checking image file sizes...")
 MAX_KB = 500
 EXEMPT = {"public/og-image.png"}
 oversized = []
@@ -272,7 +272,7 @@ if not oversized:
 # ════════════════════════════════════════════════════════════════════════════
 # 11. NO HARDCODED SECRETS COMMITTED
 # ════════════════════════════════════════════════════════════════════════════
-print("[11/27] Checking for hardcoded secrets...")
+print("[11/28] Checking for hardcoded secrets...")
 SECRET_PATTERNS = [
     (r'sk_live_[A-Za-z0-9]{10,}', "Stripe live secret key"),
     (r'whsec_[A-Za-z0-9]{10,}', "Stripe webhook secret"),
@@ -304,7 +304,7 @@ if not found_secrets:
 #     (7 images across PawRecord.jsx, Travel.jsx, Auth.jsx had none —
 #      affects screen readers and SEO image indexing)
 # ════════════════════════════════════════════════════════════════════════════
-print("[12/27] Checking alt text on images...")
+print("[12/28] Checking alt text on images...")
 missing_alt = []
 for fpath in all_html_jsx_files():
     content = open(fpath, errors='ignore').read()
@@ -321,7 +321,7 @@ if not missing_alt:
 # ════════════════════════════════════════════════════════════════════════════
 # 13. EVERY PAGE HAS VIEWPORT META TAG AND FAVICON LINK
 # ════════════════════════════════════════════════════════════════════════════
-print("[13/27] Checking viewport and favicon presence...")
+print("[13/28] Checking viewport and favicon presence...")
 missing_vp, missing_fav = [], []
 for root, dirs, files in os.walk("public"):
     for f in files:
@@ -342,7 +342,7 @@ if not missing_fav: ok("Every page has a favicon link")
 # 14. PUBLIC UNAUTHENTICATED ENDPOINTS — SPAM PROTECTION REMINDER
 #     (contact-form, newsletter-signup, report-bug have no rate-limiting)
 # ════════════════════════════════════════════════════════════════════════════
-print("[14/27] Checking public endpoint spam protection...")
+print("[14/28] Checking public endpoint spam protection...")
 PUBLIC_ENDPOINTS = [
     "api/contact-form.js",
     "api/newsletter-signup.js",
@@ -378,7 +378,7 @@ for f in PUBLIC_ENDPOINTS:
 #       whatsapp_country_code (='+1')
 #     All other columns have schema-level defaults and are safe to omit.
 # ════════════════════════════════════════════════════════════════════════════
-print("[15/27] Supabase trigger reminder...")
+print("[15/28] Supabase trigger reminder...")
 remind(
     "LIVE DATABASE CHECKS (audit.py can't reach the DB from CI):\n"
     "  Run the queries in scripts/schema_audit.sql in any Supabase-connected\n"
@@ -407,7 +407,7 @@ ok("Trigger reminder noted (cannot auto-check from code — see REMINDERS below)
 # 16. ENVIRONMENT VARIABLES INVENTORY
 #     (informational — cross-check these are all set in Vercel dashboard)
 # ════════════════════════════════════════════════════════════════════════════
-print("[16/27] Collecting environment variable inventory...")
+print("[16/28] Collecting environment variable inventory...")
 env_vars = set()
 for root, dirs, files in os.walk("api"):
     for f in files:
@@ -432,7 +432,7 @@ ok(f"Found {len(env_vars)} environment variables (see inventory below)")
 #      endpoint that reads userId from the body but never calls verifyUser or
 #      otherwise verifies an auth token.)
 # ════════════════════════════════════════════════════════════════════════════
-print("[17/27] Checking endpoint authentication...")
+print("[17/28] Checking endpoint authentication...")
 # Endpoints that are intentionally public (no user identity needed) — anything
 # NOT in this list that touches userId/email must verify a token.
 INTENTIONALLY_PUBLIC = {
@@ -480,7 +480,7 @@ if not any("never verifies an auth token" in i for i in issues):
 #      email to anyone. Any endpoint that calls Resend must first verify a user
 #      token OR a server secret, or be a known public/rate-limited form.)
 # ════════════════════════════════════════════════════════════════════════════
-print("[18/27] Checking for open email relays...")
+print("[18/28] Checking for open email relays...")
 EMAIL_SENDERS_OK_PUBLIC = {
     "api/contact-form.js",       # rate-limited, only emails the admin (fixed recipient)
     "api/newsletter-signup.js",  # rate-limited, only stores/notifies admin
@@ -510,7 +510,7 @@ if not any("possible open relay" in i for i in issues):
 # 19. .env FILES ARE GITIGNORED
 #     (prevents accidentally committing secrets in a local .env)
 # ════════════════════════════════════════════════════════════════════════════
-print("[19/27] Checking .env is gitignored...")
+print("[19/28] Checking .env is gitignored...")
 gitignore = open(".gitignore", errors='ignore').read() if os.path.isfile(".gitignore") else ""
 if re.search(r'^\.env', gitignore, re.MULTILINE):
     ok(".env files are gitignored")
@@ -540,7 +540,7 @@ if tracked_env:
 #      positives, which is itself a useful signal that someone changed the DB
 #      without updating the snapshot.)
 # ════════════════════════════════════════════════════════════════════════════
-print("[20/27] Checking database schema drift (code vs schema_snapshot.json)...")
+print("[20/28] Checking database schema drift (code vs schema_snapshot.json)...")
 snap_path = "scripts/schema_snapshot.json"
 if not os.path.isfile(snap_path):
     fail("scripts/schema_snapshot.json is missing — cannot check schema drift. "
@@ -604,7 +604,7 @@ else:
 #      "visits" (real: vet_visits). Every one of them failed silently or
 #      partially. This check would have caught all three in one run.)
 # ════════════════════════════════════════════════════════════════════════════
-print("[21/27] Checking every supabase.from(...) call references a real table...")
+print("[21/28] Checking every supabase.from(...) call references a real table...")
 if not os.path.isfile(snap_path):
     fail("Can't run check 21 without scripts/schema_snapshot.json (see check 20).")
 else:
@@ -631,7 +631,7 @@ else:
 #      extracted structured data from an upload and silently discarded the
 #      source file. 0 rows in the documents table despite real usage.)
 # ════════════════════════════════════════════════════════════════════════════
-print("[22/27] Checking AI Scan persists the scanned document...")
+print("[22/28] Checking AI Scan persists the scanned document...")
 pawrecord_content = open("src/PawRecord.jsx", errors="ignore").read()
 db_content = open("src/lib/db.js", errors="ignore").read()
 if "export const addDocument" not in db_content:
@@ -654,7 +654,7 @@ else:
 #      extractPdfFragment() first, which pulls out just the <style> + body
 #      content. Emailed and directly-exported PDFs both hit this.)
 # ════════════════════════════════════════════════════════════════════════════
-print("[23/27] Checking PDF generation doesn't inject a raw HTML document...")
+print("[23/28] Checking PDF generation doesn't inject a raw HTML document...")
 if "extractPdfFragment" not in pawrecord_content:
     fail("extractPdfFragment is missing from PawRecord.jsx — PDF generation may be "
          "injecting a full HTML document into innerHTML again (blank PDF bug).")
@@ -685,7 +685,7 @@ else:
 #      bypass using CRON_SECRET as the trust boundary; this check makes sure
 #      a future refactor of either file can't quietly break that pairing.)
 # ════════════════════════════════════════════════════════════════════════════
-print("[24/27] Checking prewarm-cache <-> ai-travel trusted-caller header matches...")
+print("[24/28] Checking prewarm-cache <-> ai-travel trusted-caller header matches...")
 prewarm_content = open("api/prewarm-cache.js", errors="ignore").read()
 ai_travel_content = open("api/ai-travel.js", errors="ignore").read()
 if "x-prewarm-secret" not in prewarm_content:
@@ -708,7 +708,7 @@ else:
 #      posture were all reviewed together — this and the next two checks
 #      cover what's meaningfully automatable from that pass.)
 # ════════════════════════════════════════════════════════════════════════════
-print("[25/27] Checking npm audit for known vulnerabilities (production deps)...")
+print("[25/28] Checking npm audit for known vulnerabilities (production deps)...")
 try:
     npm_result = subprocess.run(
         ["npm", "audit", "--production", "--json"],
@@ -733,7 +733,7 @@ except Exception as e:
 #     (nosniff and frame-options are cheap, meaningful, easy to accidentally
 #      lose in a future vercel.json edit — worth a permanent check.)
 # ════════════════════════════════════════════════════════════════════════════
-print("[26/27] Checking core security headers are configured in vercel.json...")
+print("[26/28] Checking core security headers are configured in vercel.json...")
 try:
     vercel_config = json.load(open("vercel.json"))
     header_entries = vercel_config.get("headers", [])
@@ -765,7 +765,7 @@ except Exception as e:
 #      public — Supabase's security model relies on RLS, not on hiding the
 #      anon key. Anything else is a red flag.)
 # ════════════════════════════════════════════════════════════════════════════
-print("[27/27] Checking no unexpected secrets are exposed to the client bundle...")
+print("[27/28] Checking no unexpected secrets are exposed to the client bundle...")
 allowed_public_vars = {"VITE_SUPABASE_ANON_KEY", "VITE_SUPABASE_URL", "VITE_APP_URL"}
 found_vite_vars = set()
 for fp in src_files:
@@ -778,6 +778,28 @@ if unexpected:
          f"they must never be prefixed VITE_ — move the logic server-side instead.")
 else:
     ok("No unexpected secrets exposed to the client bundle — only the public anon key/URL")
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# 28. NO API ENDPOINT USES A WILDCARD CORS ORIGIN
+#     (Every api/*.js file used Access-Control-Allow-Origin: '*' until this
+#      was fixed — any website could call these endpoints from a visitor's
+#      browser. Now routed through api/_cors.js's allowlist. This check
+#      makes sure a future new endpoint (or a copy-pasted old pattern)
+#      doesn't quietly reintroduce the wildcard.)
+# ════════════════════════════════════════════════════════════════════════════
+print("[28/28] Checking no API endpoint uses a wildcard CORS origin...")
+wildcard_cors_files = []
+for fp in [f for f in os.listdir("api") if f.endswith(".js")]:
+    full_path = os.path.join("api", fp)
+    content = open(full_path, errors="ignore").read()
+    if re.search(r"Access-Control-Allow-Origin['\"]?\s*,\s*['\"]\*['\"]", content):
+        wildcard_cors_files.append(full_path)
+if wildcard_cors_files:
+    fail(f"Wildcard CORS origin ('*') found in: {', '.join(wildcard_cors_files)} — "
+         f"use setCorsHeaders(req, res) from api/_cors.js instead.")
+else:
+    ok("No API endpoint uses a wildcard CORS origin — all routed through the allowlist")
 
 
 # ════════════════════════════════════════════════════════════════════════════

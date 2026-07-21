@@ -2,6 +2,8 @@
 // Server-side admin data fetcher — uses service role key to bypass RLS
 // Only callable with a valid admin check
 
+import { setCorsHeaders } from './_cors.js';
+
 async function checkedFetch(url, options, label) {
   const r = await fetch(url, options);
   if (!r.ok) {
@@ -26,9 +28,8 @@ async function logAdminError(supabaseUrl, headers, context, userEmail, message) 
     // best-effort only
   }
 }
-
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  setCorsHeaders(req, res);
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
