@@ -1,6 +1,8 @@
 // api/newsletter-signup.js
 // Captures email addresses from the marketing page newsletter signup form.
 
+import { setCorsHeaders } from './_cors.js';
+
 const RATE_LIMIT     = 3;   // max submissions per IP per hour
 const RATE_WINDOW_MS = 60 * 60 * 1000;
 
@@ -31,9 +33,8 @@ async function isRateLimited(ip, form) {
 
   return count >= RATE_LIMIT;
 }
-
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  setCorsHeaders(req, res);
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();

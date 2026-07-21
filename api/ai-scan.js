@@ -4,6 +4,7 @@
 // - Free: 0 (AI scan is premium only)
 
 import { verifyUser } from './_verifyUser.js';
+import { setCorsHeaders } from './_cors.js';
 
 // ── MIME validation ────────────────────────────────────────────────────────
 // Checks the actual base64 content matches the declared media type.
@@ -104,7 +105,7 @@ async function getUserProfile(userId) {
 
 // ── Handler ────────────────────────────────────────────────────────────────
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  setCorsHeaders(req, res);
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 

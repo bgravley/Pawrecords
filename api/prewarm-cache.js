@@ -16,6 +16,8 @@
 //    effectively every 2 weeks, to avoid spending on AI research while
 //    there's no real user traffic yet.
 
+import { setCorsHeaders } from './_cors.js';
+
 async function loadActiveRoutes() {
   const res = await fetch(
     `${process.env.SUPABASE_URL}/rest/v1/prewarm_routes?active=eq.true&select=origin_country,destination_country,transportation_mode`,
@@ -61,9 +63,8 @@ async function warmOneRoute(originCountry, destinationCountry, transportationTyp
   const data = await res.json();
   return { route: `${originCountry} → ${destinationCountry} (${transportationType})`, ok: res.ok, cached: data.cached || false, error: data.error || null };
 }
-
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  setCorsHeaders(req, res);
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();

@@ -7,6 +7,7 @@
 // research with OpenAI's web search if missing or stale, cache the result.
 
 import { verifyUser } from './_verifyUser.js';
+import { setCorsHeaders } from './_cors.js';
 
 const CACHE_TTL_DAYS = 90;
 
@@ -74,7 +75,7 @@ If you cannot find reliable official information for this airport, return areas 
 }
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  setCorsHeaders(req, res);
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();

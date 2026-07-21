@@ -4,6 +4,7 @@
 // button) and passed in — this endpoint just delivers it via Resend.
 
 import { verifyUser } from './_verifyUser.js';
+import { setCorsHeaders } from './_cors.js';
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const FROM_EMAIL = 'YourPetPass <notifications@yourpetpass.com>';
@@ -14,7 +15,7 @@ function esc(str) {
 }
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  setCorsHeaders(req, res);
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();

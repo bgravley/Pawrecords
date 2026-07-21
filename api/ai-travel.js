@@ -9,6 +9,7 @@
 // Rate limits: Premium: 3 AI generations/month included (overridable per user in Admin)
 
 import { verifyUser } from './_verifyUser.js';
+import { setCorsHeaders } from './_cors.js';
 
 // ── Logging ────────────────────────────────────────────────────────────────
 async function logUsage({ userId, userEmail, model, inputTokens, outputTokens, destination, success, error }) {
@@ -299,7 +300,7 @@ ${JSON.stringify(checklistItems)}`;
 
 // ── Handler ────────────────────────────────────────────────────────────────
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  setCorsHeaders(req, res);
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
