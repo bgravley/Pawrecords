@@ -1032,6 +1032,7 @@ const AIScanModal=({dog,state,userId,userEmail,dispatch,onSave,onClose,onUpgrade
         const e=responseError.details||{};
         if(e.requiresUpgrade){setStep("upload");setError(null);onUpgrade&&onUpgrade();return;}
         if(e.rateLimitExceeded){setStep("upload");setError(`Monthly scan limit reached (${e.scansLimit||20}/month). Resets the 1st of next month. ${e.scansUsed||0} of ${e.scansLimit||20} used.`);return;}
+        if(e.incompleteExtraction){setStep("upload");setError("We identified a vaccine record but couldn't read any vaccine details. Your photo is still here—try retaking it closer, with the page upright and well lit.");return;}
         throw responseError;
       }
       if(data.error)throw new Error(data.error);
