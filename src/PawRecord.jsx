@@ -4,6 +4,7 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianG
 import { supabase } from "./lib/supabase";
 import * as db from "./lib/db";
 import { resizeImageFile } from "./lib/imageResize";
+import { createScanImagePayload, MAX_SCAN_REQUEST_BYTES, readScanResponse, SCAN_RETRY_MESSAGE, scanRequestSize } from "./lib/aiScanPayload";
 
 const PRICES = {
   monthly: "price_1TknmwB5s5OlwZVJsgXTq1JA",
@@ -988,6 +989,7 @@ const AIScanModal=({dog,state,userId,userEmail,dispatch,onSave,onClose,onUpgrade
   };
 
   const addFiles=async(fileList)=>{
+    setError(null);
     const files=Array.from(fileList);
     const remaining=MAX_IMAGES-images.length;
     if(remaining<=0)return;
@@ -998,11 +1000,18 @@ const AIScanModal=({dog,state,userId,userEmail,dispatch,onSave,onClose,onUpgrade
         try{const buf=await file.arrayBuffer();const pdfImages=await loadPdfAsImage(buf);newImages.push(...pdfImages);}
         catch(e){setError("Could not read PDF: "+e.message);}
       } else {
-        await new Promise(res=>{const r=new FileReader();r.onload=ev=>{newImages.push({dataUrl:ev.target.result,label:file.name.replace(/\.[^.]+$/,"")});res();};r.readAsDataURL(file);});
+        try{
+          // Camera photos can be several MB each. Compress them before they
+          // are base64-encoded so a multi-page scan stays below the request
+          // limit while retaining enough detail for document text.
+          const dataUrl=await resizeImageFile(file,1600,0.82);
+          newImages.push({dataUrl,label:file.name.replace(/\.[^.]+$/,"")||`Page ${images.length+newImages.length+1}`});
+        }catch(e){
+          setError("We couldn't prepare that photo. Please choose a JPEG or PNG and try again.");
+        }
       }
     }
     setImages(prev=>[...prev,...newImages].slice(0,MAX_IMAGES));
-    setError(null);
   };
 
   const removeImage=(idx)=>setImages(prev=>prev.filter((_,i)=>i!==idx));
@@ -1011,23 +1020,27 @@ const AIScanModal=({dog,state,userId,userEmail,dispatch,onSave,onClose,onUpgrade
     if(images.length===0)return;
     setStep("scanning");setError(null);
     try{
-      const imagePayload=images.map(img=>({base64:img.dataUrl.split(",")[1],mediaType:img.dataUrl.split(";")[0].split(":")[1]}));
+      const imagePayload=createScanImagePayload(images);
+      if(scanRequestSize(imagePayload,dog.name)>MAX_SCAN_REQUEST_BYTES){
+        throw new Error("Scan images exceed the safe request size");
+      }
       const{data:{session:scanSession}}=await supabase.auth.getSession();
       const res=await fetch("/api/ai-scan",{method:"POST",headers:{"Content-Type":"application/json","Authorization":`Bearer ${scanSession?.access_token||''}`},body:JSON.stringify({images:imagePayload,petName:dog.name})});
-      if(!res.ok){
-        const e=await res.json();
+      let data;
+      try{data=await readScanResponse(res);}
+      catch(responseError){
+        const e=responseError.details||{};
         if(e.requiresUpgrade){setStep("upload");setError(null);onUpgrade&&onUpgrade();return;}
-        if(e.rateLimitExceeded){setStep("upload");setError(`Monthly scan limit reached (20/month). Resets the 1st of next month. ${e.scansUsed||0} of 20 used.`);return;}
-        throw new Error(e.error||"Scan request failed");
+        if(e.rateLimitExceeded){setStep("upload");setError(`Monthly scan limit reached (${e.scansLimit||20}/month). Resets the 1st of next month. ${e.scansUsed||0} of ${e.scansLimit||20} used.`);return;}
+        throw responseError;
       }
-      const data=await res.json();
       if(data.error)throw new Error(data.error);
       setExtracted(data.extracted);
       const dups=findDuplicates(data.extracted);
       if(dups.length>0){setDuplicates(dups);setShowDupCheck(true);}
       setStep("review");
     }catch(err){
-      setError("Could not analyze: "+(err.message||"Unknown error"));
+      setError(SCAN_RETRY_MESSAGE);
       setStep("upload");
       await logError(userId,userEmail||null,"ai_scan",err.message||"Unknown error");
     }
