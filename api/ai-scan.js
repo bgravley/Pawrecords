@@ -5,6 +5,7 @@
 
 import { verifyUser } from './_verifyUser.js';
 import { setCorsHeaders } from './_cors.js';
+import { hasVaccineDetails, normalizeScanExtraction } from './_aiScanNormalize.js';
 
 // ── MIME validation ────────────────────────────────────────────────────────
 // Checks the actual base64 content matches the declared media type.
@@ -241,11 +242,20 @@ Return ONLY raw JSON, no markdown, no explanation:
     "weight": null,
     "microchip": "string or null",
     "vaccines": []
+  },
+  "vaccineRecord": {
+    "recordDate": "YYYY-MM-DD or null",
+    "petName": "string or null",
+    "vetName": "string or null",
+    "clinicName": "string or null",
+    "vaccines": [{"name":"standard English vaccine name","dateGiven":"YYYY-MM-DD or null","nextDue":"YYYY-MM-DD or null","lotNumber":"string or null","type":"core or optional"}]
   }
 }
 
 Rules:
-- Only populate the section matching the documentType. Leave others as null/empty.
+- For vaccine_record, populate vaccineRecord with every readable vaccine sticker or entry. Leave vetVisit empty; the server will normalize it for saving.
+- For other document types, only populate the matching section. Leave others as null/empty.
+- Translate vaccine names to their standard English names when identifiable, but never invent unreadable values.
 - Rabies/DHPP/DA2PP = core vaccines. All others = optional.
 - Calculate nextDue if missing: Rabies=12mo, DHPP/DA2PP=36mo, others=12mo from dateGiven.
 - Weight always in lbs as a number only.
@@ -277,10 +287,18 @@ Rules:
 
     let parsed;
     try {
-      parsed = JSON.parse(clean);
+      parsed = normalizeScanExtraction(JSON.parse(clean));
     } catch (e) {
       await logUsage({ userId, userEmail, petName, feature: 'document_scan', model: 'gpt-4o', inputTokens: usage.prompt_tokens || 0, outputTokens: usage.completion_tokens || 0, success: false, error: 'JSON parse failed' });
       return res.status(500).json({ error: 'AI returned invalid JSON. Try a clearer photo.' });
+    }
+
+    if (parsed.documentType === 'vaccine_record' && !hasVaccineDetails(parsed)) {
+      await logUsage({ userId, userEmail, petName, feature: 'document_scan', model: 'gpt-4o', inputTokens: usage.prompt_tokens || 0, outputTokens: usage.completion_tokens || 0, success: false, error: 'Vaccine record contained no readable vaccine details' });
+      return res.status(422).json({
+        error: 'No readable vaccine details were found.',
+        incompleteExtraction: true,
+      });
     }
 
     await logUsage({ userId, userEmail, petName, feature: 'document_scan', model: 'gpt-4o', inputTokens: usage.prompt_tokens || 0, outputTokens: usage.completion_tokens || 0, success: true });
