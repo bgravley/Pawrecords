@@ -1,6 +1,6 @@
 # YourPetPass Platform Update Roadmap
 
-Phases One through Three are complete. Phase Four is active; Phases Five through Seven remain queued.
+Phases One through Four are complete. Phase Five is active; Phases Six and Seven remain queued.
 
 ## Phase One — Expanded trip intake + pet travel method
 
@@ -10,28 +10,34 @@ Phases One through Three are complete. Phase Four is active; Phases Five through
 - Arrangement-aware checklist generation and cache isolation
 - Form, persistence, generator-input, compatibility, build, deployment, and production verification
 
-## Phase Two — Airport Guides (implemented; production verification pending)
+## Phase Two — Airport Guides (complete)
 
 - Reusable guide for every departure, layover, and arrival airport
 - Role-specific pet relief, check-in/cargo, security, customs, veterinary inspection, service-animal, hours, and emergency-vet information
 - Official airport/government sources and last-verified date
 
-## Phase Three — Timeline-based tasks (active)
+## Phase Three — Timeline-based tasks (complete)
 
 - Eleven travel-planning windows from Start now through After arrival
 - Hidden empty sections and backward-compatible placement of existing tasks
 - Responsible party, document, source verification, status, dependencies, pet/species, segment, and travel-method scope
 - Correct vertical formatting for numbered instructions
 
-## Phase Four — Progress + What’s Missing? (active)
+## Phase Four — Progress + What’s Missing? (complete)
 
 - Weighted readiness with critical and supporting requirements
 - Missing, uploaded awaiting review, needs correction, complete, not applicable, blocked, and expired states
 - Critical gaps, upcoming deadlines, and document issues in one actionable view
 
+## Phase Five — Official sources + verification (active)
+
+- Government sources for country entry, export, transit, quarantine, health, and customs rules
+- Airline sources only for airline policy; airport sources only for airport logistics
+- Jurisdiction, requirement type, route/species/travel scopes, effective and expiration dates
+- Last checked, change detection, and human review status
+
 ## Queued phases
 
-5. Official-source verification system
 6. Printable/shareable Travel Summary
 7. Adaptive packing checklist and emergency section
 
