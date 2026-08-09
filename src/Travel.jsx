@@ -3,6 +3,14 @@
 
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "./lib/supabase";
+import {
+  AIR_TRAVEL_ARRANGEMENTS,
+  arrangementCacheKey,
+  buildAirTravelPayload,
+  describeAirTravelArrangements,
+  emptyAirTravelDetails,
+  normalizeAirTravelArrangements,
+} from "./lib/travelArrangement";
 
 const logActivity = async (userId, userEmail, action, details = {}) => {
   try {
@@ -199,6 +207,9 @@ const generateChecklist = async (trip, pets, userId) => {
 
   const transportLabels = { air: "Flying (airplane)", sea: "By Sea (cruise ship or ferry)", land: "Driving (personal vehicle)", bus: "Bus" };
   const transportMode = trip.transportation_type || "air";
+  const airTravelSummary = transportMode === "air"
+    ? describeAirTravelArrangements(trip.air_travel_arrangements, pets)
+    : "Not applicable";
 
   const prompt = `You are a veterinary travel compliance expert specializing in international pet travel documentation. Generate a COMPLETE, ACCURATE, and ACTIONABLE pet travel checklist for this route.
 
@@ -207,6 +218,7 @@ TRIP DETAILS:
 - Destination: ${trip.destination_city}, ${trip.destination_country}
 - Departure Date: ${trip.departure_date}
 - Mode of Transportation: ${transportLabels[transportMode] || "Flying"}
+- Pet air-travel arrangement(s): ${airTravelSummary || "Not decided yet"}
 - ${transportMode === "air" ? "Airline" : transportMode === "sea" ? "Cruise Line/Ferry" : transportMode === "bus" ? "Bus Company" : "Carrier"}: ${trip.airline || "not specified"}
 - Pets: ${petList}
 
@@ -222,6 +234,7 @@ For EVERY checklist item, you MUST include an "applies_to" field set to exactly 
 ===== IMPORTANT: TAILOR REQUIREMENTS TO THE MODE OF TRANSPORTATION =====
 The pet is traveling by ${transportLabels[transportMode] || "air"}. Requirements differ meaningfully by mode:
 ${transportMode === "air" ? `- Focus on airline-specific cabin/cargo pet policies, carrier size/weight limits, breed restrictions for brachycephalic breeds (this applies to both flat-faced dog breeds like Bulldogs AND flat-faced cat breeds like Persians/Himalayans), and airport-specific procedures.` : ""}
+${transportMode === "air" ? `- Tailor every airline, kennel/carrier, booking, check-in, terminal, and handling instruction to each pet's stated arrangement above. Do not treat checked baggage and manifest cargo as interchangeable. For in-cabin service animals, keep legal service-animal classification separate from physical cabin travel and do not apply ordinary under-seat carrier rules unless the airline explicitly requires them.` : ""}
 ${transportMode === "sea" ? `- Focus on the cruise line or ferry company's specific pet policy (many cruise lines do NOT allow pets in cabins — service animals only on most lines), kennel/boarding facilities on board if any, and port-of-call country entry requirements at EACH stop if this is a multi-country cruise.` : ""}
 ${transportMode === "land" ? `- Focus on land border crossing requirements specifically — these can differ from air entry requirements at the same border (e.g., different checkpoint hours, different document checks at land crossings vs international airports). Do NOT include airline-specific items.` : ""}
 ${transportMode === "bus" ? `- Focus on the specific bus company's pet policy (many intercity bus lines have limited or no pet allowances outside of service animals), and land border crossing requirements if this route crosses an international border. Do NOT include airline-specific items.` : ""}
@@ -230,7 +243,7 @@ ${transportMode === "bus" ? `- Focus on the specific bus company's pet policy (m
 ${usaInvolved ? `
 ⚠️ THE UNITED STATES OR A US TERRITORY IS INVOLVED IN THIS TRIP. THE FOLLOWING USA REQUIREMENTS MUST BE INCLUDED AS SEPARATE CHECKLIST ITEMS — NO EXCEPTIONS:
 
-IMPORTANT TIMING WARNING: ALL USA documentation must be completed BEFORE the pet leaves the United States. If the pet has already left the USA, it is too late — they will face 28-day quarantine or a titer test (blood test to prove rabies immunity) upon return, which costs $300-500 and requires waiting weeks for results.
+IMPORTANT TIMING WARNING: ALL USA documentation must be completed BEFORE the pet leaves the United States. If the pet has already left the USA, it may be too late to complete some steps and additional quarantine or testing requirements may apply on return.
 
 NOTE: Puerto Rico, Guam, US Virgin Islands, American Samoa, and Northern Mariana Islands are US territories subject to the SAME federal CDC and USDA requirements as the continental United States. If origin or destination is any US territory, ALL items below are required.
 
@@ -241,14 +254,12 @@ MANDATORY USA CHECKLIST ITEMS TO INCLUDE:
    - Find USDA-accredited vets at: https://www.aphis.usda.gov/pet-travel
    - Vet completes APHIS Form 7001 (health certificate)
    - This exam must happen within 10 days of the departure date FROM the USA
-   - Cost: $75-200 depending on vet
 
 2. "USDA APHIS State Office Endorsement — MUST BE DONE BEFORE LEAVING USA" (deadline: 5-7 days before USA departure)
    - After the vet signs Form 7001, the owner must send or hand-deliver the original signed form to their state's USDA APHIS Veterinary Services office for an official government endorsement stamp
    - This CANNOT be done from abroad — it must happen before the pet leaves the USA
    - Processing takes 1-3 business days by mail, same-day if hand-delivered
    - Find your state USDA office: https://www.aphis.usda.gov/pet-travel
-   - Cost: $38 federal fee plus any state fees
    - ⚠️ WARNING: Skipping this step means the pet will be quarantined for 28 days or required to complete a titer test upon return to the USA
 
 3. "CDC Dog Import Online Form" (deadline: 2-5 business days before USA arrival)
@@ -298,7 +309,7 @@ ${transportMode === "air" ? `Always include a checklist item for ${trip.airline 
 Return ONLY a valid JSON array. No markdown, no backticks, no explanation text before or after.
 Each item must have these exact fields:
 - title: string (clear, specific title)
-- description: string (step-by-step numbered instructions, include contacts, costs, timing)
+- description: string (step-by-step numbered instructions, include contacts and timing; do not estimate costs)
 - category: one of: health_certificate, vaccination, treatment, documentation, airline, government_form, entry_document, other
 - applies_to: exactly "dog" or "cat" — every item belongs to one species or the other. This field is REQUIRED on every item. If a requirement applies to both species, output it as two separate items.
 - deadline_days_before: number (days before USA departure date that this must be completed)
@@ -323,6 +334,7 @@ Each item must have these exact fields:
       originCountry: trip.origin_country,
       destinationCountry: trip.destination_country,
       transportationType: trip.transportation_type || "air",
+      travelArrangementKey: arrangementCacheKey(trip.air_travel_arrangements, pets.map(p => p.id)),
     }),
   });
 
@@ -365,8 +377,9 @@ const TripForm = ({ trip, userId, dogs, onSave, onClose }) => {
     returnDate: trip.return_date || "",
     notes: trip.notes || "",
     selectedPets: trip.pet_ids || [],
+    airTravelArrangements: normalizeAirTravelArrangements(trip.air_travel_arrangements),
   } : {
-    name: "", returnDate: "", notes: "", selectedPets: [],
+    name: "", returnDate: "", notes: "", selectedPets: [], airTravelArrangements: normalizeAirTravelArrangements(null),
   });
   // Legs default to a single empty one (matches the simple, common case).
   // When editing a trip that has real trip_legs rows, those load in below;
@@ -412,9 +425,26 @@ const TripForm = ({ trip, userId, dogs, onSave, onClose }) => {
       ...p,
       selectedPets: p.selectedPets.includes(id)
         ? p.selectedPets.filter(x => x !== id)
-        : [...p.selectedPets, id]
+        : [...p.selectedPets, id],
+      airTravelArrangements: p.selectedPets.includes(id) ? p.airTravelArrangements : {
+        ...p.airTravelArrangements,
+        by_pet: { ...p.airTravelArrangements.by_pet, [id]: p.airTravelArrangements.by_pet[id] || emptyAirTravelDetails() },
+      },
     }));
   };
+
+  const updateAirDetails = (petId, key, value) => setF(p => ({
+    ...p,
+    airTravelArrangements: {
+      version: 1,
+      by_pet: {
+        ...p.airTravelArrangements.by_pet,
+        [petId]: key === "arrangement"
+          ? { arrangement: value }
+          : { ...(p.airTravelArrangements.by_pet[petId] || emptyAirTravelDetails()), [key]: value },
+      },
+    },
+  }));
 
   const legsValid = legs.length > 0 && legs.every(l => l.originCity && l.destinationCity && l.departureDate);
 
@@ -431,6 +461,9 @@ const TripForm = ({ trip, userId, dogs, onSave, onClose }) => {
       departure_date: first.departureDate, return_date: f.returnDate || null,
       transportation_type: first.transportationType, airline: first.airline, flight_number: first.flightNumber || null,
       notes: f.notes, pet_ids: f.selectedPets,
+      air_travel_arrangements: legs.some(leg => leg.transportationType === "air")
+        ? buildAirTravelPayload(f.selectedPets, f.airTravelArrangements)
+        : { version: 1, by_pet: {} },
     };
     let result, error;
     if (trip) {
@@ -576,6 +609,69 @@ const TripForm = ({ trip, userId, dogs, onSave, onClose }) => {
               ))}
             </div>}
         </div>
+
+        {legs.some(leg => leg.transportationType === "air") && f.selectedPets.length > 0 && (
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 12, color: C.sub, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 4 }}>How Will Your Pet Travel?</div>
+            <p style={{ color: C.muted, fontSize: 12, margin: "0 0 10px" }}>Choose an arrangement for each pet. Service-animal status stays separate on your pet’s health record.</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {f.selectedPets.map(petId => {
+                const pet = dogs.find(dog => dog.id === petId);
+                const details = f.airTravelArrangements.by_pet[petId] || emptyAirTravelDetails();
+                const yesNo = (key, label) => (
+                  <Field label={label}>
+                    <select style={inp} value={details[key] === true ? "yes" : details[key] === false ? "no" : ""} onChange={e => updateAirDetails(petId, key, e.target.value === "" ? "" : e.target.value === "yes")}>
+                      <option value="">Select...</option><option value="yes">Yes</option><option value="no">No</option>
+                    </select>
+                  </Field>
+                );
+                return (
+                  <div key={petId} style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 14, padding: 14 }}>
+                    <div style={{ fontWeight: 700, marginBottom: 10 }}>🐾 {pet?.name || "Pet"}</div>
+                    <Field label="Travel arrangement">
+                      <select style={inp} value={details.arrangement || "not_decided"} onChange={e => updateAirDetails(petId, "arrangement", e.target.value)}>
+                        {AIR_TRAVEL_ARRANGEMENTS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                      </select>
+                    </Field>
+
+                    {(details.arrangement === "in_cabin_pet" || details.arrangement === "in_cabin_service_animal") && (
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10 }}>
+                        {details.arrangement === "in_cabin_pet" && <Field label="Carrier dimensions"><input style={inp} value={details.carrier_dimensions || ""} onChange={e => updateAirDetails(petId, "carrier_dimensions", e.target.value)} placeholder="L × W × H" /></Field>}
+                        {details.arrangement === "in_cabin_pet" && <Field label="Pet + carrier weight"><input style={inp} value={details.combined_weight || ""} onChange={e => updateAirDetails(petId, "combined_weight", e.target.value)} placeholder="Include unit" /></Field>}
+                        {details.arrangement === "in_cabin_pet" && <Field label="Carrier type"><select style={inp} value={details.carrier_type || ""} onChange={e => updateAirDetails(petId, "carrier_type", e.target.value)}><option value="">Select...</option><option value="soft">Soft-sided</option><option value="hard">Hard-sided</option></select></Field>}
+                        {details.arrangement === "in_cabin_pet" && yesNo("service_animal_status", "Service animal?")}
+                        <Field label="Seat class"><input style={inp} value={details.seat_class || ""} onChange={e => updateAirDetails(petId, "seat_class", e.target.value)} placeholder="Economy, business..." /></Field>
+                        <Field label="Number of pets"><input type="number" min="1" style={inp} value={details.number_of_pets || ""} onChange={e => updateAirDetails(petId, "number_of_pets", e.target.value)} /></Field>
+                      </div>
+                    )}
+
+                    {details.arrangement === "checked_pet" && (
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10 }}>
+                        <Field label="Kennel dimensions"><input style={inp} value={details.kennel_dimensions || ""} onChange={e => updateAirDetails(petId, "kennel_dimensions", e.target.value)} placeholder="L × W × H" /></Field>
+                        <Field label="Kennel construction"><input style={inp} value={details.kennel_construction || ""} onChange={e => updateAirDetails(petId, "kennel_construction", e.target.value)} placeholder="Rigid plastic, metal..." /></Field>
+                        <Field label="Pet + kennel weight"><input style={inp} value={details.combined_weight || ""} onChange={e => updateAirDetails(petId, "combined_weight", e.target.value)} placeholder="Include unit" /></Field>
+                        {yesNo("same_flight_confirmed", "Same flight confirmed?")}
+                        <Field label="Temperature concerns"><textarea style={{ ...inp, minHeight: 54 }} value={details.temperature_concerns || ""} onChange={e => updateAirDetails(petId, "temperature_concerns", e.target.value)} /></Field>
+                        <Field label="Breed restrictions"><textarea style={{ ...inp, minHeight: 54 }} value={details.breed_restrictions || ""} onChange={e => updateAirDetails(petId, "breed_restrictions", e.target.value)} /></Field>
+                      </div>
+                    )}
+
+                    {details.arrangement === "manifest_cargo" && (
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10 }}>
+                        <Field label="Cargo reservation status"><input style={inp} value={details.cargo_reservation_status || ""} onChange={e => updateAirDetails(petId, "cargo_reservation_status", e.target.value)} placeholder="Not started, pending, confirmed" /></Field>
+                        <Field label="Air waybill"><input style={inp} value={details.air_waybill || ""} onChange={e => updateAirDetails(petId, "air_waybill", e.target.value)} /></Field>
+                        <Field label="Freight agent / pet shipper"><input style={inp} value={details.freight_agent || ""} onChange={e => updateAirDetails(petId, "freight_agent", e.target.value)} /></Field>
+                        <Field label="Cargo terminal"><input style={inp} value={details.cargo_terminal || ""} onChange={e => updateAirDetails(petId, "cargo_terminal", e.target.value)} /></Field>
+                        <Field label="Consignee / receiving party"><input style={inp} value={details.consignee || ""} onChange={e => updateAirDetails(petId, "consignee", e.target.value)} /></Field>
+                        <Field label="Customs broker (if needed)"><input style={inp} value={details.customs_broker || ""} onChange={e => updateAirDetails(petId, "customs_broker", e.target.value)} /></Field>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         <Field label="Notes">
           <textarea maxLength={1000} style={{ ...inp, minHeight: 60 }} value={f.notes} onChange={e => set("notes", e.target.value)} placeholder="Any special notes about this trip..." />
@@ -1523,12 +1619,12 @@ export default function Travel({ userId, onBack }) {
 
   const duplicateTrip = async (trip) => {
     const { name, origin_city, origin_country, destination_city, destination_country,
-      departure_date, return_date, transportation_type, airline, flight_number, notes, pet_ids } = trip;
+      departure_date, return_date, transportation_type, airline, flight_number, notes, pet_ids, air_travel_arrangements } = trip;
     const { data: newTrip, error } = await supabase.from('trips').insert({
       user_id: userId,
       name: name ? `${name} (Copy)` : `${origin_city} → ${destination_city} (Copy)`,
       origin_city, origin_country, destination_city, destination_country,
-      departure_date, return_date, transportation_type, airline, flight_number, notes, pet_ids,
+      departure_date, return_date, transportation_type, airline, flight_number, notes, pet_ids, air_travel_arrangements,
       status: 'planning',
     }).select().single();
     if (error) { console.error('Duplicate trip failed:', error); return; }
@@ -1659,6 +1755,7 @@ export default function Travel({ userId, onBack }) {
                 <div><span style={{ color: C.muted, fontWeight: 600 }}>Traveling </span>{{air:"✈️ Flying",sea:"🚢 By Sea",land:"🚗 Driving",bus:"🚌 Bus"}[trip.transportation_type]||"✈️ Flying"}</div>
                 {trip.airline && <div><span style={{ color: C.muted, fontWeight: 600 }}>{trip.transportation_type==="sea"?"Cruise/Ferry ":trip.transportation_type==="bus"?"Bus Co. ":"Airline "}</span>{trip.airline}</div>}
                 {trip.flight_number && trip.transportation_type==="air" && <div><span style={{ color: C.muted, fontWeight: 600 }}>Flight </span>{trip.flight_number}</div>}
+                {trip.transportation_type === "air" && <div style={{ gridColumn: "1 / -1" }}><span style={{ color: C.muted, fontWeight: 600 }}>Pet arrangement </span>{arrangementCacheKey(trip.air_travel_arrangements, (trip.pet_ids || [])) === "not_decided" ? "Not decided yet" : arrangementCacheKey(trip.air_travel_arrangements, (trip.pet_ids || [])).replaceAll("_", " ").replaceAll("+", ", ")}</div>}
               </div>
               {tripPets.length > 0 && (
                 <div style={{ fontSize: 13, color: C.muted, marginTop: 8 }}>🐾 {tripPets.map(p => p.name).join(", ")}</div>
