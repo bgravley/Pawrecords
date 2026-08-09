@@ -12,6 +12,7 @@ import {
   normalizeAirTravelArrangements,
 } from "./lib/travelArrangement";
 import { AIRPORT_ROLE_LABELS, AIRPORT_ROLE_SECTIONS, buildAirportStops } from "./lib/airportGuide";
+import { TIMELINE_STAGES, groupTimelineItems, parseInstructionSteps } from "./lib/travelTimeline";
 
 const logActivity = async (userId, userEmail, action, details = {}) => {
   try {
@@ -319,6 +320,13 @@ Each item must have these exact fields:
 - requires_document: boolean
 - source_url: string (official government or airline URL — never a blog or third party)
 - notes: string (warnings, tips, common mistakes)
+- timeline_stage: exactly one of start_now, months_6_12, months_3_6, days_30_90, days_10_30, within_10_days, hours_72, departure_day, transit, arrival, after_arrival
+- responsible_party: string (who acts: pet parent, veterinarian, government authority, airline, cargo agent, customs broker, or receiving party)
+- document_name: string (required document name, or empty string)
+- source_authority: string (name of the official government, airline, or airport authority)
+- dependencies: array of checklist item titles that must be completed first
+- applies_to_segment: string (whole trip, departure, transit, arrival, or after arrival)
+- travel_method: string (air arrangement such as in-cabin/checked/cargo, overall sea/land/bus mode, or all)
 
 [`;
 
@@ -335,7 +343,7 @@ Each item must have these exact fields:
       originCountry: trip.origin_country,
       destinationCountry: trip.destination_country,
       transportationType: trip.transportation_type || "air",
-      travelArrangementKey: arrangementCacheKey(trip.air_travel_arrangements, pets.map(p => p.id)),
+      travelArrangementKey: `phase3:${arrangementCacheKey(trip.air_travel_arrangements, pets.map(p => p.id))}`,
     }),
   });
 
@@ -704,35 +712,17 @@ const categoryIcons = {
   health_certificate: "🩺", vaccination: "💉", treatment: "💊", documentation: "📄",
   airline: "✈️", government_form: "🏛️", entry_document: "🛂", other: "📌",
 };
-const ChecklistTimeline = ({ checklist, onEdit }) => {
-  const buckets = [
-    { key: "overdue", label: "⚠️ Overdue", color: C.danger },
-    { key: "week", label: "This Week", color: C.warn },
-    { key: "month", label: "This Month", color: C.accent },
-    { key: "later", label: "Later", color: C.muted },
-    { key: "none", label: "No Deadline Set", color: C.muted },
-  ];
-  const bucketed = { overdue: [], week: [], month: [], later: [], none: [] };
-  for (const item of checklist) {
-    const d = daysUntil(item.deadline_date || null);
-    if (d === null) bucketed.none.push(item);
-    else if (d < 0) bucketed.overdue.push(item);
-    else if (d <= 7) bucketed.week.push(item);
-    else if (d <= 30) bucketed.month.push(item);
-    else bucketed.later.push(item);
-  }
-  for (const key of Object.keys(bucketed)) {
-    bucketed[key].sort((a, b) => (a.deadline_date || "").localeCompare(b.deadline_date || ""));
-  }
+const ChecklistTimeline = ({ checklist, departureDate, onEdit }) => {
+  const bucketed = groupTimelineItems(checklist, departureDate);
   return (
     <div>
-      {buckets.map(b => bucketed[b.key].length > 0 && (
-        <div key={b.key} style={{ marginBottom: 20 }}>
-          <div style={{ fontWeight: 800, fontSize: 12, color: b.color, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
-            {b.label} <span style={{ background: b.color + "22", color: b.color, borderRadius: 20, padding: "1px 8px", fontSize: 11 }}>{bucketed[b.key].length}</span>
+      {TIMELINE_STAGES.map(stage => bucketed[stage.key].length > 0 && (
+        <div key={stage.key} style={{ marginBottom: 20 }}>
+          <div style={{ fontWeight: 800, fontSize: 12, color: C.accentDark, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
+            {stage.label} <span style={{ background: C.accentDim, color: C.accentDark, borderRadius: 20, padding: "1px 8px", fontSize: 11 }}>{bucketed[stage.key].length}</span>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {bucketed[b.key].map(item => (
+            {bucketed[stage.key].map(item => (
               <div key={item.id} onClick={() => onEdit(item)} style={{
                 display: "flex", alignItems: "center", gap: 10, background: "#fff", border: `1px solid ${C.border}`,
                 borderRadius: 10, padding: "10px 12px", cursor: "pointer", opacity: item.is_completed ? 0.55 : 1,
@@ -778,12 +768,7 @@ const ChecklistItem = ({ item, tripPets, onTogglePet, onToggleAll, onUpload, onD
     entry_document: "Entry Document", other: "Other",
   };
 
-  const formatSteps = (text) => {
-    if (!text) return null;
-    const steps = text.split(/(?=Step \d+:)/);
-    return steps.map(s => s.trim()).filter(Boolean);
-  };
-  const steps = formatSteps(item.description);
+  const steps = parseInstructionSteps(item.description);
 
   return (
     <div style={{
@@ -804,6 +789,9 @@ const ChecklistItem = ({ item, tripPets, onTogglePet, onToggleAll, onUpload, onD
             <Badge label={categoryLabels[item.category] || item.category} color={categoryColors[item.category] || C.muted} />
             {isOverdue && <Badge label="OVERDUE" color={C.danger} />}
             {isUrgent && !isOverdue && <Badge label={`${days}d left`} color={C.warn} />}
+            {item.task_status === 'in_progress' && <Badge label="IN PROGRESS" color={C.accent} />}
+            {item.task_status === 'blocked' && <Badge label="BLOCKED" color={C.danger} />}
+            {item.task_status === 'not_applicable' && <Badge label="NOT APPLICABLE" color={C.muted} />}
           </div>
 
           {/* Per-pet checkboxes */}
@@ -840,6 +828,16 @@ const ChecklistItem = ({ item, tripPets, onTogglePet, onToggleAll, onUpload, onD
               📅 Deadline: {fmt(item.deadline_date)}
             </div>
           )}
+
+          {(item.responsible_party || item.document_name || item.applies_to_segment || item.travel_method) && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+              {item.responsible_party && <Badge label={`Who: ${item.responsible_party}`} color={C.sub} />}
+              {item.document_name && <Badge label={`Document: ${item.document_name}`} color={C.accent} />}
+              {item.applies_to_segment && <Badge label={`Segment: ${item.applies_to_segment}`} color={C.muted} />}
+              {item.travel_method && <Badge label={`Method: ${item.travel_method}`} color={C.accentDark} />}
+            </div>
+          )}
+          {Array.isArray(item.dependencies) && item.dependencies.length > 0 && <div style={{ fontSize: 12, color: C.sub, marginBottom: 8 }}><strong>Complete first:</strong> {item.dependencies.join(" · ")}</div>}
 
           {/* Notes warning */}
           {item.notes && <div style={{ fontSize: 12, color: C.warn, marginBottom: 8, fontWeight: 600 }}>⚠ {item.notes}</div>}
@@ -879,6 +877,7 @@ const ChecklistItem = ({ item, tripPets, onTogglePet, onToggleAll, onUpload, onD
                   🔗 Official Source →
                 </span>
               </a>
+              {(item.source_authority || item.last_verified_at || item.researched_at) && <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>{item.source_authority || "Official authority"}{(item.last_verified_at || item.researched_at) ? ` · Checked ${new Date(item.last_verified_at || item.researched_at).toLocaleDateString()}` : ""}</div>}
             </div>
           )}
 
@@ -907,6 +906,8 @@ const EditChecklistItemModal = ({ item, onSave, onClose }) => {
     title: item.title || "", description: item.description || "", category: item.category || "other",
     deadline_date: item.deadline_date || "", deadline_window_start: item.deadline_window_start || "",
     deadline_window_end: item.deadline_window_end || "", notes: item.notes || "", requires_document: !!item.requires_document,
+    timeline_stage: item.timeline_stage || "start_now", responsible_party: item.responsible_party || "",
+    document_name: item.document_name || "", task_status: item.task_status || (item.is_completed ? "complete" : "not_started"),
   });
   const [saving, setSaving] = useState(false);
   const set = (k, v) => setF(p => ({ ...p, [k]: v }));
@@ -922,6 +923,10 @@ const EditChecklistItemModal = ({ item, onSave, onClose }) => {
       title: f.title.trim(), description: f.description || null, category: f.category,
       deadline_date: f.deadline_date || null, deadline_window_start: f.deadline_window_start || null,
       deadline_window_end: f.deadline_window_end || null, notes: f.notes || null, requires_document: f.requires_document,
+      timeline_stage: f.timeline_stage, responsible_party: f.responsible_party || null,
+      document_name: f.document_name || null, task_status: f.task_status,
+      is_completed: f.task_status === 'complete',
+      completed_date: f.task_status === 'complete' ? (item.completed_date || today()) : null,
     }).eq('id', item.id).select().single();
     setSaving(false);
     if (error) { console.error('Checklist item update failed:', error); return; }
@@ -942,6 +947,10 @@ const EditChecklistItemModal = ({ item, onSave, onClose }) => {
         <Field label="Window End"><input type="date" style={inp} value={f.deadline_window_end} onChange={e => set("deadline_window_end", e.target.value)} /></Field>
       </div>
       <Field label="Notes"><textarea maxLength={1000} style={{ ...inp, minHeight: 60 }} value={f.notes} onChange={e => set("notes", e.target.value)} /></Field>
+      <Field label="Timeline"><select style={inp} value={f.timeline_stage} onChange={e => set("timeline_stage", e.target.value)}>{TIMELINE_STAGES.map(stage => <option key={stage.key} value={stage.key}>{stage.label}</option>)}</select></Field>
+      <Field label="Responsible Party"><input maxLength={150} style={inp} value={f.responsible_party} onChange={e => set("responsible_party", e.target.value)} /></Field>
+      <Field label="Required Document"><input maxLength={200} style={inp} value={f.document_name} onChange={e => set("document_name", e.target.value)} /></Field>
+      <Field label="Status"><select style={inp} value={f.task_status} onChange={e => set("task_status", e.target.value)}><option value="not_started">Not started</option><option value="in_progress">In progress</option><option value="complete">Complete</option><option value="blocked">Blocked</option><option value="not_applicable">Not applicable</option></select></Field>
       <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: C.text, margin: "10px 0" }}>
         <input type="checkbox" checked={f.requires_document} onChange={e => set("requires_document", e.target.checked)} />
         Requires a document upload
@@ -1109,8 +1118,19 @@ const TripDetail = ({ trip, userId, dogs, onBack, onUpdate, onDelete, onEdit, on
         deadline_window_end: item.window_end_days ? daysToDateFrom(trip.departure_date, item.window_end_days) : null,
         requires_document: item.requires_document === true,
         source_url: item.source_url || null,
+        source_authority: item.source_authority || null,
+        last_verified_at: now,
         researched_at: now,
         notes: item.notes || null,
+        timeline_stage: item.timeline_stage || 'start_now',
+        responsible_party: item.responsible_party || null,
+        document_name: item.document_name || null,
+        dependencies: Array.isArray(item.dependencies) ? item.dependencies : [],
+        applies_to_pet_ids: tripPets.filter(p => (p.species || 'dog') === (item.applies_to || 'dog')).map(p => p.id),
+        applies_to_species: item.applies_to || null,
+        applies_to_segment: item.applies_to_segment || 'whole trip',
+        travel_method: item.travel_method || (trip.transportation_type || 'air'),
+        task_status: 'not_started',
         sort_order: i,
       }));
       const { data, error: insertErr } = await supabase.from('trip_checklist_items').insert(toInsert).select();
@@ -1155,7 +1175,8 @@ const TripDetail = ({ trip, userId, dogs, onBack, onUpdate, onDelete, onEdit, on
       .update({
         pet_completions: updated,
         is_completed: allDone,
-        completed_date: allDone ? today() : null
+        completed_date: allDone ? today() : null,
+        task_status: allDone ? 'complete' : 'in_progress'
       })
       .eq('id', item.id).select().single();
     if (error) { console.error('Toggle pet failed:', error); setGenError({ message: 'Could not update — please try again.' }); return; }
@@ -1169,7 +1190,8 @@ const TripDetail = ({ trip, userId, dogs, onBack, onUpdate, onDelete, onEdit, on
       .update({
         pet_completions: updated,
         is_completed: done,
-        completed_date: done ? today() : null
+        completed_date: done ? today() : null,
+        task_status: done ? 'complete' : 'not_started'
       })
       .eq('id', item.id).select().single();
     if (error) { console.error('Toggle all failed:', error); setGenError({ message: 'Could not update — please try again.' }); return; }
@@ -1183,7 +1205,7 @@ const TripDetail = ({ trip, userId, dogs, onBack, onUpdate, onDelete, onEdit, on
       return;
     }
     const { data, error } = await supabase.from('trip_checklist_items')
-      .update({ is_completed: !item.is_completed, completed_date: !item.is_completed ? today() : null })
+      .update({ is_completed: !item.is_completed, completed_date: !item.is_completed ? today() : null, task_status: !item.is_completed ? 'complete' : 'not_started' })
       .eq('id', item.id).select().single();
     if (error) { console.error('Toggle item failed:', error); setGenError({ message: 'Could not update — please try again.' }); return; }
     if (data) setChecklist(prev => prev.map(x => x.id === item.id ? data : x));
@@ -1516,7 +1538,7 @@ ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.i
           )}
 
           {checklistView === "timeline" && checklist.length > 0
-            ? <ChecklistTimeline checklist={checklist} onEdit={setEditingItem} />
+            ? <ChecklistTimeline checklist={checklist} departureDate={trip.departure_date} onEdit={setEditingItem} />
             : checklist.map(item => (
               <ChecklistItem key={item.id} item={item} tripPets={tripPets} onTogglePet={togglePet} onToggleAll={toggleAll} onUpload={uploadDoc} onDelete={deleteItem} onEdit={setEditingItem} />
             ))}

@@ -228,7 +228,18 @@
     "sort_order",
     "created_at",
     "pet_completions",
-    "leg_id"
+    "leg_id",
+    "timeline_stage",
+    "responsible_party",
+    "document_name",
+    "source_authority",
+    "last_verified_at",
+    "dependencies",
+    "applies_to_pet_ids",
+    "applies_to_species",
+    "applies_to_segment",
+    "travel_method",
+    "task_status"
   ],
   "trip_documents": [
     "id",
