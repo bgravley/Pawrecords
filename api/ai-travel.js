@@ -121,13 +121,13 @@ function normalizeCountry(c) {
   return (c || '').trim().toLowerCase();
 }
 
-async function getCachedChecklist(originCountry, destinationCountry, transportMode) {
+async function getCachedChecklist(originCountry, destinationCountry, transportMode, travelArrangementKey = 'unspecified') {
   if (!originCountry || !destinationCountry) return null;
   const mode = (transportMode || 'air').toLowerCase();
   const cutoff = new Date(Date.now() - CACHE_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString();
   try {
     const res = await fetch(
-      `${process.env.SUPABASE_URL}/rest/v1/travel_route_cache?origin_country=eq.${encodeURIComponent(normalizeCountry(originCountry))}&destination_country=eq.${encodeURIComponent(normalizeCountry(destinationCountry))}&transportation_mode=eq.${encodeURIComponent(mode)}&created_at=gte.${cutoff}&select=checklist_json&order=created_at.desc&limit=1`,
+      `${process.env.SUPABASE_URL}/rest/v1/travel_route_cache?origin_country=eq.${encodeURIComponent(normalizeCountry(originCountry))}&destination_country=eq.${encodeURIComponent(normalizeCountry(destinationCountry))}&transportation_mode=eq.${encodeURIComponent(mode)}&travel_arrangement_key=eq.${encodeURIComponent(travelArrangementKey || 'unspecified')}&created_at=gte.${cutoff}&select=checklist_json&order=created_at.desc&limit=1`,
       { headers: { 'apikey': process.env.SUPABASE_SERVICE_KEY, 'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}` } }
     );
     if (!res.ok) {
@@ -142,7 +142,7 @@ async function getCachedChecklist(originCountry, destinationCountry, transportMo
   }
 }
 
-async function saveToCache(originCountry, destinationCountry, checklistItems, transportMode) {
+async function saveToCache(originCountry, destinationCountry, checklistItems, transportMode, travelArrangementKey = 'unspecified') {
   if (!originCountry || !destinationCountry) return;
   try {
     await fetch(`${process.env.SUPABASE_URL}/rest/v1/travel_route_cache`, {
@@ -157,6 +157,7 @@ async function saveToCache(originCountry, destinationCountry, checklistItems, tr
         origin_country: normalizeCountry(originCountry),
         destination_country: normalizeCountry(destinationCountry),
         transportation_mode: (transportMode || 'air').toLowerCase(),
+        travel_arrangement_key: travelArrangementKey || 'unspecified',
         checklist_json: checklistItems,
       }),
     });
@@ -252,7 +253,7 @@ async function verifyWithClaude(checklistItems) {
 
 Review each item in the JSON array below. For each item, check TWO things:
 
-1. ACCURACY: Are you confident the specific requirements, deadlines, costs, form numbers, and agency names are correct and current? Pet travel regulations change frequently.
+1. ACCURACY: Are you confident the specific requirements, deadlines, form numbers, and agency names are correct and current? Pet travel regulations change frequently.
 
 2. SOURCE QUALITY: Look at the "source_url" field. Is it an official government website (.gov, official ministry/agency site), an official airline website, or IATA? Or does it look like a third-party blog, forum, "top tips" site, or other unofficial/aggregator source?
 
@@ -325,7 +326,7 @@ export default async function handler(req, res) {
     userEmail = auth.email;
   }
 
-  const { messages, destination, originCountry, destinationCountry, transportationType } = req.body;
+  const { messages, destination, originCountry, destinationCountry, transportationType, travelArrangementKey } = req.body;
 
   if (!messages || !Array.isArray(messages)) {
     return res.status(400).json({ error: 'messages array required' });
@@ -349,7 +350,7 @@ export default async function handler(req, res) {
     }
 
     // ── Check the route cache — free for everyone, no quota cost ────────────
-    const cached = await getCachedChecklist(originCountry, destinationCountry, transportationType);
+    const cached = await getCachedChecklist(originCountry, destinationCountry, transportationType, travelArrangementKey);
     if (cached) {
       console.log(`Cache hit for ${originCountry} → ${destinationCountry} (${transportationType || 'air'})`);
       return res.status(200).json({
@@ -428,7 +429,7 @@ export default async function handler(req, res) {
     checklistItems = verifyResult.items;
 
     // Save to cache so the next request for this route is free
-    await saveToCache(originCountry, destinationCountry, checklistItems, transportationType);
+    await saveToCache(originCountry, destinationCountry, checklistItems, transportationType, travelArrangementKey);
 
     // Log BOTH models used for this single request as separate rows —
     // GPT-4o did the web search/generation, Claude did the verification.

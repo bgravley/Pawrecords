@@ -205,7 +205,8 @@
     "destination_country",
     "transportation_mode",
     "checklist_json",
-    "created_at"
+    "created_at",
+    "travel_arrangement_key"
   ],
   "trip_checklist_items": [
     "id",
@@ -258,7 +259,8 @@
     "notes",
     "created_at",
     "flight_number",
-    "transportation_type"
+    "transportation_type",
+    "air_travel_arrangements"
   ],
   "vaccinations": [
     "id",
