@@ -14,6 +14,7 @@ import {
 import { AIRPORT_ROLE_LABELS, AIRPORT_ROLE_SECTIONS, buildAirportStops } from "./lib/airportGuide";
 import { TIMELINE_STAGES, groupTimelineItems, parseInstructionSteps } from "./lib/travelTimeline";
 import { READINESS_LABELS, READINESS_STATUSES, readinessSummary } from "./lib/travelReadiness";
+import { REVIEW_STATUSES, SOURCE_TYPES, expectedSourceType, sourceVerificationState } from "./lib/sourceVerification";
 
 const logActivity = async (userId, userEmail, action, details = {}) => {
   try {
@@ -298,7 +299,6 @@ ${transportMode === "air" ? `Always include a checklist item for ${trip.airline 
 - Carrier/crate size and weight limits
 - Whether breed restrictions apply (especially brachycephalic/snub-nosed breeds)
 - How far in advance to book pet travel
-- Pet fees
 - Source: the airline's official pet policy page` : transportMode === "sea" ? `Always include a checklist item for ${trip.airline || "the cruise line/ferry company"} with:
 - Whether pets are allowed at all (many cruise lines only allow service animals)
 - Any pet boarding/kennel facilities available on board
@@ -330,6 +330,14 @@ Each item must have these exact fields:
 - travel_method: string (air arrangement such as in-cabin/checked/cargo, overall sea/land/bus mode, or all)
 - importance: exactly "critical" when missing it could prevent boarding, entry, transit, or safe travel; otherwise "supporting"
 - readiness_weight: number from 1 to 5 (5 for trip-blocking legal or health requirements; 1 for supporting preparation)
+- source_type: exactly government, airline, or airport. Use government for entry, export, transit, quarantine, health, vaccination, treatment, permits, and customs; airline only for airline policy; airport only for airport logistics.
+- jurisdiction: string (country, territory, airport, or airline whose rule this is)
+- requirement_type: one of entry, export, transit, quarantine, health, vaccination, treatment, permit, customs, airline_policy, airport_logistics, other
+- transit_countries: array of transit countries this applies to, or an empty array
+- effective_date: YYYY-MM-DD when known, otherwise empty string
+- source_expires_at: YYYY-MM-DD when the rule or source is known to expire, otherwise empty string
+
+Country entry/export/transit/quarantine/health requirements MUST use source_type government and the responsible government authority's official URL. Airline sources may support only airline_policy. Airport sources may support only airport_logistics.
 
 [`;
 
@@ -346,7 +354,7 @@ Each item must have these exact fields:
       originCountry: trip.origin_country,
       destinationCountry: trip.destination_country,
       transportationType: trip.transportation_type || "air",
-      travelArrangementKey: `phase4:${arrangementCacheKey(trip.air_travel_arrangements, pets.map(p => p.id))}`,
+      travelArrangementKey: `phase5:${arrangementCacheKey(trip.air_travel_arrangements, pets.map(p => p.id))}`,
     }),
   });
 
@@ -772,6 +780,7 @@ const ChecklistItem = ({ item, tripPets, onTogglePet, onToggleAll, onUpload, onD
   };
 
   const steps = parseInstructionSteps(item.description);
+  const sourceState = sourceVerificationState(item);
 
   return (
     <div style={{
@@ -872,7 +881,12 @@ const ChecklistItem = ({ item, tripPets, onTogglePet, onToggleAll, onUpload, onD
 
           {/* Official source */}
           {item.source_url && (
-            <div style={{ marginBottom: 8 }}>
+            <div style={{ marginBottom: 8, background: C.bg, border: `1px solid ${sourceState.state === 'warning' || sourceState.state === 'changed' ? C.warn : C.border}`, borderRadius: 10, padding: 10 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 7 }}>
+                <Badge label={sourceState.label} color={sourceState.state === 'verified' ? '#4CAF50' : sourceState.state === 'pending' ? C.accent : C.warn} />
+                {item.source_type && <Badge label={item.source_type.toUpperCase()} color={C.sub} />}
+                {item.jurisdiction && <Badge label={item.jurisdiction} color={C.muted} />}
+              </div>
               <a href={item.source_url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
                 <span style={{
                   display: "inline-flex", alignItems: "center", gap: 6,
@@ -882,9 +896,11 @@ const ChecklistItem = ({ item, tripPets, onTogglePet, onToggleAll, onUpload, onD
                   🔗 Official Source →
                 </span>
               </a>
-              {(item.source_authority || item.last_verified_at || item.researched_at) && <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>{item.source_authority || "Official authority"}{(item.last_verified_at || item.researched_at) ? ` · Checked ${new Date(item.last_verified_at || item.researched_at).toLocaleDateString()}` : ""}</div>}
+              {(item.source_authority || item.last_verified_at || item.researched_at) && <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>{item.source_authority || "Official authority"}{(item.last_verified_at || item.researched_at) ? ` · Checked ${new Date(item.last_verified_at || item.researched_at).toLocaleDateString()}` : ""}{item.effective_date ? ` · Effective ${fmt(item.effective_date)}` : ""}{item.source_expires_at ? ` · Expires ${fmt(item.source_expires_at)}` : ""}</div>}
+              {item.requirement_type && <div style={{ fontSize: 11, color: C.muted, marginTop: 3 }}>Requirement: {item.requirement_type.replace(/_/g, " ")}{item.origin_country_scope || item.destination_country_scope ? ` · ${item.origin_country_scope || "—"} → ${item.destination_country_scope || "—"}` : ""}</div>}
             </div>
           )}
+          {!item.source_url && <div style={{ marginBottom: 8, background: C.warnDim, border: `1px solid ${C.warn}`, borderRadius: 8, padding: "8px 10px", color: C.warn, fontSize: 12, fontWeight: 700 }}>Official source needed before relying on this requirement.</div>}
 
           {/* Upload per pet */}
           {item.requires_document && !allDone && (
@@ -915,6 +931,8 @@ const EditChecklistItemModal = ({ item, onSave, onClose }) => {
     document_name: item.document_name || "", task_status: item.task_status || (item.is_completed ? "complete" : "not_started"),
     importance: item.importance || "critical", readiness_status: item.readiness_status || (item.is_completed ? "complete" : "missing"),
     readiness_weight: item.readiness_weight || (item.importance === "supporting" ? 1 : 3), document_expires_at: item.document_expires_at || "", review_notes: item.review_notes || "",
+    source_type: item.source_type || "government", jurisdiction: item.jurisdiction || "", requirement_type: item.requirement_type || "other",
+    effective_date: item.effective_date || "", source_expires_at: item.source_expires_at || "", human_review_status: item.human_review_status || "pending", change_detected: !!item.change_detected,
   });
   const [saving, setSaving] = useState(false);
   const set = (k, v) => setF(p => ({ ...p, [k]: v }));
@@ -938,6 +956,9 @@ const EditChecklistItemModal = ({ item, onSave, onClose }) => {
       importance: f.importance, readiness_status: f.readiness_status,
       readiness_weight: Math.max(1, Math.min(5, Number(f.readiness_weight) || 1)),
       document_expires_at: f.document_expires_at || null, review_notes: f.review_notes || null,
+      source_type: f.source_type, jurisdiction: f.jurisdiction || null, requirement_type: f.requirement_type,
+      effective_date: f.effective_date || null, source_expires_at: f.source_expires_at || null,
+      human_review_status: f.human_review_status, change_detected: f.change_detected,
     }).eq('id', item.id).select().single();
     setSaving(false);
     if (error) { console.error('Checklist item update failed:', error); return; }
@@ -966,6 +987,12 @@ const EditChecklistItemModal = ({ item, onSave, onClose }) => {
       <Field label="Importance"><select style={inp} value={f.importance} onChange={e => set("importance", e.target.value)}><option value="critical">Critical</option><option value="supporting">Supporting</option></select></Field>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}><Field label="Readiness Weight (1–5)"><input type="number" min="1" max="5" style={inp} value={f.readiness_weight} onChange={e => set("readiness_weight", e.target.value)} /></Field><Field label="Document Expires"><input type="date" style={inp} value={f.document_expires_at} onChange={e => set("document_expires_at", e.target.value)} /></Field></div>
       <Field label="Review Notes"><textarea maxLength={1000} style={{ ...inp, minHeight: 60 }} value={f.review_notes} onChange={e => set("review_notes", e.target.value)} /></Field>
+      <Field label="Source Type"><select style={inp} value={f.source_type} onChange={e => set("source_type", e.target.value)}>{SOURCE_TYPES.map(value => <option key={value} value={value}>{value}</option>)}</select></Field>
+      <Field label="Jurisdiction / Authority Scope"><input maxLength={200} style={inp} value={f.jurisdiction} onChange={e => set("jurisdiction", e.target.value)} /></Field>
+      <Field label="Requirement Type"><select style={inp} value={f.requirement_type} onChange={e => set("requirement_type", e.target.value)}>{["entry","export","transit","quarantine","health","vaccination","treatment","permit","customs","airline_policy","airport_logistics","other"].map(value => <option key={value} value={value}>{value.replace(/_/g, " ")}</option>)}</select></Field>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}><Field label="Effective Date"><input type="date" style={inp} value={f.effective_date} onChange={e => set("effective_date", e.target.value)} /></Field><Field label="Source Expires"><input type="date" style={inp} value={f.source_expires_at} onChange={e => set("source_expires_at", e.target.value)} /></Field></div>
+      <Field label="Human Review"><select style={inp} value={f.human_review_status} onChange={e => set("human_review_status", e.target.value)}>{REVIEW_STATUSES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
+      <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: C.text }}><input type="checkbox" checked={f.change_detected} onChange={e => set("change_detected", e.target.checked)} />A source change needs review</label>
       <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: C.text, margin: "10px 0" }}>
         <input type="checkbox" checked={f.requires_document} onChange={e => set("requires_document", e.target.checked)} />
         Requires a document upload
@@ -1150,6 +1177,17 @@ const TripDetail = ({ trip, userId, dogs, onBack, onUpdate, onDelete, onEdit, on
         importance: item.importance === 'supporting' ? 'supporting' : 'critical',
         readiness_weight: Math.max(1, Math.min(5, Number(item.readiness_weight) || (item.importance === 'supporting' ? 1 : 3))),
         readiness_status: 'missing',
+        source_type: expectedSourceType(item),
+        jurisdiction: item.jurisdiction || (item.category === 'airline' ? (trip.airline || null) : (item.applies_to_segment === 'departure' ? trip.origin_country : trip.destination_country)),
+        requirement_type: item.requirement_type || (item.category === 'airline' ? 'airline_policy' : 'other'),
+        origin_country_scope: trip.origin_country || null,
+        destination_country_scope: trip.destination_country || null,
+        transit_countries: Array.isArray(item.transit_countries) ? item.transit_countries : [],
+        airline_scope: expectedSourceType(item) === 'airline' ? (trip.airline || null) : null,
+        effective_date: item.effective_date || null,
+        source_expires_at: item.source_expires_at || null,
+        change_detected: false,
+        human_review_status: 'pending',
         sort_order: i,
       }));
       const { data, error: insertErr } = await supabase.from('trip_checklist_items').insert(toInsert).select();
