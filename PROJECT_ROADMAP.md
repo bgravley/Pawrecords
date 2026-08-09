@@ -1,6 +1,6 @@
 # YourPetPass Platform Update Roadmap
 
-Phases One and Two are complete. Phase Three is active; Phases Four through Seven remain queued.
+Phases One through Three are complete. Phase Four is active; Phases Five through Seven remain queued.
 
 ## Phase One — Expanded trip intake + pet travel method
 
@@ -23,9 +23,14 @@ Phases One and Two are complete. Phase Three is active; Phases Four through Seve
 - Responsible party, document, source verification, status, dependencies, pet/species, segment, and travel-method scope
 - Correct vertical formatting for numbered instructions
 
+## Phase Four — Progress + What’s Missing? (active)
+
+- Weighted readiness with critical and supporting requirements
+- Missing, uploaded awaiting review, needs correction, complete, not applicable, blocked, and expired states
+- Critical gaps, upcoming deadlines, and document issues in one actionable view
+
 ## Queued phases
 
-4. Weighted readiness and What’s Missing statuses
 5. Official-source verification system
 6. Printable/shareable Travel Summary
 7. Adaptive packing checklist and emergency section

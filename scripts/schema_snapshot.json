@@ -239,7 +239,12 @@
     "applies_to_species",
     "applies_to_segment",
     "travel_method",
-    "task_status"
+    "task_status",
+    "importance",
+    "readiness_weight",
+    "readiness_status",
+    "document_expires_at",
+    "review_notes"
   ],
   "trip_documents": [
     "id",

@@ -13,6 +13,7 @@ import {
 } from "./lib/travelArrangement";
 import { AIRPORT_ROLE_LABELS, AIRPORT_ROLE_SECTIONS, buildAirportStops } from "./lib/airportGuide";
 import { TIMELINE_STAGES, groupTimelineItems, parseInstructionSteps } from "./lib/travelTimeline";
+import { READINESS_LABELS, READINESS_STATUSES, readinessSummary } from "./lib/travelReadiness";
 
 const logActivity = async (userId, userEmail, action, details = {}) => {
   try {
@@ -327,6 +328,8 @@ Each item must have these exact fields:
 - dependencies: array of checklist item titles that must be completed first
 - applies_to_segment: string (whole trip, departure, transit, arrival, or after arrival)
 - travel_method: string (air arrangement such as in-cabin/checked/cargo, overall sea/land/bus mode, or all)
+- importance: exactly "critical" when missing it could prevent boarding, entry, transit, or safe travel; otherwise "supporting"
+- readiness_weight: number from 1 to 5 (5 for trip-blocking legal or health requirements; 1 for supporting preparation)
 
 [`;
 
@@ -343,7 +346,7 @@ Each item must have these exact fields:
       originCountry: trip.origin_country,
       destinationCountry: trip.destination_country,
       transportationType: trip.transportation_type || "air",
-      travelArrangementKey: `phase3:${arrangementCacheKey(trip.air_travel_arrangements, pets.map(p => p.id))}`,
+      travelArrangementKey: `phase4:${arrangementCacheKey(trip.air_travel_arrangements, pets.map(p => p.id))}`,
     }),
   });
 
@@ -792,6 +795,8 @@ const ChecklistItem = ({ item, tripPets, onTogglePet, onToggleAll, onUpload, onD
             {item.task_status === 'in_progress' && <Badge label="IN PROGRESS" color={C.accent} />}
             {item.task_status === 'blocked' && <Badge label="BLOCKED" color={C.danger} />}
             {item.task_status === 'not_applicable' && <Badge label="NOT APPLICABLE" color={C.muted} />}
+            {item.importance && <Badge label={item.importance === 'critical' ? 'CRITICAL' : 'SUPPORTING'} color={item.importance === 'critical' ? C.danger : C.muted} />}
+            {item.readiness_status && <Badge label={READINESS_LABELS[item.readiness_status] || item.readiness_status} color={item.readiness_status === 'complete' ? '#4CAF50' : ['missing', 'expired'].includes(item.readiness_status) ? C.danger : C.warn} />}
           </div>
 
           {/* Per-pet checkboxes */}
@@ -908,6 +913,8 @@ const EditChecklistItemModal = ({ item, onSave, onClose }) => {
     deadline_window_end: item.deadline_window_end || "", notes: item.notes || "", requires_document: !!item.requires_document,
     timeline_stage: item.timeline_stage || "start_now", responsible_party: item.responsible_party || "",
     document_name: item.document_name || "", task_status: item.task_status || (item.is_completed ? "complete" : "not_started"),
+    importance: item.importance || "critical", readiness_status: item.readiness_status || (item.is_completed ? "complete" : "missing"),
+    readiness_weight: item.readiness_weight || (item.importance === "supporting" ? 1 : 3), document_expires_at: item.document_expires_at || "", review_notes: item.review_notes || "",
   });
   const [saving, setSaving] = useState(false);
   const set = (k, v) => setF(p => ({ ...p, [k]: v }));
@@ -919,14 +926,18 @@ const EditChecklistItemModal = ({ item, onSave, onClose }) => {
   const save = async () => {
     if (!f.title.trim()) return;
     setSaving(true);
+    const taskStatus = f.readiness_status === 'complete' ? 'complete' : f.readiness_status === 'not_applicable' ? 'not_applicable' : f.readiness_status === 'blocked' ? 'blocked' : f.task_status === 'complete' ? 'not_started' : f.task_status;
     const { data, error } = await supabase.from('trip_checklist_items').update({
       title: f.title.trim(), description: f.description || null, category: f.category,
       deadline_date: f.deadline_date || null, deadline_window_start: f.deadline_window_start || null,
       deadline_window_end: f.deadline_window_end || null, notes: f.notes || null, requires_document: f.requires_document,
       timeline_stage: f.timeline_stage, responsible_party: f.responsible_party || null,
-      document_name: f.document_name || null, task_status: f.task_status,
-      is_completed: f.task_status === 'complete',
-      completed_date: f.task_status === 'complete' ? (item.completed_date || today()) : null,
+      document_name: f.document_name || null, task_status: taskStatus,
+      is_completed: taskStatus === 'complete',
+      completed_date: taskStatus === 'complete' ? (item.completed_date || today()) : null,
+      importance: f.importance, readiness_status: f.readiness_status,
+      readiness_weight: Math.max(1, Math.min(5, Number(f.readiness_weight) || 1)),
+      document_expires_at: f.document_expires_at || null, review_notes: f.review_notes || null,
     }).eq('id', item.id).select().single();
     setSaving(false);
     if (error) { console.error('Checklist item update failed:', error); return; }
@@ -951,6 +962,10 @@ const EditChecklistItemModal = ({ item, onSave, onClose }) => {
       <Field label="Responsible Party"><input maxLength={150} style={inp} value={f.responsible_party} onChange={e => set("responsible_party", e.target.value)} /></Field>
       <Field label="Required Document"><input maxLength={200} style={inp} value={f.document_name} onChange={e => set("document_name", e.target.value)} /></Field>
       <Field label="Status"><select style={inp} value={f.task_status} onChange={e => set("task_status", e.target.value)}><option value="not_started">Not started</option><option value="in_progress">In progress</option><option value="complete">Complete</option><option value="blocked">Blocked</option><option value="not_applicable">Not applicable</option></select></Field>
+      <Field label="Readiness"><select style={inp} value={f.readiness_status} onChange={e => set("readiness_status", e.target.value)}>{READINESS_STATUSES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
+      <Field label="Importance"><select style={inp} value={f.importance} onChange={e => set("importance", e.target.value)}><option value="critical">Critical</option><option value="supporting">Supporting</option></select></Field>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}><Field label="Readiness Weight (1–5)"><input type="number" min="1" max="5" style={inp} value={f.readiness_weight} onChange={e => set("readiness_weight", e.target.value)} /></Field><Field label="Document Expires"><input type="date" style={inp} value={f.document_expires_at} onChange={e => set("document_expires_at", e.target.value)} /></Field></div>
+      <Field label="Review Notes"><textarea maxLength={1000} style={{ ...inp, minHeight: 60 }} value={f.review_notes} onChange={e => set("review_notes", e.target.value)} /></Field>
       <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: C.text, margin: "10px 0" }}>
         <input type="checkbox" checked={f.requires_document} onChange={e => set("requires_document", e.target.checked)} />
         Requires a document upload
@@ -1047,6 +1062,7 @@ const TripDetail = ({ trip, userId, dogs, onBack, onUpdate, onDelete, onEdit, on
   const overdueCount = checklist.filter(i => !i.is_completed && daysUntil(i.deadline_date) !== null && daysUntil(i.deadline_date) < 0).length;
   const urgentCount = checklist.filter(i => !i.is_completed && daysUntil(i.deadline_date) !== null && daysUntil(i.deadline_date) >= 0 && daysUntil(i.deadline_date) <= 7).length;
   const airportStops = buildAirportStops(legs);
+  const readiness = readinessSummary(checklist, documents);
 
   const cancelTrip = async () => {
     setCancelling(true);
@@ -1131,6 +1147,9 @@ const TripDetail = ({ trip, userId, dogs, onBack, onUpdate, onDelete, onEdit, on
         applies_to_segment: item.applies_to_segment || 'whole trip',
         travel_method: item.travel_method || (trip.transportation_type || 'air'),
         task_status: 'not_started',
+        importance: item.importance === 'supporting' ? 'supporting' : 'critical',
+        readiness_weight: Math.max(1, Math.min(5, Number(item.readiness_weight) || (item.importance === 'supporting' ? 1 : 3))),
+        readiness_status: 'missing',
         sort_order: i,
       }));
       const { data, error: insertErr } = await supabase.from('trip_checklist_items').insert(toInsert).select();
@@ -1176,7 +1195,8 @@ const TripDetail = ({ trip, userId, dogs, onBack, onUpdate, onDelete, onEdit, on
         pet_completions: updated,
         is_completed: allDone,
         completed_date: allDone ? today() : null,
-        task_status: allDone ? 'complete' : 'in_progress'
+        task_status: allDone ? 'complete' : 'in_progress',
+        readiness_status: allDone ? 'complete' : 'missing'
       })
       .eq('id', item.id).select().single();
     if (error) { console.error('Toggle pet failed:', error); setGenError({ message: 'Could not update — please try again.' }); return; }
@@ -1191,7 +1211,8 @@ const TripDetail = ({ trip, userId, dogs, onBack, onUpdate, onDelete, onEdit, on
         pet_completions: updated,
         is_completed: done,
         completed_date: done ? today() : null,
-        task_status: done ? 'complete' : 'not_started'
+        task_status: done ? 'complete' : 'not_started',
+        readiness_status: done ? 'complete' : 'missing'
       })
       .eq('id', item.id).select().single();
     if (error) { console.error('Toggle all failed:', error); setGenError({ message: 'Could not update — please try again.' }); return; }
@@ -1205,7 +1226,7 @@ const TripDetail = ({ trip, userId, dogs, onBack, onUpdate, onDelete, onEdit, on
       return;
     }
     const { data, error } = await supabase.from('trip_checklist_items')
-      .update({ is_completed: !item.is_completed, completed_date: !item.is_completed ? today() : null, task_status: !item.is_completed ? 'complete' : 'not_started' })
+      .update({ is_completed: !item.is_completed, completed_date: !item.is_completed ? today() : null, task_status: !item.is_completed ? 'complete' : 'not_started', readiness_status: !item.is_completed ? 'complete' : 'missing' })
       .eq('id', item.id).select().single();
     if (error) { console.error('Toggle item failed:', error); setGenError({ message: 'Could not update — please try again.' }); return; }
     if (data) setChecklist(prev => prev.map(x => x.id === item.id ? data : x));
@@ -1222,7 +1243,11 @@ const TripDetail = ({ trip, userId, dogs, onBack, onUpdate, onDelete, onEdit, on
       file_path: path, is_entry_document: false,
     }).select().single();
     if (error) { console.error('Document record save failed:', error); setGenError({ message: 'File uploaded but could not be saved to this item — please try again.' }); return; }
-    if (data) { setDocuments(prev => [...prev, data]); await toggleItem(item); }
+    if (data) {
+      setDocuments(prev => [...prev, data]);
+      const { data: updated } = await supabase.from('trip_checklist_items').update({ readiness_status: 'uploaded_awaiting_review', task_status: 'in_progress', is_completed: false, completed_date: null }).eq('id', item.id).select().single();
+      if (updated) setChecklist(prev => prev.map(existing => existing.id === item.id ? updated : existing));
+    }
   };
 
   const deleteItem = async (id) => {
@@ -1392,6 +1417,24 @@ ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.i
         )}
 
         {checklist.length > 0 && (
+          <Card style={{ marginBottom: 16, border: `1.5px solid ${readiness.criticalMissing.length ? C.warn : C.accent}` }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, marginBottom: 12 }}>
+              <div><div style={{ fontWeight: 800, fontSize: 17 }}>Trip Readiness</div><div style={{ color: C.muted, fontSize: 12, marginTop: 2 }}>Critical requirements count more than supporting preparation.</div></div>
+              <div style={{ minWidth: 72, textAlign: "center", color: readiness.percent === 100 ? "#4CAF50" : C.accentDark }}><div style={{ fontSize: 28, fontWeight: 800 }}>{readiness.percent}%</div><div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase" }}>Ready</div></div>
+            </div>
+            <div style={{ background: C.border, borderRadius: 20, height: 9, overflow: "hidden", marginBottom: 16 }}><div style={{ background: readiness.percent === 100 ? "#4CAF50" : C.accent, height: "100%", width: `${readiness.percent}%`, transition: "width .3s" }} /></div>
+            <div style={{ fontWeight: 800, marginBottom: 8 }}>What’s Missing?</div>
+            {readiness.criticalMissing.length === 0 && readiness.documentIssues.length === 0 && readiness.upcoming.length === 0 ? <div style={{ background: "#4CAF5014", color: "#357A38", borderRadius: 10, padding: 12, fontSize: 13 }}>No critical gaps or document issues found.</div> : (
+              <div style={{ display: "grid", gap: 10 }}>
+                {readiness.criticalMissing.length > 0 && <div><div style={{ fontSize: 11, color: C.danger, fontWeight: 800, textTransform: "uppercase", marginBottom: 5 }}>Critical items ({readiness.criticalMissing.length})</div>{readiness.criticalMissing.slice(0, 5).map(item => <button key={item.id} onClick={() => setEditingItem(item)} style={{ display: "flex", width: "100%", justifyContent: "space-between", gap: 10, background: C.dangerDim, border: "none", borderRadius: 8, padding: "8px 10px", marginBottom: 4, color: C.text, cursor: "pointer", textAlign: "left" }}><span>{item.title}</span><strong style={{ color: C.danger, flexShrink: 0 }}>{READINESS_LABELS[item.effective_status]}</strong></button>)}</div>}
+                {readiness.documentIssues.length > 0 && <div><div style={{ fontSize: 11, color: C.warn, fontWeight: 800, textTransform: "uppercase", marginBottom: 5 }}>Document issues ({readiness.documentIssues.length})</div>{readiness.documentIssues.slice(0, 5).map(item => <button key={item.id} onClick={() => setEditingItem(item)} style={{ display: "flex", width: "100%", justifyContent: "space-between", gap: 10, background: C.warnDim, border: "none", borderRadius: 8, padding: "8px 10px", marginBottom: 4, color: C.text, cursor: "pointer", textAlign: "left" }}><span>{item.title}</span><strong style={{ color: C.warn, flexShrink: 0 }}>{READINESS_LABELS[item.effective_status]}</strong></button>)}</div>}
+                {readiness.upcoming.length > 0 && <div><div style={{ fontSize: 11, color: C.accent, fontWeight: 800, textTransform: "uppercase", marginBottom: 5 }}>Upcoming deadlines — 30 days ({readiness.upcoming.length})</div>{readiness.upcoming.slice(0, 5).map(item => <button key={item.id} onClick={() => setEditingItem(item)} style={{ display: "flex", width: "100%", justifyContent: "space-between", gap: 10, background: C.accentDim, border: "none", borderRadius: 8, padding: "8px 10px", marginBottom: 4, color: C.text, cursor: "pointer", textAlign: "left" }}><span>{item.title}</span><strong style={{ color: C.accent, flexShrink: 0 }}>{fmt(item.deadline_date)}</strong></button>)}</div>}
+              </div>
+            )}
+          </Card>
+        )}
+
+        {checklist.length > 0 && (
           <Card style={{ marginBottom: 16 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
               <div style={{ fontWeight: 700 }}>Checklist Progress</div>
@@ -1405,7 +1448,7 @@ ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.i
               // Multiple pets — show one progress bar per pet, since each pet
               // needs their own documents completed (e.g. separate health certificates).
               tripPets.map(pet => {
-                const relevantItems = checklist.filter(i => (i.applies_to || 'dog') === (pet.species || 'dog'));
+                const relevantItems = checklist.filter(i => (i.applies_to_species || i.applies_to || 'dog') === (pet.species || 'dog'));
                 const petDone = relevantItems.filter(i => (i.pet_completions || {})[pet.id] === true).length;
                 const petTotal = relevantItems.length;
                 const petAllDone = petTotal > 0 && petDone === petTotal;
