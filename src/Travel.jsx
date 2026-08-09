@@ -11,6 +11,7 @@ import {
   emptyAirTravelDetails,
   normalizeAirTravelArrangements,
 } from "./lib/travelArrangement";
+import { AIRPORT_ROLE_LABELS, AIRPORT_ROLE_SECTIONS, buildAirportStops } from "./lib/airportGuide";
 
 const logActivity = async (userId, userEmail, action, details = {}) => {
   try {
@@ -950,7 +951,13 @@ const EditChecklistItemModal = ({ item, onSave, onClose }) => {
   );
 };
 
-const AirportReliefButton = ({ code }) => {
+const AIRPORT_SECTION_LABELS = {
+  petReliefAreas: "Pet relief areas", petCheckIn: "Pet check-in", cargoLocations: "Cargo and pet pickup",
+  securityScreening: "Security", customsProcess: "Customs and transit", veterinaryInspection: "Veterinary inspection",
+  serviceAnimalProcess: "Service animals", operatingHours: "Operating hours", emergencyVet: "Emergency veterinarian",
+};
+
+const AirportGuideCard = ({ code, role }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -959,7 +966,7 @@ const AirportReliefButton = ({ code }) => {
     setLoading(true); setError(null);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const res = await fetch('/api/airport-relief', {
+      const res = await fetch('/api/airport-guide', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.access_token || ''}` },
         body: JSON.stringify({ airportCode: code }),
@@ -976,24 +983,29 @@ const AirportReliefButton = ({ code }) => {
       <div style={{ marginTop: 6 }}>
         <button onClick={lookup} disabled={loading} type="button"
           style={{ background: C.accentDim, border: `1px solid ${C.accent}44`, borderRadius: 8, padding: "6px 12px", color: C.accent, fontSize: 12, fontWeight: 700, cursor: loading ? "default" : "pointer" }}>
-          {loading ? "Looking up..." : `🐾 Find pet relief areas at ${code}`}
+          {loading ? "Building your guide..." : `Open ${code} airport guide`}
         </button>
         {error && <div style={{ fontSize: 12, color: C.danger, marginTop: 4 }}>{error}</div>}
       </div>
     );
   }
   return (
-    <div style={{ marginTop: 8, background: C.bg, borderRadius: 10, padding: 12, border: `1px solid ${C.border}` }}>
-      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 6 }}>🐾 {data.airportName || code} — Pet Relief Areas</div>
-      {(!data.areas || data.areas.length === 0)
-        ? <div style={{ fontSize: 12, color: C.muted }}>No confirmed relief area info found for this airport yet.</div>
-        : data.areas.map((a, i) => (
-          <div key={i} style={{ fontSize: 12, color: C.text, marginBottom: 6 }}>
-            <span style={{ fontWeight: 600 }}>{a.location}</span>{a.terminal ? ` (${a.terminal})` : ""}
-            <div style={{ color: C.muted }}>{a.type === "indoor" ? "🏢 Indoor" : "🌳 Outdoor"}{a.notes ? ` · ${a.notes}` : ""}</div>
-          </div>
-        ))}
-      {data.summary && <div style={{ fontSize: 12, color: C.muted, marginTop: 4, fontStyle: "italic" }}>{data.summary}</div>}
+    <div style={{ marginTop: 10, background: C.bg, borderRadius: 12, padding: 14, border: `1px solid ${C.border}` }}>
+      <div style={{ fontWeight: 700, fontSize: 15 }}>{data.airportName || code}</div>
+      {data.summary && <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.55, margin: "5px 0 10px" }}>{data.summary}</div>}
+      {(AIRPORT_ROLE_SECTIONS[role] || []).map(key => {
+        const value = data[key];
+        if (key === "petReliefAreas") {
+          if (!Array.isArray(value) || !value.length) return null;
+          return <div key={key} style={{ marginBottom: 10 }}><div style={{ fontSize: 12, fontWeight: 700 }}>{AIRPORT_SECTION_LABELS[key]}</div>{value.map((area, index) => <div key={index} style={{ fontSize: 12, color: C.sub, marginTop: 4 }}><strong>{area.location}</strong>{area.terminal ? ` · ${area.terminal}` : ""}{area.type ? ` · ${area.type}` : ""}{area.notes ? <div style={{ color: C.muted }}>{area.notes}</div> : null}</div>)}</div>;
+        }
+        if (!value) return null;
+        return <div key={key} style={{ marginBottom: 10 }}><div style={{ fontSize: 12, fontWeight: 700 }}>{AIRPORT_SECTION_LABELS[key]}</div><div style={{ fontSize: 12, color: C.sub, lineHeight: 1.55, marginTop: 2 }}>{value}</div></div>;
+      })}
+      <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 9, marginTop: 3, fontSize: 11, color: C.muted }}>
+        Last checked {data.lastVerified ? new Date(data.lastVerified).toLocaleDateString() : "recently"}. Verify details before travel.
+        {Array.isArray(data.officialSources) && data.officialSources.length > 0 && <div style={{ marginTop: 5 }}>Official sources: {data.officialSources.map((source, index) => <span key={source.url}>{index > 0 ? " · " : ""}<a href={source.url} target="_blank" rel="noreferrer" style={{ color: C.accent, fontWeight: 600 }}>{source.authority}</a></span>)}</div>}
+      </div>
     </div>
   );
 };
@@ -1025,6 +1037,7 @@ const TripDetail = ({ trip, userId, dogs, onBack, onUpdate, onDelete, onEdit, on
   const completed = checklist.filter(i => i.is_completed).length;
   const overdueCount = checklist.filter(i => !i.is_completed && daysUntil(i.deadline_date) !== null && daysUntil(i.deadline_date) < 0).length;
   const urgentCount = checklist.filter(i => !i.is_completed && daysUntil(i.deadline_date) !== null && daysUntil(i.deadline_date) >= 0 && daysUntil(i.deadline_date) <= 7).length;
+  const airportStops = buildAirportStops(legs);
 
   const cancelTrip = async () => {
     setCancelling(true);
@@ -1338,12 +1351,19 @@ ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.i
                 {(leg.airline || leg.flight_number) && (
                   <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{leg.airline}{leg.flight_number ? ` · ${leg.flight_number}` : ""}</div>
                 )}
-                {leg.transportation_type === "air" && (leg.origin_airport_code || leg.destination_airport_code) && (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                    {leg.origin_airport_code && <AirportReliefButton code={leg.origin_airport_code} />}
-                    {leg.destination_airport_code && leg.destination_airport_code !== leg.origin_airport_code && <AirportReliefButton code={leg.destination_airport_code} />}
-                  </div>
-                )}
+              </div>
+            ))}
+          </Card>
+        )}
+
+        {airportStops.length > 0 && (
+          <Card style={{ marginBottom: 16 }}>
+            <div style={{ fontWeight: 700, marginBottom: 4 }}>Airport Guides</div>
+            <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5, marginBottom: 12 }}>Pet relief, check-in, security, customs, inspections, service-animal steps, and emergency help for every airport in your itinerary.</div>
+            {airportStops.map((stop, index) => (
+              <div key={stop.code} style={{ paddingBottom: index < airportStops.length - 1 ? 14 : 0, marginBottom: index < airportStops.length - 1 ? 14 : 0, borderBottom: index < airportStops.length - 1 ? `1px solid ${C.border}` : "none" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ background: C.accentDim, color: C.accentDark, borderRadius: 20, padding: "3px 9px", fontSize: 11, fontWeight: 700 }}>{stop.roles.map(item => AIRPORT_ROLE_LABELS[item]).join(" + ")}</span><strong>{stop.code}</strong></div>
+                <AirportGuideCard code={stop.code} role={stop.role} />
               </div>
             ))}
           </Card>

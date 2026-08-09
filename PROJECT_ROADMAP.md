@@ -1,6 +1,6 @@
 # YourPetPass Platform Update Roadmap
 
-Phase One is the only active phase. Phases Two through Seven remain queued until Phase One review and approval.
+Phase One is complete. Phase Two is active; Phases Three through Seven remain queued.
 
 ## Phase One — Expanded trip intake + pet travel method
 
@@ -10,9 +10,14 @@ Phase One is the only active phase. Phases Two through Seven remain queued until
 - Arrangement-aware checklist generation and cache isolation
 - Form, persistence, generator-input, compatibility, build, deployment, and production verification
 
+## Phase Two — Airport Guides (implemented; production verification pending)
+
+- Reusable guide for every departure, layover, and arrival airport
+- Role-specific pet relief, check-in/cargo, security, customs, veterinary inspection, service-animal, hours, and emergency-vet information
+- Official airport/government sources and last-verified date
+
 ## Queued phases
 
-2. Airport Guide for departure, layover, and arrival airports
 3. Timeline-based task system and numbered-instruction presentation fix
 4. Weighted readiness and What’s Missing statuses
 5. Official-source verification system
