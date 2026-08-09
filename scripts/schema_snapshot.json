@@ -332,6 +332,10 @@
     "airport_name",
     "relief_areas_json",
     "researched_at",
-    "created_at"
+    "created_at",
+    "guide_json",
+    "source_urls",
+    "last_verified_at",
+    "verification_status"
   ]
 }
