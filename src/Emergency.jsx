@@ -1,283 +1,229 @@
-// src/Emergency.jsx — Public pet health record page
-// Accessible via yourpetpass.com/emergency/[token] — no login required
-import { useState, useEffect } from "react";
-import { supabase } from "./lib/supabase";
+// src/Emergency.jsx — token-scoped public emergency pet record
+// No direct anonymous database access. The server validates the QR token and
+// returns only the fields intentionally exposed on an emergency card.
+import { useEffect, useState } from 'react'
 
-const fmt = d => {
-  if (!d) return "—";
-  return new Date(d + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-};
+const C = {
+  forest: '#2C4A38',
+  sage: '#7C9E87',
+  lightSage: '#9DC4AA',
+  mint: '#EAF4EE',
+  warm: '#FAFCFB',
+  gold: '#C9A84C',
+  text: '#1A2E22',
+  danger: '#A4483E',
+  line: '#DCE8E0',
+}
 
-const vSt = due => {
-  if (!due) return { c: "#8B7355", label: "Not recorded" };
-  const d = Math.round((new Date(due + "T12:00:00") - new Date()) / 86400000);
-  if (d < 0) return { c: "#C4714A", label: `Overdue ${Math.abs(d)}d` };
-  if (d <= 30) return { c: "#E8A838", label: `Due in ${d}d` };
-  return { c: "#2D7D6F", label: "Current ✓" };
-};
+const fmt = (d) => {
+  if (!d) return '—'
+  return new Date(`${d}T12:00:00`).toLocaleDateString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric',
+  })
+}
+
+const ageFromDob = (dob) => {
+  if (!dob) return null
+  const born = new Date(`${dob}T12:00:00`)
+  if (Number.isNaN(born.getTime())) return null
+  return Math.max(0, Math.floor((Date.now() - born.getTime()) / (365.25 * 86400000)))
+}
+
+const vaccineStatus = (due) => {
+  if (!due) return { label: 'No due date', color: C.sage }
+  const days = Math.round((new Date(`${due}T12:00:00`) - new Date()) / 86400000)
+  if (days < 0) return { label: `Overdue ${Math.abs(days)}d`, color: C.danger }
+  if (days <= 30) return { label: `Due in ${days}d`, color: C.gold }
+  return { label: 'Current', color: C.forest }
+}
+
+const Section = ({ title, children, danger = false }) => (
+  <section style={{
+    background: '#fff',
+    border: `1px solid ${danger ? '#E7C7C3' : C.line}`,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    boxShadow: '0 2px 10px rgba(26,46,34,.05)',
+  }}>
+    <h2 style={{
+      margin: '0 0 14px',
+      fontFamily: "'Playfair Display', serif",
+      fontSize: 20,
+      color: danger ? C.danger : C.forest,
+    }}>{title}</h2>
+    {children}
+  </section>
+)
+
+const InfoRow = ({ label, value }) => value ? (
+  <div style={{
+    display: 'flex', justifyContent: 'space-between', gap: 16,
+    padding: '9px 0', borderBottom: `1px solid ${C.line}`,
+  }}>
+    <span style={{ color: C.sage, fontWeight: 600 }}>{label}</span>
+    <span style={{ color: C.text, textAlign: 'right' }}>{value}</span>
+  </div>
+) : null
 
 export default function Emergency({ token }) {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
+  const [record, setRecord] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [notFound, setNotFound] = useState(false)
 
   useEffect(() => {
-    if (!token) { setNotFound(true); setLoading(false); return; }
-    loadPet();
-  }, [token]);
+    let cancelled = false
 
-  const loadPet = async () => {
-    // Find dog by emergency_token
-    const { data: dogs, error } = await supabase
-      .from("dogs")
-      .select("*")
-      .eq("emergency_token", token)
-      .limit(1);
-
-    if (error || !dogs?.length) {
-      setNotFound(true);
-      setLoading(false);
-      return;
+    const load = async () => {
+      setLoading(true)
+      setNotFound(false)
+      try {
+        if (!token) throw new Error('missing-token')
+        const response = await fetch(`/api/emergency-record?token=${encodeURIComponent(token)}`, {
+          headers: { Accept: 'application/json' },
+          cache: 'no-store',
+        })
+        if (response.status === 404) throw new Error('not-found')
+        if (!response.ok) throw new Error('unavailable')
+        const data = await response.json()
+        if (!cancelled) setRecord(data)
+      } catch (error) {
+        if (!cancelled) setNotFound(true)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
     }
 
-    const dog = dogs[0];
+    load()
+    return () => { cancelled = true }
+  }, [token])
 
-    // Load all health data for this dog
-    const [{ data: vaccines }, { data: medications }, { data: allergies }, { data: visits }, { data: weights }, { data: documents }] = await Promise.all([
-      supabase.from("vaccinations").select("*").eq("dog_id", dog.id).order("date_given", { ascending: false }),
-      supabase.from("medications").select("*").eq("dog_id", dog.id).eq("active", true),
-      supabase.from("allergies").select("*").eq("dog_id", dog.id),
-      supabase.from("vet_visits").select("*").eq("dog_id", dog.id).order("visit_date", { ascending: false }).limit(5),
-      supabase.from("weights").select("*").eq("dog_id", dog.id),
-      supabase.from("documents").select("*").eq("dog_id", dog.id),
-    ]);
-
-    setData({ dog, vaccines: vaccines || [], medications: medications || [], allergies: allergies || [], visits: visits || [], weights: weights || [], documents: documents || [] });
-    setLoading(false);
-  };
-
-  const teal = "#1E5C52";
-  const gold = "#E8A838";
-  const danger = "#C4714A";
-
-  if (loading) return (
-    <div style={{ minHeight: "100vh", background: "#FAF6F0", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Nunito', sans-serif" }}>
-      <div style={{ textAlign: "center" }}>
-        <div style={{ fontSize: 40, marginBottom: 12 }}>🐾</div>
-        <div style={{ fontSize: 18, color: teal, fontWeight: 700 }}>Loading health record...</div>
-      </div>
-    </div>
-  );
-
-  if (notFound) return (
-    <div style={{ minHeight: "100vh", background: "#FAF6F0", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Nunito', sans-serif", padding: 20 }}>
-      <div style={{ textAlign: "center", maxWidth: 400 }}>
-        <div style={{ fontSize: 50, marginBottom: 16 }}>🔍</div>
-        <div style={{ fontFamily: "'Lora', serif", fontSize: 26, color: teal, marginBottom: 8 }}>Record Not Found</div>
-        <div style={{ color: "#5A4535", fontSize: 15, lineHeight: 1.7 }}>This QR code may have been regenerated or is invalid. Please contact the pet's owner.</div>
-        <div style={{ marginTop: 20 }}>
-          <a href="https://yourpetpass.com" style={{ color: teal, fontWeight: 700, fontSize: 14 }}>YourPetPass.com</a>
-        </div>
-      </div>
-    </div>
-  );
-
-  const { dog, vaccines, medications, allergies, visits, weights, documents } = data;
-  const ptLabel = dog.pet_type === "service_animal" ? "Service Animal" : dog.pet_type === "esa" ? "Emotional Support Animal" : null;
-  const ptColor = dog.pet_type === "service_animal" ? teal : dog.pet_type === "esa" ? gold : null;
-  const age = dog.dob ? Math.floor((Date.now() - new Date(dog.dob + "T12:00:00")) / (365.25 * 86400000)) : null;
-  const overdueVaccines = vaccines.filter(v => v.next_due && new Date(v.next_due) < new Date());
-  const generated = new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
-
-  const card = (children, style = {}) => (
-    <div style={{ background: "#FFFFFF", border: "1px solid #E8DDD0", borderRadius: 16, padding: 20, marginBottom: 16, boxShadow: "0 2px 8px rgba(44,32,23,0.06)", ...style }}>
+  const shell = (children) => (
+    <div style={{ minHeight: '100vh', background: C.warm, color: C.text, fontFamily: "'Lora', serif" }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Lora:wght@400;600&family=Playfair+Display:wght@700;800&display=swap');*{box-sizing:border-box}body{margin:0}`}</style>
       {children}
     </div>
-  );
+  )
 
-  const sectionTitle = (emoji, title, color = teal) => (
-    <div style={{ fontWeight: 800, fontSize: 13, color, textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 14, display: "flex", alignItems: "center", gap: 8 }}>
-      <span>{emoji}</span> {title}
+  if (loading) return shell(
+    <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24 }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontSize: 44, marginBottom: 12 }}>🐾</div>
+        <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, color: C.forest }}>Loading emergency record…</div>
+      </div>
     </div>
-  );
+  )
 
-  const row = (label, value) => value ? (
-    <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #F0E8DC", fontSize: 14 }}>
-      <span style={{ color: "#8B7355", fontWeight: 600 }}>{label}</span>
-      <span style={{ color: "#2C2017", fontWeight: 500, textAlign: "right", maxWidth: "60%" }}>{value}</span>
+  if (notFound || !record?.pet) return shell(
+    <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24 }}>
+      <div style={{ maxWidth: 440, textAlign: 'center' }}>
+        <div style={{ fontSize: 46, marginBottom: 12 }}>🐾</div>
+        <h1 style={{ fontFamily: "'Playfair Display', serif", color: C.forest, marginBottom: 10 }}>Record Not Found</h1>
+        <p style={{ lineHeight: 1.7, color: C.sage }}>This QR code may be invalid or may have been regenerated. Please contact the pet's owner.</p>
+        <a href="/" style={{ color: C.forest, fontWeight: 700 }}>YourPetPass.com</a>
+      </div>
     </div>
-  ) : null;
+  )
 
-  return (
-    <div style={{ minHeight: "100vh", background: "#FAF6F0", fontFamily: "'Nunito', sans-serif" }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Lora:ital,wght@0,600;1,400&display=swap');`}</style>
+  const { pet, allergies = [], medications = [], vaccinations = [] } = record
+  const age = ageFromDob(pet.dob)
+  const classification = pet.pet_type === 'service_animal'
+    ? 'Service Animal'
+    : pet.pet_type === 'esa'
+      ? 'Emotional Support Animal'
+      : null
+  const species = pet.species ? pet.species.charAt(0).toUpperCase() + pet.species.slice(1) : null
+  const callNumber = `${pet.emergency_phone_code || ''}${pet.emergency_phone || ''}`.replace(/[^+\d]/g, '')
+  const whatsappNumber = `${pet.emergency_whatsapp_code || ''}${pet.emergency_whatsapp || ''}`.replace(/\D/g, '')
 
-      {/* Header */}
-      <div style={{ background: teal, padding: "20px 20px 24px" }}>
-        <div style={{ maxWidth: 600, margin: "0 auto" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
-            <div style={{ width: 56, height: 56, borderRadius: "50%", background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, flexShrink: 0 }}>
-              🐾
-            </div>
-            <div>
-              <div style={{ fontFamily: "'Lora', serif", fontSize: 28, color: "#FFFFFF", fontWeight: 600 }}>{dog.name}</div>
-              <div style={{ color: "#F5C45E", fontSize: 14 }}>{dog.breed || "Dog"}{age !== null ? ` · ${age} years old` : ""}</div>
-            </div>
-          </div>
-          {ptLabel && ptColor && (
-            <div style={{ background: "rgba(255,255,255,0.15)", borderRadius: 10, padding: "8px 14px", display: "inline-flex", alignItems: "center", gap: 8, marginTop: 4 }}>
-              <span>{dog.pet_type === "service_animal" ? "🦺" : "💙"}</span>
-              <span style={{ color: "#FFFFFF", fontWeight: 700, fontSize: 14 }}>{ptLabel}</span>
+  return shell(
+    <>
+      <header style={{ background: C.forest, color: '#fff', padding: '26px 20px 30px' }}>
+        <div style={{ maxWidth: 640, margin: '0 auto' }}>
+          <div style={{ color: C.lightSage, fontSize: 12, textTransform: 'uppercase', letterSpacing: '.12em', fontWeight: 600 }}>YourPetPass Emergency Health Card</div>
+          <h1 style={{ margin: '7px 0 5px', fontFamily: "'Playfair Display', serif", fontSize: 34 }}>{pet.name}</h1>
+          <div style={{ color: '#DDE9E1' }}>{[species, pet.breed, age !== null ? `${age} years old` : null].filter(Boolean).join(' · ')}</div>
+          {classification && (
+            <div style={{ display: 'inline-block', marginTop: 12, padding: '6px 11px', border: `1px solid ${C.gold}`, borderRadius: 999, color: '#fff', fontSize: 13 }}>
+              {classification}
             </div>
           )}
         </div>
-      </div>
+      </header>
 
-      {/* Emergency banner if overdue vaccines */}
-      {overdueVaccines.length > 0 && (
-        <div style={{ background: "#C4714A14", borderBottom: "2px solid #C4714A" }}>
-          <div style={{ maxWidth: 600, margin: "0 auto", padding: "12px 20px", display: "flex", alignItems: "center", gap: 10, color: danger }}>
-            <span style={{ fontSize: 20 }}>⚠️</span>
-            <span style={{ fontWeight: 700, fontSize: 14 }}>{overdueVaccines.length} overdue vaccination{overdueVaccines.length > 1 ? "s" : ""} — {overdueVaccines.map(v => v.name).join(", ")}</span>
-          </div>
-        </div>
-      )}
-
-      <div style={{ maxWidth: 600, margin: "0 auto", padding: "20px 16px 40px" }}>
-
-        {/* Emergency Alert — Allergies */}
-        {allergies.length > 0 && card(
-          <>
-            {sectionTitle("🚨", "Known Allergies", danger)}
-            {allergies.map(a => (
-              <div key={a.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid #F0E8DC" }}>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: 15 }}>{a.allergen}</div>
-                  <div style={{ fontSize: 13, color: "#5A4535" }}>{a.reaction}</div>
+      <main style={{ maxWidth: 640, margin: '0 auto', padding: '20px 16px 44px' }}>
+        {(allergies.length > 0) && (
+          <Section title="Known Allergies" danger>
+            {allergies.map((a, i) => (
+              <div key={`${a.allergen}-${i}`} style={{ padding: '9px 0', borderBottom: `1px solid ${C.line}` }}>
+                <div style={{ fontWeight: 700 }}>{a.allergen}</div>
+                <div style={{ fontSize: 13, marginTop: 3, color: C.sage }}>
+                  {[a.reaction, a.severity].filter(Boolean).join(' · ')}
                 </div>
-                <span style={{ background: a.severity === "severe" ? "#C4714A20" : a.severity === "moderate" ? "#E8A83820" : "#2D7D6F20", color: a.severity === "severe" ? danger : a.severity === "moderate" ? gold : teal, borderRadius: 20, padding: "3px 10px", fontSize: 12, fontWeight: 700 }}>
-                  {a.severity.toUpperCase()}
-                </span>
               </div>
             ))}
-          </>,
-          { border: "2px solid #C4714A44" }
+          </Section>
         )}
 
-        {/* Emergency Contact */}
-        {(dog.emergency_contact || dog.emergency_phone) && card(
-          <>
-            {sectionTitle("📞", "Emergency Contact")}
-            <div style={{ fontSize: 16, fontWeight: 700, color: "#2C2017", marginBottom: 4 }}>{dog.emergency_contact}</div>
-            {dog.emergency_phone && (
-              <a href={`tel:${dog.emergency_phone_code || ""}${dog.emergency_phone}`}
-                style={{ display: "inline-flex", alignItems: "center", gap: 8, background: teal, color: "#fff", borderRadius: 10, padding: "10px 18px", fontWeight: 700, fontSize: 15, textDecoration: "none", marginTop: 8 }}>
-                📞 Call {dog.emergency_phone_code || "+1"} {dog.emergency_phone}
-              </a>
-            )}
-            {dog.emergency_whatsapp && (
-              <a href={`https://wa.me/${(dog.emergency_whatsapp_code || "+1").replace("+", "")}${dog.emergency_whatsapp.replace(/\D/g, "")}`}
-                style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#25D366", color: "#fff", borderRadius: 10, padding: "10px 18px", fontWeight: 700, fontSize: 15, textDecoration: "none", marginTop: 8, marginLeft: 8 }}>
-                💬 WhatsApp
-              </a>
-            )}
-          </>,
-          { border: "2px solid #2D7D6F44" }
-        )}
-
-        {/* Pet Profile */}
-        {card(<>
-          {sectionTitle("🐾", "Pet Profile")}
-          {row("Name", dog.name)}
-          {row("Breed", dog.breed)}
-          {row("Date of Birth", fmt(dog.dob))}
-          {row("Age", age !== null ? `${age} years` : null)}
-          {row("Weight", dog.weight ? `${dog.weight} lbs` : null)}
-          {row("Color", dog.color)}
-          {row("Sex", dog.gender ? (dog.gender.charAt(0).toUpperCase() + dog.gender.slice(1)) + (dog.neutered ? " · Neutered/Spayed" : "") : null)}
-          {row("Microchip", dog.microchip)}
-          {ptLabel && row("Classification", ptLabel)}
-        </>)}
-
-        {/* Active Medications */}
-        {medications.length > 0 && card(<>
-          {sectionTitle("💊", "Active Medications")}
-          {medications.map(m => (
-            <div key={m.id} style={{ padding: "8px 0", borderBottom: "1px solid #F0E8DC" }}>
-              <div style={{ fontWeight: 700, fontSize: 15 }}>{m.name}</div>
-              <div style={{ fontSize: 13, color: "#5A4535", marginTop: 2 }}>
-                {m.dosage && <span>{m.dosage}</span>}
-                {m.frequency && <span> · {m.frequency}</span>}
-                {m.reason && <span> · {m.reason}</span>}
-              </div>
-            </div>
-          ))}
-        </>)}
-
-        {/* Vaccinations */}
-        {vaccines.length > 0 && card(<>
-          {sectionTitle("💉", "Vaccinations")}
-          {vaccines.map(v => {
-            const st = vSt(v.next_due);
-            return (
-              <div key={v.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid #F0E8DC" }}>
-                <div>
-                  <div style={{ fontWeight: 600, fontSize: 14 }}>{v.name}</div>
-                  <div style={{ fontSize: 12, color: "#8B7355" }}>Given {fmt(v.date_given)}{v.vet_name ? ` · ${v.vet_name}` : ""}</div>
-                </div>
-                <span style={{ background: st.c + "20", color: st.c, borderRadius: 20, padding: "3px 10px", fontSize: 12, fontWeight: 600, whiteSpace: "nowrap" }}>
-                  {st.label}
-                </span>
-              </div>
-            );
-          })}
-        </>)}
-
-        {/* Recent Visits */}
-        {visits.length > 0 && card(<>
-          {sectionTitle("🏥", "Recent Vet Visits")}
-          {visits.slice(0, 3).map(v => {
-            const wt = (weights || []).find(w => w.dog_id === dog.id && w.log_date === v.visit_date);
-            const vDocs = (documents || []).filter(d => d.dog_id === dog.id && d.doc_date === v.visit_date);
-            return (
-            <div key={v.id} style={{ padding: "8px 0", borderBottom: "1px solid #F0E8DC" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
-                <span style={{ fontWeight: 600, fontSize: 14 }}>{v.reason}</span>
-                <span style={{ fontSize: 12, color: "#8B7355" }}>{fmt(v.visit_date)}{wt ? ` · ${wt.weight_lbs} lbs` : ""}</span>
-              </div>
-              {v.diagnosis && <div style={{ fontSize: 13, color: "#5A4535" }}>Dx: {v.diagnosis}</div>}
-              {v.treatment && <div style={{ fontSize: 13, color: "#5A4535" }}>Tx: {v.treatment}</div>}
-              {v.notes && <div style={{ fontSize: 13, color: "#5A4535" }}>Notes: {v.notes}</div>}
-              {v.vet_name && <div style={{ fontSize: 12, color: "#8B7355" }}>{v.vet_name}{v.clinic ? ` · ${v.clinic}` : ""}</div>}
-              {vDocs.length > 0 && (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
-                  {vDocs.map(d => (
-                    <a key={d.id} href={supabase.storage.from("documents").getPublicUrl(d.file_path).data.publicUrl}
-                      target="_blank" rel="noopener noreferrer"
-                      style={{ fontSize: 12, fontWeight: 600, color: teal, background: teal + "14", border: `1px solid ${teal}33`, borderRadius: 8, padding: "4px 9px", textDecoration: "none" }}>
-                      📄 {d.name || "View Document"}
-                    </a>
-                  ))}
-                </div>
+        {(pet.emergency_contact || callNumber || whatsappNumber) && (
+          <Section title="Emergency Contact">
+            {pet.emergency_contact && <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 12 }}>{pet.emergency_contact}</div>}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+              {callNumber && (
+                <a href={`tel:${callNumber}`} style={{ background: C.forest, color: '#fff', padding: '10px 15px', borderRadius: 10, textDecoration: 'none', fontWeight: 700 }}>Call</a>
+              )}
+              {whatsappNumber && (
+                <a href={`https://wa.me/${whatsappNumber}`} target="_blank" rel="noopener noreferrer" style={{ background: C.mint, color: C.forest, border: `1px solid ${C.lightSage}`, padding: '10px 15px', borderRadius: 10, textDecoration: 'none', fontWeight: 700 }}>WhatsApp</a>
               )}
             </div>
-            );
-          })}
-        </>)}
+          </Section>
+        )}
 
-        {/* Footer */}
-        <div style={{ textAlign: "center", padding: "20px 0", borderTop: "1px solid #E8DDD0", marginTop: 8 }}>
-          <div style={{ fontSize: 12, color: "#8B7355", marginBottom: 4 }}>
-            Generated {generated}
-          </div>
-          <a href="https://yourpetpass.com" style={{ fontSize: 13, color: teal, fontWeight: 700, textDecoration: "none" }}>
-            🐾 Powered by YourPetPass
-          </a>
-          <div style={{ fontSize: 11, color: "#8B7355", marginTop: 6 }}>
-            Always consult a licensed veterinarian for medical advice.
-          </div>
+        <Section title="Pet Profile">
+          <InfoRow label="Name" value={pet.name} />
+          <InfoRow label="Species" value={species} />
+          <InfoRow label="Breed" value={pet.breed} />
+          <InfoRow label="Date of birth" value={pet.dob ? fmt(pet.dob) : null} />
+          <InfoRow label="Weight" value={pet.weight ? `${pet.weight} lbs` : null} />
+          <InfoRow label="Color" value={pet.color} />
+          <InfoRow label="Sex" value={pet.gender ? `${pet.gender}${pet.neutered ? ' · Spayed/Neutered' : ''}` : null} />
+          <InfoRow label="Microchip" value={pet.microchip} />
+          <InfoRow label="Classification" value={classification} />
+        </Section>
+
+        {medications.length > 0 && (
+          <Section title="Active Medications">
+            {medications.map((m, i) => (
+              <div key={`${m.name}-${i}`} style={{ padding: '9px 0', borderBottom: `1px solid ${C.line}` }}>
+                <div style={{ fontWeight: 700 }}>{m.name}</div>
+                <div style={{ fontSize: 13, color: C.sage, marginTop: 3 }}>{[m.dosage, m.frequency, m.reason].filter(Boolean).join(' · ')}</div>
+              </div>
+            ))}
+          </Section>
+        )}
+
+        {vaccinations.length > 0 && (
+          <Section title="Vaccinations">
+            {vaccinations.map((v, i) => {
+              const status = vaccineStatus(v.next_due)
+              return (
+                <div key={`${v.name}-${v.date_given}-${i}`} style={{ display: 'flex', justifyContent: 'space-between', gap: 14, padding: '10px 0', borderBottom: `1px solid ${C.line}` }}>
+                  <div>
+                    <div style={{ fontWeight: 700 }}>{v.name}</div>
+                    <div style={{ fontSize: 12, color: C.sage, marginTop: 3 }}>{v.date_given ? `Given ${fmt(v.date_given)}` : 'Date not recorded'}{v.vet_name ? ` · ${v.vet_name}` : ''}</div>
+                  </div>
+                  <div style={{ color: status.color, fontWeight: 700, fontSize: 12, whiteSpace: 'nowrap' }}>{status.label}</div>
+                </div>
+              )
+            })}
+          </Section>
+        )}
+
+        <div style={{ textAlign: 'center', color: C.sage, fontSize: 12, lineHeight: 1.6, paddingTop: 8 }}>
+          Emergency information shared by the pet's owner through YourPetPass.<br />
+          Generated {new Date(record.generated_at || Date.now()).toLocaleString()}.
         </div>
-      </div>
-    </div>
-  );
+      </main>
+    </>
+  )
 }
