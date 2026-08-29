@@ -1,32 +1,25 @@
-// Vercel Cron compatibility wrapper for the existing notification engine.
+// Vercel Cron compatibility wrapper for the notification engine.
 // Vercel sends CRON_SECRET as Authorization: Bearer <secret>.
-// send-notifications.js historically expects x-cron-secret, so this wrapper
-// verifies Vercel's header and forwards the request using the legacy header.
+
+import { verifyCronRequest } from './_cronAuth.js';
 
 const APP_URL = process.env.VITE_APP_URL || 'https://yourpetpass.com';
 
 export default async function handler(req, res) {
+  res.setHeader('Cache-Control', 'private, no-store');
   if (req.method !== 'GET' && req.method !== 'POST') {
     res.setHeader('Allow', 'GET, POST');
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret) {
-    console.error('CRON_SECRET is not configured');
-    return res.status(500).json({ error: 'Cron is not configured' });
-  }
-
-  const authHeader = req.headers.authorization || '';
-  if (authHeader !== `Bearer ${cronSecret}`) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
+  const cron = verifyCronRequest(req);
+  if (!cron.ok) return res.status(cron.status).json({ error: cron.error });
 
   try {
     const upstream = await fetch(`${APP_URL}/api/send-notifications`, {
       method: 'GET',
       headers: {
-        'x-cron-secret': cronSecret,
+        'x-cron-secret': cron.secret,
         'User-Agent': 'YourPetPass-Cron/1.0',
       },
     });
