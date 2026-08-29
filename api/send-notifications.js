@@ -2,6 +2,8 @@
 // Called daily by a cron job (Vercel Cron or external)
 // Sends vaccine reminders, travel document reminders, and weekly digest
 
+import { verifyCronRequest } from './_cronAuth.js';
+
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const FROM_EMAIL = 'YourPetPass <notifications@yourpetpass.com>';
 const APP_URL = 'https://yourpetpass.com';
@@ -195,14 +197,17 @@ function weeklyDigestEmail({ ownerName, overdueVaccines, upcomingVaccines, trave
 
 // ── MAIN HANDLER ──────────────────────────────────────────
 export default async function handler(req, res) {
-  // Verify cron secret so this can't be called publicly
-  const secret = req.headers['x-cron-secret'];
-  if (secret !== process.env.CRON_SECRET) {
-    return res.status(401).json({ error: 'Unauthorized' });
+  res.setHeader('Cache-Control', 'private, no-store');
+  if (req.method !== 'GET' && req.method !== 'POST') {
+    res.setHeader('Allow', 'GET, POST');
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  const cron = verifyCronRequest(req, { header: 'x-cron-secret', bearer: false });
+  if (!cron.ok) return res.status(cron.status).json({ error: cron.error });
+
   if (!RESEND_API_KEY) {
-    return res.status(500).json({ error: 'RESEND_API_KEY not configured' });
+    return res.status(503).json({ error: 'RESEND_API_KEY not configured' });
   }
 
   const today = new Date();
