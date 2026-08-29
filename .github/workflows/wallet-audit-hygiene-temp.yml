@@ -1,0 +1,41 @@
+name: Wallet Audit Hygiene Temp
+
+on:
+  push:
+    branches:
+      - feat/digital-pet-pass-stage-one
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/digital-pet-pass-stage-one
+          fetch-depth: 0
+      - name: Fix environment inventory and stale Storage reminder
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('scripts/audit.py')
+          s = p.read_text()
+          s = s.replace("re.findall(r'process\\.env\\.([A-Z_]+)', content)", "re.findall(r'process\\.env\\.([A-Z0-9_]+)', content)")
+          s = s.replace("re.findall(r'import\\.meta\\.env\\.([A-Z_]+)', content)", "re.findall(r'import\\.meta\\.env\\.([A-Z0-9_]+)', content)")
+          s = s.replace(
+              '    - documents bucket is public (private = every photo 404s)\\n',
+              '    - documents bucket is private (public = health/document privacy leak)\\n'
+          )
+          s = s.replace(
+              '# 16. ENVIRONMENT VARIABLES INVENTORY\n#     (informational — cross-check these are all set in Vercel dashboard)',
+              '# 16. ENVIRONMENT VARIABLES INVENTORY\n#     (informational — cross-check required vars in Vercel; provider-specific\n#      vars may intentionally remain unset until that provider is enabled)'
+          )
+          p.write_text(s)
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/audit.py
+          git commit -m "Fix audit environment parsing and Storage reminder"
+          git push origin HEAD:feat/digital-pet-pass-stage-one
