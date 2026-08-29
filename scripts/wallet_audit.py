@@ -45,7 +45,7 @@ check('ensureEmergencyToken' in shared and "crypto.randomUUID().replace(/-/g, ''
 check("ownedPet(req, req.body?.petId)" in apple, 'Apple issuance verifies pet ownership')
 check("application/vnd.apple.pkpass" in apple, 'Apple endpoint returns the Wallet pass MIME type')
 check('PKPass' in apple and 'getAsBuffer' in apple and 'setBarcodes' in apple, 'Apple endpoint generates and signs a real pkpass')
-check('private files' in apple.lower() and 'full medical records' in apple.lower(), 'Apple pass explicitly excludes private/full medical records')
+check('private documents' in apple.lower() and 'full medical records' in apple.lower(), 'Apple pass explicitly excludes private/full medical records')
 
 check("ownedPet(req, req.body?.petId)" in google, 'Google issuance verifies pet ownership')
 check('googleWalletApprovedForPrivatePass()' in google, 'Google issuance is gated on private-pass approval')
