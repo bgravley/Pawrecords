@@ -15,11 +15,13 @@ drop policy if exists "Auth users update documents" on storage.objects;
 
 -- Existing profile/pet images were stored as permanent public Storage URLs.
 -- Point those rows through the authenticated same-origin gateway instead.
+-- Keep URLs root-relative so both yourpetpass.com and www.yourpetpass.com use
+-- the file-session cookie belonging to the hostname the visitor is on.
 update public.profiles
 set photo_url = regexp_replace(
   photo_url,
   '^https://pqqfwgwbwofzfpzzuilq\.supabase\.co/storage/v1/object/public/documents/',
-  'https://yourpetpass.com/api/storage-file?path='
+  '/api/storage-file?path='
 )
 where photo_url like 'https://pqqfwgwbwofzfpzzuilq.supabase.co/storage/v1/object/public/documents/%';
 
@@ -27,7 +29,7 @@ update public.dogs
 set photo_url = regexp_replace(
   photo_url,
   '^https://pqqfwgwbwofzfpzzuilq\.supabase\.co/storage/v1/object/public/documents/',
-  'https://yourpetpass.com/api/storage-file?path='
+  '/api/storage-file?path='
 )
 where photo_url like 'https://pqqfwgwbwofzfpzzuilq.supabase.co/storage/v1/object/public/documents/%';
 
