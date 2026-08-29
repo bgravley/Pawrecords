@@ -1398,6 +1398,47 @@ const QRSection=({dog,state,backBtn})=>{
   const[token,setToken]=useState(dog.emergency_token||null);
   const[generating,setGenerating]=useState(false);
   const[copied,setCopied]=useState(false);
+  const[walletConfig,setWalletConfig]=useState(null);
+  const[walletLoading,setWalletLoading]=useState(true);
+  const[walletSaving,setWalletSaving]=useState(null);
+  const[walletIssuing,setWalletIssuing]=useState(null);
+  const[walletError,setWalletError]=useState(null);
+
+  const authHeaders=async()=>{
+    const{data:{session}}=await supabase.auth.getSession();
+    if(!session?.access_token)throw new Error('Please sign in again to manage your Digital Pet Pass.');
+    return{'Content-Type':'application/json','Authorization':`Bearer ${session.access_token}`};
+  };
+
+  const loadWalletConfig=async()=>{
+    setWalletLoading(true);setWalletError(null);
+    try{
+      const headers=await authHeaders();
+      const res=await fetch(`/api/wallet/config?petId=${encodeURIComponent(dog.id)}`,{headers});
+      const data=await res.json();
+      if(!res.ok)throw new Error(data.error||'Could not load Wallet settings.');
+      setWalletConfig(data);
+    }catch(e){setWalletError(e.message);}
+    setWalletLoading(false);
+  };
+
+  const saveWalletSetting=async(key,value)=>{
+    if(!walletConfig)return;
+    const next={...walletConfig.settings,[key]:value};
+    setWalletConfig(prev=>({...prev,settings:next}));
+    setWalletSaving(key);setWalletError(null);
+    try{
+      const headers=await authHeaders();
+      const res=await fetch('/api/wallet/config',{method:'POST',headers,body:JSON.stringify({petId:dog.id,settings:next})});
+      const data=await res.json();
+      if(!res.ok)throw new Error(data.error||'Could not save Wallet settings.');
+      setWalletConfig(data);
+    }catch(e){
+      setWalletError(e.message);
+      loadWalletConfig();
+    }
+    setWalletSaving(null);
+  };
 
   const generateToken=async()=>{
     setGenerating(true);
@@ -1407,10 +1448,11 @@ const QRSection=({dog,state,backBtn})=>{
     setGenerating(false);
   };
 
-  // Auto-generate if pet doesn't have a token yet
   useEffect(()=>{
     if(!token&&!generating){generateToken();}
   },[]);
+
+  useEffect(()=>{loadWalletConfig();},[dog.id]);
 
   const emergencyUrl=token?`https://yourpetpass.com/emergency/${token}`:"";
   const qrUrl=token?`https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(emergencyUrl)}`:"";
@@ -1421,17 +1463,50 @@ const QRSection=({dog,state,backBtn})=>{
     setTimeout(()=>setCopied(false),2000);
   };
 
+  const issueApple=async()=>{
+    setWalletIssuing('apple');setWalletError(null);
+    try{
+      const headers=await authHeaders();
+      const res=await fetch('/api/wallet/apple',{method:'POST',headers,body:JSON.stringify({petId:dog.id})});
+      if(!res.ok){const data=await res.json().catch(()=>({}));throw new Error(data.error||'Could not create Apple Wallet pass.');}
+      const blob=await res.blob();
+      const url=URL.createObjectURL(blob);
+      window.location.assign(url);
+      setTimeout(()=>URL.revokeObjectURL(url),60000);
+    }catch(e){setWalletError(e.message);}
+    setWalletIssuing(null);
+  };
+
+  const issueGoogle=async()=>{
+    setWalletIssuing('google');setWalletError(null);
+    try{
+      const headers=await authHeaders();
+      const res=await fetch('/api/wallet/google',{method:'POST',headers,body:JSON.stringify({petId:dog.id})});
+      const data=await res.json();
+      if(!res.ok)throw new Error(data.error||'Could not create Google Wallet pass.');
+      if(!data.url)throw new Error('Google Wallet did not return a save link.');
+      window.location.assign(data.url);
+    }catch(e){setWalletError(e.message);}
+    setWalletIssuing(null);
+  };
+
+  const toggle=({key,label,sub,show=true})=>show?(
+    <label key={key} style={{display:"flex",gap:10,alignItems:"flex-start",padding:"10px 0",borderBottom:"1px solid #DCE8E0",cursor:"pointer"}}>
+      <input type="checkbox" checked={walletConfig?.settings?.[key]===true} disabled={walletSaving===key} onChange={e=>saveWalletSetting(key,e.target.checked)} style={{width:17,height:17,marginTop:2,accentColor:"#2C4A38"}}/>
+      <span style={{flex:1}}><span style={{display:"block",fontSize:13,fontWeight:700,color:"#1A2E22"}}>{label}</span><span style={{display:"block",fontSize:11.5,color:"#617568",lineHeight:1.5,marginTop:2}}>{sub}</span></span>
+    </label>
+  ):null;
+
   return(
     <div style={{display:"flex",flexDirection:"column",gap:14}}>
       <div style={{display:"flex",alignItems:"center",gap:10}}>
         {backBtn}
-        <h3 style={{fontFamily:"'Lora',serif",fontSize:20}}>QR Health Card</h3>
+        <h3 style={{fontFamily:"'Lora',serif",fontSize:20}}>Emergency QR</h3>
       </div>
 
       <Card>
         <div style={{fontSize:14,color:"#5A4535",lineHeight:1.7,marginBottom:16}}>
-          This QR code links to <b>{dog.name}'s full health record</b> — no login required.
-          Anyone who scans it (a vet, border agent, dog sitter) sees the complete record instantly in their browser.
+          This QR code opens <b>{dog.name}'s secure emergency record</b>. No account sign-in is required for someone who has the QR code or secure link, but it does not expose your account, private files, or unrestricted medical history.
         </div>
 
         {!token||generating?(
@@ -1441,7 +1516,6 @@ const QRSection=({dog,state,backBtn})=>{
         ):(
           <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:16}}>
             <img src={qrUrl} alt="Emergency QR health card code" style={{borderRadius:12,border:"2px solid #E8DDD0",background:"#fff",padding:10,width:240,height:240}}/>
-            {/* Shareable link */}
             <div style={{width:"100%",background:"#FAF6F0",borderRadius:10,padding:"10px 14px",display:"flex",alignItems:"center",gap:8}}>
               <span style={{fontSize:12,color:"#5A4535",flex:1,wordBreak:"break-all"}}>{emergencyUrl}</span>
               <button onClick={copyLink} style={{background:"#2D7D6F",color:"#fff",border:"none",borderRadius:8,padding:"6px 12px",fontSize:12,fontWeight:600,cursor:"pointer",flexShrink:0}}>
@@ -1449,20 +1523,45 @@ const QRSection=({dog,state,backBtn})=>{
               </button>
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,width:"100%"}}>
-              <Btn v="secondary" sm full onClick={()=>window.open(emergencyUrl,"_blank")} style={{justifyContent:"center"}}>
-                Preview Page
-              </Btn>
-              <Btn v="secondary" sm full onClick={generateToken} style={{justifyContent:"center",color:"#C4714A"}}>
-                Regenerate
-              </Btn>
+              <Btn v="secondary" sm full onClick={()=>window.open(emergencyUrl,"_blank")} style={{justifyContent:"center"}}>Preview Page</Btn>
+              <Btn v="secondary" sm full onClick={generateToken} style={{justifyContent:"center",color:"#C4714A"}}>Regenerate</Btn>
             </div>
             <div style={{fontSize:12,color:"#8B7355",textAlign:"center",lineHeight:1.6}}>
-              💡 Print this QR code and attach it to {dog.name}'s collar tag or carrier.<br/>
-              Tap "Regenerate" only if you need to invalidate the old link.
+              Print this QR code for {dog.name}'s tag or carrier. Regenerating invalidates the old QR immediately. Until automatic Wallet updates ship, any saved Wallet pass should be re-added after regeneration.
             </div>
           </div>
         )}
       </Card>
+
+      {!walletLoading&&walletConfig?.providers?.enabled&&(
+        <Card style={{border:"1px solid #9DC4AA",background:"#FAFCFB"}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+            <div style={{width:38,height:38,borderRadius:12,background:"#2C4A38",display:"flex",alignItems:"center",justifyContent:"center",fontSize:19}}>🐾</div>
+            <div style={{flex:1}}>
+              <div style={{fontFamily:"'Lora',serif",fontSize:18,fontWeight:700,color:"#2C4A38"}}>Digital Pet Pass</div>
+              <div style={{fontSize:12,color:"#617568",marginTop:2}}>Keep {dog.name}'s emergency card one tap away.</div>
+            </div>
+          </div>
+          <div style={{fontSize:12.5,color:"#1A2E22",lineHeight:1.65,marginBottom:12}}>
+            The Wallet card contains basic pet identity and the secure Emergency QR — <b>not</b> the full medical record or private documents.
+          </div>
+
+          <div style={{background:"#EAF4EE",border:"1px solid #DCE8E0",borderRadius:12,padding:"6px 12px",marginBottom:14}}>
+              <div style={{fontSize:11,fontWeight:800,color:"#2C4A38",textTransform:"uppercase",letterSpacing:".06em",padding:"6px 0 4px"}}>Optional details on the Wallet card</div>
+              {toggle({key:'show_rabies_status',label:'Rabies status',sub:'Shows only Current or Review needed — never the certificate number.'})}
+              {toggle({key:'show_microchip_last4',label:'Microchip ending',sub:'Shows only the last four characters.',show:!!dog.microchip})}
+              {toggle({key:'show_service_animal',label:'Service animal designation',sub:'Shows Service Animal only when your pet is already classified that way.',show:dog.pet_type==="service_animal"})}
+              {toggle({key:'show_emergency_contact',label:'Emergency contact',sub:'Adds the emergency name/phone currently saved for this pet.',show:!!(dog.emergency_contact||dog.emergency_phone)})}
+            </div>
+
+          <div style={{display:"flex",flexDirection:"column",gap:9}}>
+            {walletConfig.providers.apple?.available&&<button onClick={issueApple} disabled={!!walletIssuing} style={{width:"100%",background:"#000",color:"#fff",border:"none",borderRadius:11,padding:"12px 14px",fontSize:14,fontWeight:700,cursor:walletIssuing?"not-allowed":"pointer"}}>{walletIssuing==='apple'?"Creating Apple Wallet pass...":"Add to Apple Wallet"}</button>}
+            {walletConfig.providers.google?.available&&<button onClick={issueGoogle} disabled={!!walletIssuing} style={{width:"100%",background:"#fff",color:"#1A2E22",border:"1.5px solid #DCE8E0",borderRadius:11,padding:"12px 14px",fontSize:14,fontWeight:700,cursor:walletIssuing?"not-allowed":"pointer"}}>{walletIssuing==='google'?"Creating Google Wallet pass...":"Add to Google Wallet"}</button>}
+          </div>
+          {walletError&&<div style={{marginTop:10,background:"#FFF5F2",border:"1px solid #E8C6BB",borderRadius:10,padding:"9px 11px",fontSize:12,color:"#A8583E",lineHeight:1.5}}>{walletError}</div>}
+          <div style={{fontSize:11,color:"#7C9E87",lineHeight:1.55,marginTop:10,textAlign:"center"}}>Wallet details are opt-in. Your pet's health history stays in YourPetPass.</div>
+        </Card>
+      )}
     </div>
   );
 };
