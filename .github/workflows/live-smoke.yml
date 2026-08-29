@@ -67,6 +67,17 @@ jobs:
           cat /tmp/email-record-response.json || true
           test "$STATUS" = "401"
 
+      - name: Verify bug reports reject anonymous identity spoofing
+        shell: bash
+        run: |
+          set -euo pipefail
+          STATUS="$(curl -sS -o /tmp/bug-report-response.json -w '%{http_code}' \
+            -X POST 'https://www.yourpetpass.com/api/report-bug' \
+            -H 'Content-Type: application/json' \
+            --data '{"userId":"00000000-0000-0000-0000-000000000000","userEmail":"spoof@example.com","description":"anonymous spoof probe","screenshotUrl":"https://example.com/tracker.png"}')"
+          cat /tmp/bug-report-response.json || true
+          test "$STATUS" = "401"
+
       - name: Run public and authenticated production smoke tests
         shell: bash
         env:

@@ -52,3 +52,6 @@ jobs:
 
       - name: Run emailed-record security audit
         run: python3 scripts/email_record_security_audit.py
+
+      - name: Run bug-report identity security audit
+        run: python3 scripts/bug_report_security_audit.py
