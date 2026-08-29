@@ -454,7 +454,7 @@ await check('Authenticated production customer flow works end to end', async () 
       const petChoice = modal.locator('label').filter({ hasText: PET_NAME }).locator('input[type="checkbox"]').first();
       await petChoice.check();
       await modal.getByRole('button', { name: 'Create Trip', exact: true }).click();
-      await page.getByText(TRIP_NAME, { exact: true }).first().waitFor({ state: 'visible', timeout: 15000 });
+      await page.getByText('Quito → Miami', { exact: true }).first().waitFor({ state: 'visible', timeout: 15000 });
 
       const trips = await restGet(context, primarySupabase, primarySession, 'trips', {
         name: `eq.${TRIP_NAME}`,
@@ -466,7 +466,8 @@ await check('Authenticated production customer flow works end to end', async () 
     });
 
     await step('Sign out works and a second one-time login preserves records', async () => {
-      await page.getByText('← My Pets', { exact: true }).click();
+      await page.goto(BASE, { waitUntil: 'domcontentloaded', timeout: 30000 });
+      await page.getByText(PET_NAME, { exact: true }).first().waitFor({ state: 'visible', timeout: 15000 });
       await page.locator('button[title="Sign out"]').click();
       await page.getByRole('button', { name: 'Login' }).waitFor({ state: 'visible', timeout: 15000 });
 
