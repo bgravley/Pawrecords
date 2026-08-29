@@ -3,6 +3,7 @@ import { chromium } from 'playwright';
 const BASE = (process.env.E2E_BASE_URL || 'https://yourpetpass.com').replace(/\/$/, '');
 const E2E_EMAIL = process.env.E2E_EMAIL || '';
 const E2E_PASSWORD = process.env.E2E_PASSWORD || '';
+const INVALID_EMERGENCY_TOKEN = 'livesmokeinvalidtoken9f8e7d6c';
 
 const browser = await chromium.launch({ headless: true });
 const context = await browser.newContext({
@@ -43,7 +44,7 @@ await check('Authentication UI renders and uses the secured emergency-access exp
   await page.getByRole('button', { name: 'Login' }).click();
   await expectVisibleText("Your pet's records belong with you.");
   await page.getByRole('button', { name: 'Create Account' }).click();
-  await page.getByPlaceholder('Password (min 6 characters)').waitFor({ state: 'visible' });
+  await page.getByPlaceholder(/Password \(min \d+ characters\)/).waitFor({ state: 'visible' });
 
   await page.getByRole('button', { name: 'Have an emergency QR code?' }).click();
   await expectVisibleText('There is no public directory of pets or medical records.');
@@ -55,7 +56,7 @@ await check('Authentication UI renders and uses the secured emergency-access exp
 });
 
 await check('Invalid Emergency QR token reveals no record', async () => {
-  const response = await page.goto(`${BASE}/emergency/live-smoke-invalid-token-9f8e7d6c`, {
+  const response = await page.goto(`${BASE}/emergency/${INVALID_EMERGENCY_TOKEN}`, {
     waitUntil: 'domcontentloaded', timeout: 30000,
   });
   if (!response || response.status() !== 200) throw new Error(`Emergency SPA route returned ${response?.status()}`);
@@ -64,7 +65,7 @@ await check('Invalid Emergency QR token reveals no record', async () => {
 });
 
 await check('Emergency API rejects an invalid token without data', async () => {
-  const response = await context.request.get(`${BASE}/api/emergency-record?token=live-smoke-invalid-token-9f8e7d6c`);
+  const response = await context.request.get(`${BASE}/api/emergency-record?token=${INVALID_EMERGENCY_TOKEN}`);
   if (response.status() !== 404) throw new Error(`Expected 404, got ${response.status()}`);
   const text = await response.text();
   if (/vaccination|medication|allerg|emergency_phone|dog_id|user_id/i.test(text)) {
