@@ -15,6 +15,15 @@ function readCookie(req, name) {
   return null;
 }
 
+function queryParam(req, name) {
+  try {
+    const url = new URL(req.url || '/', 'https://www.yourpetpass.com');
+    return url.searchParams.get(name);
+  } catch {
+    return null;
+  }
+}
+
 function safePath(value) {
   if (!value || typeof value !== 'string') return null;
   let decoded;
@@ -62,7 +71,7 @@ export default async function handler(req, res) {
     return res.status(503).json({ error: 'Storage gateway unavailable' });
   }
 
-  const path = safePath(req.query?.path);
+  const path = safePath(queryParam(req, 'path'));
   if (!path) return res.status(400).json({ error: 'Invalid file path' });
 
   const intentionallyShared = UUID_SHARED_RECORD.test(path);
