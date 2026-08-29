@@ -40,3 +40,6 @@ jobs:
 
       - name: Run query parser regression audit
         run: python3 scripts/query_parser_audit.py
+
+      - name: Run product analytics privacy audit
+        run: python3 scripts/analytics_audit.py
