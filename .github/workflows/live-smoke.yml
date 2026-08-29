@@ -2,6 +2,9 @@ name: Live Production Smoke
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
   schedule:
     - cron: '30 15 * * 1'
 
