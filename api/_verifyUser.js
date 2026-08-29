@@ -4,13 +4,28 @@
 // request body — anyone can type any id there. This confirms the caller
 // actually holds a valid session token for that account.
 //
-// Usage inside a handler:
-//   const auth = await verifyUser(req);
-//   if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
-//   const userId = auth.userId;   // trustworthy from here on
-//
-// Files prefixed with "_" are treated as helpers by Vercel and are not
-// exposed as their own callable endpoints.
+// Browser callers can authenticate either with an explicit Bearer token or
+// with the short-lived HttpOnly `ypp_file_session` cookie synchronized by the
+// signed-in app. The cookie is Secure + SameSite=Lax and the token is always
+// revalidated with Supabase before use.
+
+const SESSION_COOKIE = 'ypp_file_session';
+
+function readCookie(req, name) {
+  const raw = req.headers.cookie || '';
+  for (const part of raw.split(';')) {
+    const [key, ...rest] = part.trim().split('=');
+    if (key !== name) continue;
+    try { return decodeURIComponent(rest.join('=')); } catch { return null; }
+  }
+  return null;
+}
+
+function readUserToken(req) {
+  const authHeader = req.headers.authorization || req.headers.Authorization || '';
+  if (authHeader.startsWith('Bearer ')) return authHeader.slice(7).trim();
+  return readCookie(req, SESSION_COOKIE);
+}
 
 export async function verifyUser(req) {
   const supabaseUrl = process.env.SUPABASE_URL;
@@ -20,12 +35,7 @@ export async function verifyUser(req) {
     return { ok: false, status: 500, error: 'Server not configured' };
   }
 
-  const authHeader = req.headers.authorization || req.headers.Authorization;
-  if (!authHeader) {
-    return { ok: false, status: 401, error: 'You must be signed in to do that.' };
-  }
-
-  const userToken = authHeader.replace('Bearer ', '').trim();
+  const userToken = readUserToken(req);
   if (!userToken) {
     return { ok: false, status: 401, error: 'You must be signed in to do that.' };
   }
@@ -44,7 +54,7 @@ export async function verifyUser(req) {
   }
 
   const userData = await verifyRes.json().catch(() => null);
-  if (!userData || !userData.id) {
+  if (!userData?.id) {
     return { ok: false, status: 401, error: 'Your session has expired — please sign in again.' };
   }
 

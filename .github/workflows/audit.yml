@@ -46,3 +46,6 @@ jobs:
 
       - name: Run notification relay security audit
         run: python3 scripts/notification_security_audit.py
+
+      - name: Run checkout identity security audit
+        run: python3 scripts/checkout_security_audit.py

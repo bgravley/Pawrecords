@@ -45,6 +45,17 @@ jobs:
           cat /tmp/notify-response.json || true
           test "$STATUS" = "401"
 
+      - name: Verify checkout rejects anonymous identity spoofing
+        shell: bash
+        run: |
+          set -euo pipefail
+          STATUS="$(curl -sS -o /tmp/checkout-response.json -w '%{http_code}' \
+            -X POST 'https://www.yourpetpass.com/api/create-checkout' \
+            -H 'Content-Type: application/json' \
+            --data '{"priceId":"price_1TknmwB5s5OlwZVJsgXTq1JA","userId":"00000000-0000-0000-0000-000000000000","userEmail":"spoof@example.com","mode":"subscription"}')"
+          cat /tmp/checkout-response.json || true
+          test "$STATUS" = "401"
+
       - name: Run public and authenticated production smoke tests
         shell: bash
         env:
