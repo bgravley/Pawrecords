@@ -386,7 +386,7 @@ remind(
     "    - handle_new_user trigger health (broken trigger = all signups fail silently)\n"
     "    - oversized storage photos (>500KB = slow/broken image loads)\n"
     "    - RLS enabled on every table (missing = data leak)\n"
-    "    - documents bucket is public (private = every photo 404s)\n"
+    "    - documents bucket is private (public = health/document privacy leak)\n"
     "  ALSO: after ANY schema change, regenerate scripts/schema_snapshot.json\n"
     "  (query #1 in schema_audit.sql) or check 20 will drift."
 )
@@ -405,7 +405,8 @@ ok("Trigger reminder noted (cannot auto-check from code — see REMINDERS below)
 # ─────────────────────────────────────────────────────────────────────────────
 
 # 16. ENVIRONMENT VARIABLES INVENTORY
-#     (informational — cross-check these are all set in Vercel dashboard)
+#     (informational — cross-check required vars in Vercel; provider-specific
+#      vars may intentionally remain unset until that provider is enabled)
 # ════════════════════════════════════════════════════════════════════════════
 print("[16/28] Collecting environment variable inventory...")
 env_vars = set()
@@ -413,13 +414,13 @@ for root, dirs, files in os.walk("api"):
     for f in files:
         if f.endswith(".js"):
             content = open(os.path.join(root, f), errors='ignore').read()
-            env_vars.update(re.findall(r'process\.env\.([A-Z_]+)', content))
+            env_vars.update(re.findall(r'process\.env\.([A-Z0-9_]+)', content))
 for root, dirs, files in os.walk("src"):
     dirs[:] = [d for d in dirs if d != "node_modules"]
     for f in files:
         if f.endswith((".js", ".jsx")):
             content = open(os.path.join(root, f), errors='ignore').read()
-            env_vars.update(re.findall(r'import\.meta\.env\.([A-Z_]+)', content))
+            env_vars.update(re.findall(r'import\.meta\.env\.([A-Z0-9_]+)', content))
 ok(f"Found {len(env_vars)} environment variables (see inventory below)")
 
 
