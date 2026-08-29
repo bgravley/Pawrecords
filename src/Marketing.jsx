@@ -2,10 +2,10 @@
 import { useState, useEffect } from 'react';
 
 const C = {
-  bg: '#FAF6F0', card: '#FFFFFF', border: '#E8DDD0',
-  teal: '#2D7D6F', tealDk: '#1E5C52', tealLt: '#4A9E90',
-  brown: '#5A4535', muted: '#8B7355', text: '#2C2017',
-  amber: '#E8A838', red: '#C4714A',
+  bg: '#FAFCFB', card: '#FFFFFF', border: '#DCE8E0',
+  teal: '#2C4A38', tealDk: '#2C4A38', tealLt: '#9DC4AA',
+  brown: '#385744', muted: '#6A8372', text: '#1A2E22',
+  amber: '#C9A84C', red: '#A4483E',
 };
 
 function FeatureCard({ icon, title, desc }) {
@@ -24,16 +24,16 @@ function UseCaseCard({ image, eyebrow, title, body, featured, link }) {
       background: featured ? C.tealDk : C.card,
       border: featured ? 'none' : `1px solid ${C.border}`,
       borderRadius: 18, overflow: 'hidden', textAlign: 'left',
-      boxShadow: featured ? '0 8px 28px rgba(30,92,82,0.25)' : '0 2px 10px rgba(0,0,0,0.04)',
+      boxShadow: featured ? '0 8px 28px rgba(44,74,56,0.25)' : '0 2px 10px rgba(0,0,0,0.04)',
       display: 'block', textDecoration: 'none', cursor: 'pointer',
     }}>
       <div style={{ width: '100%', aspectRatio: '16/10', overflow: 'hidden' }}>
         <img src={image} alt={title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
       </div>
       <div style={{ padding: 26 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: featured ? '#A8D5CE' : C.teal, marginBottom: 6 }}>{eyebrow}</div>
-        <div style={{ fontFamily: "'Lora', serif", fontSize: 20, fontWeight: 600, color: featured ? '#FFFFFF' : C.text, marginBottom: 10 }}>{title}</div>
-        <div style={{ fontSize: 14.5, color: featured ? '#D4E8E4' : C.brown, lineHeight: 1.75, marginBottom: 14 }}>{body}</div>
+        <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: featured ? C.tealLt : C.teal, marginBottom: 6 }}>{eyebrow}</div>
+        <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 700, color: featured ? '#FFFFFF' : C.text, marginBottom: 10 }}>{title}</div>
+        <div style={{ fontSize: 14.5, color: featured ? '#EAF4EE' : C.brown, lineHeight: 1.75, marginBottom: 14 }}>{body}</div>
         <div style={{ fontSize: 13.5, fontWeight: 700, color: featured ? '#FFFFFF' : C.teal }}>Read the full story →</div>
       </div>
     </a>
@@ -52,7 +52,7 @@ function FAQItem({ q, a }) {
 function StepCard({ num, icon, title, desc }) {
   return (
     <div style={{ textAlign: 'center', flex: 1, minWidth: 160 }}>
-      <div style={{ width: 52, height: 52, borderRadius: '50%', background: C.teal, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 800, margin: '0 auto 14px', fontFamily: "'Lora', serif" }}>{num}</div>
+      <div style={{ width: 52, height: 52, borderRadius: '50%', background: C.teal, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 800, margin: '0 auto 14px', fontFamily: "'Playfair Display', serif" }}>{num}</div>
       <div style={{ fontSize: 28, marginBottom: 8 }}>{icon}</div>
       <div style={{ fontWeight: 700, fontSize: 15, color: C.text, marginBottom: 6 }}>{title}</div>
       <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.6 }}>{desc}</div>
@@ -87,11 +87,11 @@ export default function Marketing({ onLogin, onSignup }) {
     }
   };
 
-  const navBtn = { background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'Nunito', sans-serif", fontSize: 14, fontWeight: 700 };
+  const navBtn = { background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'Lora', serif", fontSize: 14, fontWeight: 700 };
 
   return (
-    <div style={{ minHeight: '100vh', background: C.bg, fontFamily: "'Nunito', sans-serif" }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Lora:ital,wght@0,400;0,600;1,400;1,600&display=swap');`}</style>
+    <div style={{ minHeight: '100vh', background: C.bg, fontFamily: "'Lora', serif" }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Lora:wght@400;600&family=Playfair+Display:wght@700;800&display=swap');`}</style>
 
       {/* NAV */}
       <nav style={{ position: 'sticky', top: 0, zIndex: 50, background: C.tealDk, padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
@@ -99,13 +99,13 @@ export default function Marketing({ onLogin, onSignup }) {
           <img src="/logo_horizontal_cream_transparent.png" alt="YourPetPass" style={{ height: 36, display: 'block' }} />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-          <a href="#features" style={{ ...navBtn, color: '#D4E8E4', textDecoration: 'none' }}>Features</a>
-          <a href="#use-cases" style={{ ...navBtn, color: '#D4E8E4', textDecoration: 'none' }}>Use Cases</a>
-          <a href="#pricing" style={{ ...navBtn, color: '#D4E8E4', textDecoration: 'none' }}>Pricing</a>
-          <a href="/blog.html" style={{ ...navBtn, color: '#D4E8E4', textDecoration: 'none' }}>Pet Guides</a>
-          <a href="#store" style={{ ...navBtn, color: '#D4E8E4', textDecoration: 'none' }}>Store</a>
-          <button onClick={onLogin} style={{ background: 'rgba(255,255,255,0.12)', color: '#FFFFFF', border: '1.5px solid rgba(255,255,255,0.5)', borderRadius: 10, padding: '8px 18px', fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: "'Nunito', sans-serif" }}>Login</button>
-          <button onClick={onSignup} style={{ background: C.amber, color: '#1E1408', border: 'none', borderRadius: 10, padding: '9px 18px', fontWeight: 800, fontSize: 14, cursor: 'pointer', fontFamily: "'Nunito', sans-serif" }}>Sign Up Free</button>
+          <a href="#features" style={{ ...navBtn, color: '#EAF4EE', textDecoration: 'none' }}>Features</a>
+          <a href="#use-cases" style={{ ...navBtn, color: '#EAF4EE', textDecoration: 'none' }}>Use Cases</a>
+          <a href="#pricing" style={{ ...navBtn, color: '#EAF4EE', textDecoration: 'none' }}>Pricing</a>
+          <a href="/blog.html" style={{ ...navBtn, color: '#EAF4EE', textDecoration: 'none' }}>Pet Guides</a>
+          <a href="#store" style={{ ...navBtn, color: '#EAF4EE', textDecoration: 'none' }}>Store</a>
+          <button onClick={onLogin} style={{ background: 'rgba(255,255,255,0.12)', color: '#FFFFFF', border: '1.5px solid rgba(255,255,255,0.5)', borderRadius: 10, padding: '8px 18px', fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: "'Lora', serif" }}>Login</button>
+          <button onClick={onSignup} style={{ background: C.amber, color: C.text, border: 'none', borderRadius: 10, padding: '9px 18px', fontWeight: 800, fontSize: 14, cursor: 'pointer', fontFamily: "'Lora', serif" }}>Sign Up Free</button>
         </div>
       </nav>
 
@@ -113,21 +113,21 @@ export default function Marketing({ onLogin, onSignup }) {
       <section style={{ position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
           <img src="/IMG_1360.jpeg" alt="Dog and cat resting together at home" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(30,92,82,0.85) 0%, rgba(30,92,82,0.93) 55%, rgba(30,92,82,0.97) 100%)' }} />
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(44,74,56,0.85) 0%, rgba(44,74,56,0.93) 55%, rgba(44,74,56,0.97) 100%)' }} />
         </div>
         <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', padding: '72px 20px 56px', maxWidth: 760, margin: '0 auto' }}>
-          <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: '#F5C45E', marginBottom: 14 }}>For Dogs & Cats — Health Records & Travel, Simplified</div>
-          <h1 style={{ fontFamily: "'Lora', serif", fontSize: 'clamp(30px, 6vw, 46px)', fontWeight: 600, color: '#FFFFFF', lineHeight: 1.2, marginBottom: 18 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: C.amber, marginBottom: 14 }}>For Dogs & Cats — Health Records & Travel, Simplified</div>
+          <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 'clamp(30px, 6vw, 46px)', fontWeight: 800, color: '#FFFFFF', lineHeight: 1.2, marginBottom: 18 }}>
             One place for every vet visit, vaccine, and trip your pet takes.
           </h1>
-          <p style={{ fontSize: 17, color: '#D4E8E4', lineHeight: 1.7, marginBottom: 28 }}>
+          <p style={{ fontSize: 17, color: '#EAF4EE', lineHeight: 1.7, marginBottom: 28 }}>
             Switch vets, travel across borders, or board your pet for the weekend — YourPetPass keeps every health record organized and ready, no matter where life takes you both.
           </p>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <button onClick={onSignup} style={{ background: C.amber, color: '#1E1408', border: 'none', borderRadius: 12, padding: '14px 28px', fontWeight: 800, fontSize: 16, cursor: 'pointer', fontFamily: "'Nunito', sans-serif" }}>
+            <button onClick={onSignup} style={{ background: C.amber, color: C.text, border: 'none', borderRadius: 12, padding: '14px 28px', fontWeight: 800, fontSize: 16, cursor: 'pointer', fontFamily: "'Lora', serif" }}>
               Get Started Free
             </button>
-            <button onClick={handleInstallClick} style={{ background: 'rgba(255,255,255,0.12)', color: '#FFFFFF', border: '1.5px solid rgba(255,255,255,0.4)', borderRadius: 12, padding: '14px 24px', fontWeight: 700, fontSize: 15, cursor: 'pointer', fontFamily: "'Nunito', sans-serif", display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button onClick={handleInstallClick} style={{ background: 'rgba(255,255,255,0.12)', color: '#FFFFFF', border: '1.5px solid rgba(255,255,255,0.4)', borderRadius: 12, padding: '14px 24px', fontWeight: 700, fontSize: 15, cursor: 'pointer', fontFamily: "'Lora', serif", display: 'flex', alignItems: 'center', gap: 8 }}>
               📲 Add to Your Phone
             </button>
           </div>
@@ -139,12 +139,12 @@ export default function Marketing({ onLogin, onSignup }) {
         <div onClick={() => setShowIOSHelp(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
           <div onClick={e => e.stopPropagation()} style={{ background: '#FFFFFF', borderRadius: 18, padding: 28, maxWidth: 360, textAlign: 'center' }}>
             <div style={{ fontSize: 36, marginBottom: 10 }}>📲</div>
-            <div style={{ fontFamily: "'Lora', serif", fontSize: 19, fontWeight: 600, color: C.tealDk, marginBottom: 12 }}>Add YourPetPass to Your Phone</div>
+            <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, fontWeight: 700, color: C.tealDk, marginBottom: 12 }}>Add YourPetPass to Your Phone</div>
             <div style={{ fontSize: 14, color: C.brown, lineHeight: 1.7, textAlign: 'left', marginBottom: 18 }}>
               <strong>On iPhone (Safari):</strong> Tap the Share icon, then "Add to Home Screen."<br/><br/>
               <strong>On Android (Chrome):</strong> Tap the ⋮ menu, then "Add to Home Screen" or "Install App."
             </div>
-            <button onClick={() => setShowIOSHelp(false)} style={{ background: C.teal, color: '#fff', border: 'none', borderRadius: 10, padding: '10px 20px', fontWeight: 700, cursor: 'pointer', fontFamily: "'Nunito', sans-serif" }}>Got it</button>
+            <button onClick={() => setShowIOSHelp(false)} style={{ background: C.teal, color: '#fff', border: 'none', borderRadius: 10, padding: '10px 20px', fontWeight: 700, cursor: 'pointer', fontFamily: "'Lora', serif" }}>Got it</button>
           </div>
         </div>
       )}
@@ -153,7 +153,7 @@ export default function Marketing({ onLogin, onSignup }) {
       <section style={{ padding: '52px 20px 36px', maxWidth: 1000, margin: '0 auto' }}>
         <div style={{ display: 'flex', gap: 40, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
           <div style={{ flex: '1 1 320px', minWidth: 280 }}>
-            <h2 style={{ fontFamily: "'Lora', serif", fontSize: 26, color: C.tealDk, marginBottom: 18 }}>From vet visit to your pocket in seconds</h2>
+            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 26, fontWeight: 700, color: C.tealDk, marginBottom: 18 }}>From vet visit to your pocket in seconds</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               <StepCard num="1" icon="📷" title="Snap a photo" desc="Photograph any vet record, vaccine card, or health document." />
               <StepCard num="2" icon="🤖" title="AI organizes it" desc="Information is automatically extracted and saved to your pet's profile." />
@@ -168,7 +168,7 @@ export default function Marketing({ onLogin, onSignup }) {
 
       {/* FEATURES */}
       <section id="features" style={{ padding: '40px 20px', maxWidth: 1000, margin: '0 auto' }}>
-        <h2 style={{ fontFamily: "'Lora', serif", fontSize: 28, textAlign: 'center', color: C.tealDk, marginBottom: 8 }}>Everything in one place</h2>
+        <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 28, fontWeight: 700, textAlign: 'center', color: C.tealDk, marginBottom: 8 }}>Everything in one place</h2>
         <p style={{ textAlign: 'center', color: C.muted, marginBottom: 32, fontSize: 15 }}>No more folders, no more texting your old vet for records.</p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
           <FeatureCard icon="📋" title="Health Records" desc="Vaccines, vet visits, allergies, and medications — all tied to your pet, not one clinic." />
@@ -182,7 +182,7 @@ export default function Marketing({ onLogin, onSignup }) {
 
       {/* USE CASES */}
       <section id="use-cases" style={{ padding: '48px 20px', maxWidth: 1080, margin: '0 auto' }}>
-        <h2 style={{ fontFamily: "'Lora', serif", fontSize: 28, textAlign: 'center', color: C.tealDk, marginBottom: 8 }}>Built for real life with a pet</h2>
+        <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 28, fontWeight: 700, textAlign: 'center', color: C.tealDk, marginBottom: 8 }}>Built for real life with a pet</h2>
         <p style={{ textAlign: 'center', color: C.muted, marginBottom: 32, fontSize: 15 }}>Three ways pet owners actually use YourPetPass.</p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 24 }}>
           <UseCaseCard
@@ -218,7 +218,7 @@ export default function Marketing({ onLogin, onSignup }) {
           </div>
           <div style={{ flex: '1 1 280px', padding: 28, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
             <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: C.teal, marginBottom: 8 }}>Walk Into Any Vet, Prepared</div>
-            <div style={{ fontFamily: "'Lora', serif", fontSize: 21, color: C.text, marginBottom: 10 }}>"What vaccines have they had?" — you'll always know.</div>
+            <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 21, fontWeight: 700, color: C.text, marginBottom: 10 }}>"What vaccines have they had?" — you'll always know.</div>
             <div style={{ fontSize: 14.5, color: C.brown, lineHeight: 1.7 }}>
               Every vaccine, every visit, every medication — right there on your phone before the vet even asks. No more guessing, no more "I think it was sometime last year."
             </div>
@@ -228,34 +228,34 @@ export default function Marketing({ onLogin, onSignup }) {
 
       {/* PRICING — was previously only mentioned in a single FAQ line */}
       <section id="pricing" style={{ padding: '48px 20px', maxWidth: 1080, margin: '0 auto' }}>
-        <h2 style={{ fontFamily: "'Lora', serif", fontSize: 28, textAlign: 'center', color: C.tealDk, marginBottom: 8 }}>Simple pricing, no surprises</h2>
+        <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 28, fontWeight: 700, textAlign: 'center', color: C.tealDk, marginBottom: 8 }}>Simple pricing, no surprises</h2>
         <p style={{ textAlign: 'center', color: C.muted, marginBottom: 32, fontSize: 15 }}>Start free. Upgrade whenever you actually need more.</p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 18, padding: 28, textAlign: 'left' }}>
             <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em', color: C.muted, marginBottom: 8 }}>Free</div>
-            <div style={{ fontFamily: "'Lora', serif", fontSize: 30, color: C.text, marginBottom: 4 }}>$0</div>
+            <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 30, fontWeight: 700, color: C.text, marginBottom: 4 }}>$0</div>
             <div style={{ fontSize: 13, color: C.muted, marginBottom: 18 }}>forever</div>
             <div style={{ fontSize: 14, color: C.brown, lineHeight: 1.8, marginBottom: 20 }}>Core health record storage — vaccines, vet visits, allergies, and medications for every pet you have.</div>
             <button onClick={onSignup} style={{ width: '100%', background: 'transparent', border: `1.5px solid ${C.teal}`, color: C.teal, borderRadius: 10, padding: '11px 0', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>Get Started Free</button>
           </div>
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 18, padding: 28, textAlign: 'left' }}>
             <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em', color: C.muted, marginBottom: 8 }}>Premium Monthly</div>
-            <div style={{ fontFamily: "'Lora', serif", fontSize: 30, color: C.text, marginBottom: 4 }}>$4.99</div>
+            <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 30, fontWeight: 700, color: C.text, marginBottom: 4 }}>$4.99</div>
             <div style={{ fontSize: 13, color: C.muted, marginBottom: 18 }}>per month</div>
             <div style={{ fontSize: 14, color: C.brown, lineHeight: 1.8, marginBottom: 20 }}>Everything in Free, plus AI document scanning, AI travel checklists, weight tracking, document storage, and the QR emergency card.</div>
             <button onClick={onSignup} style={{ width: '100%', background: 'transparent', border: `1.5px solid ${C.teal}`, color: C.teal, borderRadius: 10, padding: '11px 0', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>Start Premium</button>
           </div>
-          <div style={{ background: C.tealDk, border: 'none', borderRadius: 18, padding: 28, textAlign: 'left', boxShadow: '0 8px 28px rgba(30,92,82,0.25)', position: 'relative' }}>
-            <div style={{ position: 'absolute', top: -12, right: 20, background: C.amber, color: '#1E1408', fontSize: 11, fontWeight: 800, padding: '4px 12px', borderRadius: 20, textTransform: 'uppercase', letterSpacing: '.04em' }}>Best Value</div>
-            <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em', color: '#A8D5CE', marginBottom: 8 }}>Premium Annual</div>
-            <div style={{ fontFamily: "'Lora', serif", fontSize: 30, color: '#FFFFFF', marginBottom: 4 }}>$39.99</div>
-            <div style={{ fontSize: 13, color: '#A8D5CE', marginBottom: 18 }}>per year — under $3.50/month</div>
-            <div style={{ fontSize: 14, color: '#D4E8E4', lineHeight: 1.8, marginBottom: 20 }}>Everything in Premium Monthly, billed once a year instead of twelve times.</div>
+          <div style={{ background: C.tealDk, border: 'none', borderRadius: 18, padding: 28, textAlign: 'left', boxShadow: '0 8px 28px rgba(44,74,56,0.25)', position: 'relative' }}>
+            <div style={{ position: 'absolute', top: -12, right: 20, background: C.amber, color: C.text, fontSize: 11, fontWeight: 800, padding: '4px 12px', borderRadius: 20, textTransform: 'uppercase', letterSpacing: '.04em' }}>Best Value</div>
+            <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em', color: C.tealLt, marginBottom: 8 }}>Premium Annual</div>
+            <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 30, fontWeight: 700, color: '#FFFFFF', marginBottom: 4 }}>$39.99</div>
+            <div style={{ fontSize: 13, color: C.tealLt, marginBottom: 18 }}>per year — under $3.50/month</div>
+            <div style={{ fontSize: 14, color: '#EAF4EE', lineHeight: 1.8, marginBottom: 20 }}>Everything in Premium Monthly, billed once a year instead of twelve times.</div>
             <button onClick={onSignup} style={{ width: '100%', background: '#FFFFFF', border: 'none', color: C.tealDk, borderRadius: 10, padding: '11px 0', fontWeight: 800, fontSize: 14, cursor: 'pointer' }}>Start Premium</button>
           </div>
           <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 18, padding: 28, textAlign: 'left' }}>
             <div style={{ fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.05em', color: C.muted, marginBottom: 8 }}>Premium Lifetime</div>
-            <div style={{ fontFamily: "'Lora', serif", fontSize: 30, color: C.text, marginBottom: 4 }}>$89.99</div>
+            <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 30, fontWeight: 700, color: C.text, marginBottom: 4 }}>$89.99</div>
             <div style={{ fontSize: 13, color: C.muted, marginBottom: 18 }}>one-time, forever</div>
             <div style={{ fontSize: 14, color: C.brown, lineHeight: 1.8, marginBottom: 20 }}>Pay once. Every Premium feature, for every pet you ever have, with no recurring charge.</div>
             <button onClick={onSignup} style={{ width: '100%', background: 'transparent', border: `1.5px solid ${C.teal}`, color: C.teal, borderRadius: 10, padding: '11px 0', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>Get Lifetime Access</button>
@@ -267,7 +267,7 @@ export default function Marketing({ onLogin, onSignup }) {
       <section id="store" style={{ padding: '40px 20px', maxWidth: 680, margin: '0 auto', textAlign: 'center' }}>
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 18, padding: 32 }}>
           <div style={{ fontSize: 32, marginBottom: 10 }}>🛍️</div>
-          <div style={{ fontFamily: "'Lora', serif", fontSize: 22, color: C.tealDk, marginBottom: 8 }}>YourPetPass Store — Coming Soon</div>
+          <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, fontWeight: 700, color: C.tealDk, marginBottom: 8 }}>YourPetPass Store — Coming Soon</div>
           <div style={{ fontSize: 14, color: C.muted, lineHeight: 1.6 }}>
             Travel gear, ID tags, and pet essentials picked to pair with your YourPetPass profile.
           </div>
@@ -276,7 +276,7 @@ export default function Marketing({ onLogin, onSignup }) {
 
       {/* FAQ */}
       <section style={{ padding: '40px 20px', maxWidth: 680, margin: '0 auto' }}>
-        <h2 style={{ fontFamily: "'Lora', serif", fontSize: 24, textAlign: 'center', color: C.tealDk, marginBottom: 24 }}>Common Questions</h2>
+        <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 700, textAlign: 'center', color: C.tealDk, marginBottom: 24 }}>Common Questions</h2>
         <FAQItem q="What is YourPetPass?" a="An app that keeps your pet's health records — vaccines, vet visits, allergies, medications — in one place, accessible no matter which vet you see, plus AI-generated travel checklists for flying or driving with your pet." />
         <FAQItem q="Does it work if I see different vets in different cities?" a="Yes — that's exactly the problem it's built to solve. Records stay attached to your pet's profile, not to any single clinic." />
         <FAQItem q="Can it help with airline or international travel requirements?" a="Yes. Generate a route-specific checklist covering health certificates, vaccination requirements, and airline pet policies." />
@@ -287,12 +287,12 @@ export default function Marketing({ onLogin, onSignup }) {
       <section style={{ padding: '20px 20px 48px', maxWidth: 560, margin: '0 auto', textAlign: 'center' }}>
         <div style={{ background: C.tealDk, borderRadius: 18, padding: 32 }}>
           <div style={{ fontSize: 28, marginBottom: 8 }}>📬</div>
-          <div style={{ fontFamily: "'Lora', serif", fontSize: 21, color: '#FFFFFF', marginBottom: 8 }}>Stay in the loop</div>
-          <div style={{ fontSize: 14, color: '#D4E8E4', marginBottom: 18, lineHeight: 1.6 }}>
+          <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 21, fontWeight: 700, color: '#FFFFFF', marginBottom: 8 }}>Stay in the loop</div>
+          <div style={{ fontSize: 14, color: '#EAF4EE', marginBottom: 18, lineHeight: 1.6 }}>
             New features, travel tips, and pet care info — no spam, unsubscribe anytime.
           </div>
           {newsletterStatus === 'done' ? (
-            <div style={{ color: '#F5C45E', fontWeight: 700, fontSize: 15 }}>✓ You're signed up!</div>
+            <div style={{ color: C.amber, fontWeight: 700, fontSize: 15 }}>✓ You're signed up!</div>
           ) : (
             <form onSubmit={async (e) => {
               e.preventDefault();
@@ -313,7 +313,7 @@ export default function Marketing({ onLogin, onSignup }) {
                 type="email" required value={newsletterEmail}
                 onChange={e => setNewsletterEmail(e.target.value)}
                 placeholder="your@email.com"
-                style={{ flex: '1 1 220px', padding: '12px 16px', borderRadius: 10, border: 'none', fontSize: 14, fontFamily: "'Nunito', sans-serif" }}
+                style={{ flex: '1 1 220px', padding: '12px 16px', borderRadius: 10, border: 'none', fontSize: 14, fontFamily: "'Lora', serif" }}
               />
               {/* Honeypot: invisible to real people, off-screen rather than
                   display:none since some bots specifically skip display:none
@@ -324,7 +324,7 @@ export default function Marketing({ onLogin, onSignup }) {
                   value={newsletterWebsite} onChange={e => setNewsletterWebsite(e.target.value)} />
               </div>
               <button type="submit" disabled={newsletterStatus === 'sending'}
-                style={{ background: '#E8A838', color: '#1E1408', border: 'none', borderRadius: 10, padding: '12px 22px', fontWeight: 800, fontSize: 14, cursor: 'pointer', fontFamily: "'Nunito', sans-serif" }}>
+                style={{ background: C.amber, color: C.text, border: 'none', borderRadius: 10, padding: '12px 22px', fontWeight: 800, fontSize: 14, cursor: 'pointer', fontFamily: "'Lora', serif" }}>
                 {newsletterStatus === 'sending' ? 'Signing up...' : 'Sign Up'}
               </button>
             </form>
