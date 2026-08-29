@@ -6,8 +6,17 @@ import {
   walletErrorResponse,
 } from '../_wallet-shared.js';
 
+function queryParam(req, name) {
+  try {
+    const url = new URL(req.url || '/', 'https://www.yourpetpass.com');
+    return url.searchParams.get(name);
+  } catch {
+    return null;
+  }
+}
+
 function petIdFrom(req) {
-  return req.method === 'GET' ? req.query?.petId : req.body?.petId;
+  return req.method === 'GET' ? queryParam(req, 'petId') : req.body?.petId;
 }
 
 export default async function handler(req, res) {
