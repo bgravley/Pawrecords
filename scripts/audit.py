@@ -454,6 +454,7 @@ def endpoint_verifies_identity(content):
         "verifyUser(" in content or
         "/auth/v1/user" in content or
         "constructEvent" in content or          # stripe signature check
+        "verifyCronRequest(" in content or       # shared fail-closed cron helper
         "CRON_SECRET" in content or
         "WEBHOOK_SECRET" in content or
         "SIGNUP_WEBHOOK_SECRET" in content
