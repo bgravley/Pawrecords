@@ -2,6 +2,8 @@ import { chromium } from 'playwright';
 
 const BASE = (process.env.E2E_BASE_URL || 'https://yourpetpass.com').replace(/\/$/, '');
 const OIDC_TOKEN = process.env.E2E_GITHUB_OIDC_TOKEN || '';
+const OIDC_REQUEST_URL = process.env.ACTIONS_ID_TOKEN_REQUEST_URL || '';
+const OIDC_REQUEST_TOKEN = process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN || '';
 const INVALID_EMERGENCY_TOKEN = 'livesmokeinvalidtoken9f8e7d6c';
 const RUN_TAG = String(process.env.GITHUB_RUN_ID || Date.now()).slice(-8);
 const PET_NAME = `E2E Maple ${RUN_TAG}`;
@@ -82,27 +84,50 @@ async function readBrowserSession(page) {
   return session;
 }
 
-async function waitForFileSessionCookie(context) {
-  for (let i = 0; i < 30; i += 1) {
-    const cookies = await context.cookies(BASE);
-    if (cookies.some(cookie => cookie.name === 'ypp_file_session')) return;
+async function waitForFileSessionCookie(context, userId) {
+  const probePath = `${userId}/e2e/session-probe.txt`;
+  let lastStatus = 0;
+  for (let i = 0; i < 40; i += 1) {
+    const response = await context.request.get(`${BASE}/api/storage-file?path=${encodeURIComponent(probePath)}`);
+    lastStatus = response.status();
+    // 404 proves the HttpOnly cookie authenticated successfully, ownership
+    // passed, and the gateway reached private Storage. A 502 also occurs only
+    // after authentication/ownership if Storage itself is transiently down.
+    if ([200, 404, 502].includes(lastStatus)) return;
+    if (lastStatus === 403) throw new Error('Private-file gateway authenticated the wrong user');
+    if (lastStatus !== 401) throw new Error(`Private-file gateway probe returned ${lastStatus}`);
     await sleep(250);
   }
-  throw new Error('Private-file session cookie was not synchronized');
+  throw new Error(`Private-file gateway did not authenticate browser session (last status ${lastStatus})`);
+}
+
+async function currentOidcToken() {
+  if (OIDC_REQUEST_URL && OIDC_REQUEST_TOKEN) {
+    const separator = OIDC_REQUEST_URL.includes('?') ? '&' : '?';
+    const response = await fetch(`${OIDC_REQUEST_URL}${separator}audience=yourpetpass-production-e2e`, {
+      headers: { Authorization: `bearer ${OIDC_REQUEST_TOKEN}` },
+    });
+    if (!response.ok) throw new Error(`Could not mint fresh GitHub Actions identity (${response.status})`);
+    const body = await response.json();
+    if (!body?.value) throw new Error('GitHub Actions identity response did not contain a token');
+    return body.value;
+  }
+  if (OIDC_TOKEN) return OIDC_TOKEN;
+  throw new Error('E2E_GITHUB_OIDC_TOKEN is required; authenticated smoke tests may not be skipped');
 }
 
 async function bootstrap(role, reset = false, deploymentWait = false) {
-  if (!OIDC_TOKEN) throw new Error('E2E_GITHUB_OIDC_TOKEN is required; authenticated smoke tests may not be skipped');
   const attempts = deploymentWait ? 36 : 3;
   let lastStatus = 0;
   let lastMessage = '';
 
   for (let i = 0; i < attempts; i += 1) {
     try {
+      const oidcToken = await currentOidcToken();
       const response = await fetch(`${BASE}/api/e2e-login`, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${OIDC_TOKEN}`,
+          Authorization: `Bearer ${oidcToken}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ role, reset }),
@@ -314,7 +339,7 @@ await check('Authenticated production customer flow works end to end', async () 
       await loginWithActionLink(page, primary.actionLink);
       primarySession = await readBrowserSession(page);
       if (primarySession.userId !== primary.userId) throw new Error('Browser session belongs to an unexpected user');
-      await waitForFileSessionCookie(context);
+      await waitForFileSessionCookie(context, primarySession.userId);
     });
 
     await step('Pet can be created through the production UI', async () => {

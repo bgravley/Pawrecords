@@ -52,6 +52,8 @@ check("Canonical production host used for E2E", "E2E_BASE_URL: https://www.yourp
 check("No static E2E email/password secrets", "E2E_EMAIL" not in WORKFLOW + SMOKE and "E2E_PASSWORD" not in WORKFLOW + SMOKE)
 check("No service role secret passed to browser test", "SUPABASE_SERVICE_KEY" not in WORKFLOW + SMOKE)
 check("Authenticated smoke cannot silently skip", "E2E_GITHUB_OIDC_TOKEN is required" in SMOKE and "SKIP: Authenticated" not in SMOKE)
+check("OIDC identity refreshes during long runs", "ACTIONS_ID_TOKEN_REQUEST_URL" in SMOKE and "ACTIONS_ID_TOKEN_REQUEST_TOKEN" in SMOKE and "currentOidcToken()" in SMOKE)
+check("Private-file auth verified through gateway", "Private-file gateway did not authenticate browser session" in SMOKE and "/api/storage-file?path=" in SMOKE)
 
 # Emergency QR may be displayed on either legitimate YourPetPass hostname,
 # but the test must still require the exact high-entropy token-shaped path.
