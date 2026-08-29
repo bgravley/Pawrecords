@@ -1,154 +1,123 @@
-// api/notify-signup.js
-// Called by a Supabase Database Webhook whenever a new row is inserted into `profiles`.
-// Sends Brandon an email via Resend with the new user's details.
+// Called by the Supabase Database Webhook after a new profile is created.
+// The endpoint is private-by-secret and fails closed if webhook auth is not
+// configured, so it can never become an accidental public email sender.
+
+import { verifyInternalWebhook } from './_webhookAuth.js';
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const FROM_EMAIL     = 'YourPetPass <notifications@yourpetpass.com>';
+const FROM_EMAIL = 'YourPetPass <notifications@yourpetpass.com>';
+const ADMIN_EMAIL = process.env.ADMIN_ALERT_EMAIL || 'bgravley@rdmarketingllc.com';
 
-function esc(str) {
-  if (!str) return str;
-  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+function esc(value) {
+  if (value === null || value === undefined) return '';
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
-const ADMIN_EMAIL    = 'bgravley@rdmarketingllc.com';
-const WEBHOOK_SECRET = process.env.SIGNUP_WEBHOOK_SECRET; // set this in Vercel env vars
+
+function safeSubject(value) {
+  return String(value || '').replace(/[\r\n]/g, ' ').slice(0, 160);
+}
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).end();
+  res.setHeader('Cache-Control', 'private, no-store');
+  if (req.method !== 'POST') {
+    res.setHeader('Allow', 'POST');
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
 
-  // Verify the request is genuinely from Supabase using a shared secret header
-  const secret = req.headers['x-webhook-secret'];
-  if (WEBHOOK_SECRET && secret !== WEBHOOK_SECRET) {
-    console.warn('Signup webhook: invalid secret');
-    return res.status(401).json({ error: 'Unauthorized' });
+  const webhook = verifyInternalWebhook(req);
+  if (!webhook.ok) return res.status(webhook.status).json({ error: webhook.error });
+  if (!RESEND_API_KEY || !process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
+    return res.status(503).json({ error: 'Signup notification service unavailable' });
   }
 
   try {
-    // Supabase Database Webhooks send the new row as `record` in the payload
-    const { record } = req.body;
-    if (!record) return res.status(400).json({ error: 'No record in payload' });
+    const record = req.body?.record;
+    if (!record || typeof record !== 'object') {
+      return res.status(400).json({ error: 'No record in payload' });
+    }
 
-    const userEmail    = record.email || 'unknown';
-    const userId       = record.id || '—';
-    const createdAt    = record.created_at
-      ? new Date(record.created_at).toLocaleString('en-US', { timeZone: 'America/Chicago', dateStyle: 'full', timeStyle: 'short' })
+    const userEmail = String(record.email || 'unknown').slice(0, 254);
+    const userId = String(record.id || '—').slice(0, 100);
+    const fullName = String(record.full_name || '—').slice(0, 200);
+    const referralCode = record.referral_code_used
+      ? String(record.referral_code_used).slice(0, 100)
+      : null;
+    const createdAt = record.created_at
+      ? new Date(record.created_at).toLocaleString('en-US', {
+          timeZone: 'America/Chicago', dateStyle: 'full', timeStyle: 'short',
+        })
       : 'just now';
-    const fullName     = record.full_name || '—';
-    const referralCode = record.referral_code_used || null;
 
-    // Get total user count from Supabase for context
     let totalUsers = '—';
     try {
       const countRes = await fetch(
         `${process.env.SUPABASE_URL}/rest/v1/profiles?select=id`,
         {
           headers: {
-            'apikey': process.env.SUPABASE_SERVICE_KEY,
-            'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
-            'Prefer': 'count=exact',
+            apikey: process.env.SUPABASE_SERVICE_KEY,
+            Authorization: `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
+            Prefer: 'count=exact',
             'Range-Unit': 'items',
-            'Range': '0-0',
-          }
+            Range: '0-0',
+          },
         }
       );
-      if (!countRes.ok) {
-        console.error('Total user count lookup failed (non-critical):', countRes.status);
-      } else {
+      if (countRes.ok) {
         const countHeader = countRes.headers.get('content-range');
         if (countHeader) totalUsers = countHeader.split('/')[1] || '—';
       }
-    } catch (e) { /* non-critical */ }
+    } catch (error) {
+      console.error('Total user count lookup failed (non-critical):', error.message);
+    }
 
-    const html = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #FAF6F0; margin: 0; padding: 20px; }
-    .card { background: #FFFFFF; border-radius: 16px; max-width: 520px; margin: 0 auto; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
-    .header { background: #1E5C52; padding: 24px 28px; }
-    .header h1 { color: #FFFFFF; margin: 0; font-size: 20px; font-weight: 700; }
-    .header p { color: #A8D5CE; margin: 4px 0 0; font-size: 13px; }
-    .body { padding: 24px 28px; }
-    .row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #F0E8DC; font-size: 14px; }
-    .row:last-child { border-bottom: none; }
-    .label { color: #8B7355; font-weight: 600; }
-    .value { color: #2C2017; text-align: right; max-width: 60%; word-break: break-all; }
-    .badge { background: #2D7D6F22; color: #2D7D6F; border-radius: 20px; padding: 2px 10px; font-size: 12px; font-weight: 700; }
-    .ref-badge { background: #E8A83822; color: #B8821C; border-radius: 20px; padding: 2px 10px; font-size: 12px; font-weight: 700; }
-    .cta { display: block; background: #2D7D6F; color: #FFFFFF; text-decoration: none; border-radius: 10px; padding: 12px 20px; text-align: center; font-weight: 700; font-size: 14px; margin: 20px 0 0; }
-    .footer { padding: 16px 28px; background: #F4EFE8; font-size: 12px; color: #8B7355; }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <div class="header">
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:20px;background:#FAFCFB;font-family:Georgia,'Times New Roman',serif;color:#1A2E22;">
+  <div style="background:#FFFFFF;border:1px solid #DCE8E0;border-radius:16px;max-width:540px;margin:0 auto;overflow:hidden;">
+    <div style="background:#2C4A38;padding:24px 28px;">
       <img src="https://yourpetpass.com/logo_horizontal_cream_transparent.png" alt="YourPetPass" width="180" style="display:block;height:auto;margin-bottom:12px;" />
-      <h1>🐾 New User Signed Up</h1>
-      <p>yourpetpass.com</p>
+      <div style="color:#FFFFFF;font-size:20px;font-weight:700;">New User Signed Up</div>
+      <div style="color:#9DC4AA;font-size:13px;margin-top:4px;">yourpetpass.com</div>
     </div>
-    <div class="body">
-      <div class="row">
-        <span class="label">Email</span>
-        <span class="value">${esc(userEmail)}</span>
-      </div>
-      <div class="row">
-        <span class="label">Name</span>
-        <span class="value">${esc(fullName)}</span>
-      </div>
-      <div class="row">
-        <span class="label">Signed up</span>
-        <span class="value">${createdAt}</span>
-      </div>
-      <div class="row">
-        <span class="label">Total users now</span>
-        <span class="value"><span class="badge">${totalUsers} total</span></span>
-      </div>
-      ${referralCode ? `
-      <div class="row">
-        <span class="label">Referral code used</span>
-        <span class="value"><span class="ref-badge">🤝 ${esc(referralCode)}</span></span>
-      </div>
-      ` : ''}
-      <div class="row">
-        <span class="label">User ID</span>
-        <span class="value" style="font-family:monospace;font-size:11px;color:#8B7355">${userId}</span>
-      </div>
-      <a href="https://yourpetpass.com" class="cta">View in Admin Dashboard →</a>
+    <div style="padding:24px 28px;">
+      <p><strong>Email:</strong> ${esc(userEmail)}</p>
+      <p><strong>Name:</strong> ${esc(fullName)}</p>
+      <p><strong>Signed up:</strong> ${esc(createdAt)}</p>
+      <p><strong>Total users now:</strong> ${esc(totalUsers)}</p>
+      ${referralCode ? `<p><strong>Referral code used:</strong> ${esc(referralCode)}</p>` : ''}
+      <p style="font-size:12px;color:#7C9E87;"><strong>User ID:</strong> ${esc(userId)}</p>
+      <a href="https://yourpetpass.com/admin" style="display:block;background:#C9A84C;color:#1A2E22;text-decoration:none;border-radius:10px;padding:12px 20px;text-align:center;font-weight:700;margin-top:20px;">View Admin Dashboard</a>
     </div>
-    <div class="footer">
-      You're receiving this because you're the YourPetPass admin. Every new signup sends this email.
-    </div>
+    <div style="background:#EAF4EE;padding:15px 28px;color:#7C9E87;font-size:11px;text-align:center;">YourPetPass · Health Records &amp; Travel, Simplified.</div>
   </div>
-</body>
-</html>`;
+</body></html>`;
 
-    // Send to Brandon
     const emailRes = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${RESEND_API_KEY}`,
+        Authorization: `Bearer ${RESEND_API_KEY}`,
       },
       body: JSON.stringify({
         from: FROM_EMAIL,
         to: ADMIN_EMAIL,
-        subject: `🐾 New signup: ${userEmail}${referralCode ? ` (ref: ${referralCode})` : ''}`,
+        subject: `New YourPetPass signup: ${safeSubject(userEmail)}${referralCode ? ` (ref: ${safeSubject(referralCode)})` : ''}`,
         html,
       }),
     });
 
     if (!emailRes.ok) {
-      const err = await emailRes.json();
-      console.error('Resend error:', err);
-      return res.status(500).json({ error: 'Email failed to send' });
+      const detail = await emailRes.text().catch(() => '');
+      console.error('Signup Resend error:', emailRes.status, detail.slice(0, 250));
+      return res.status(502).json({ error: 'Email failed to send' });
     }
-
-    console.log(`Signup notification sent for: ${userEmail}`);
     return res.status(200).json({ sent: true });
-
-  } catch (err) {
-    console.error('Signup notification error:', err.message);
-    return res.status(500).json({ error: err.message });
+  } catch (error) {
+    console.error('Signup notification error:', error.message);
+    return res.status(500).json({ error: 'Signup notification failed' });
   }
 }
