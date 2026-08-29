@@ -60,32 +60,48 @@ client.storage.from = (bucketId) => {
 if (typeof window !== 'undefined') {
   let lastToken = null
 
-  const syncGatewaySession = async (session) => {
+  const setGatewaySession = async (session) => {
     const token = session?.access_token || null
-    if (token === lastToken) return
+    if (!token || token === lastToken) return
     lastToken = token
 
     try {
-      if (token) {
-        await fetch('/api/session-cookie', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-          credentials: 'same-origin',
-        })
-      } else {
-        await fetch('/api/session-cookie', {
-          method: 'DELETE',
-          credentials: 'same-origin',
-        })
-      }
+      await fetch('/api/session-cookie', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'same-origin',
+      })
     } catch (error) {
+      // Allow a later auth event/refresh to retry if this request failed.
+      lastToken = null
       console.error('Failed to synchronize private-file session:', error)
     }
   }
 
-  client.auth.getSession().then(({ data }) => syncGatewaySession(data?.session))
-  client.auth.onAuthStateChange((_event, session) => {
-    queueMicrotask(() => syncGatewaySession(session))
+  const clearGatewaySession = async () => {
+    lastToken = null
+    try {
+      await fetch('/api/session-cookie', {
+        method: 'DELETE',
+        credentials: 'same-origin',
+      })
+    } catch (error) {
+      console.error('Failed to clear private-file session:', error)
+    }
+  }
+
+  // Startup can race with Supabase's INITIAL_SESSION/auth callback handling.
+  // Never interpret an initial null getSession() result as a sign-out: a
+  // newer auth-state event may already have established the session cookie.
+  // Only an explicit SIGNED_OUT event is allowed to clear it.
+  client.auth.getSession().then(({ data }) => {
+    if (data?.session?.access_token) setGatewaySession(data.session)
+  })
+  client.auth.onAuthStateChange((event, session) => {
+    queueMicrotask(() => {
+      if (session?.access_token) setGatewaySession(session)
+      else if (event === 'SIGNED_OUT') clearGatewaySession()
+    })
   })
 }
 
