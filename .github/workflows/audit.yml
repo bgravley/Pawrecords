@@ -43,3 +43,6 @@ jobs:
 
       - name: Run product analytics privacy audit
         run: python3 scripts/analytics_audit.py
+
+      - name: Run notification relay security audit
+        run: python3 scripts/notification_security_audit.py
