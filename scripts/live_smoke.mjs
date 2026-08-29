@@ -398,9 +398,14 @@ await check('Authenticated production customer flow works end to end', async () 
 
     let emergencyUrl = '';
     await step('Emergency QR generates and exposes only the intended emergency record', async () => {
-      await page.getByRole('button', { name: 'More', exact: true }).click().catch(() => {});
-      const qrTile = page.getByText('QR Health Card', { exact: true }).first();
-      if (await qrTile.isVisible().catch(() => false)) await qrTile.click();
+      // MoreTab keeps its own nested section state. Return to My Pets and
+      // reopen the pet before entering More again so the QR tile is the
+      // actual customer navigation path rather than relying on stale state.
+      await page.getByTitle('Home').click();
+      await page.getByText(PET_NAME, { exact: true }).first().waitFor({ state: 'visible', timeout: 15000 });
+      await page.getByText(PET_NAME, { exact: true }).first().click();
+      await page.getByRole('button', { name: 'More', exact: true }).click();
+      await page.getByText('QR Health Card', { exact: true }).first().click();
       await page.getByRole('heading', { name: 'Emergency QR', exact: true }).waitFor({ state: 'visible', timeout: 15000 });
 
       const urlText = page.locator('span').filter({ hasText: `${BASE}/emergency/` }).first();
@@ -464,7 +469,9 @@ await check('Authenticated production customer flow works end to end', async () 
       const secondLogin = await bootstrap('primary', false, false);
       await loginWithActionLink(page, secondLogin.actionLink);
       await page.getByText(PET_NAME, { exact: true }).first().waitFor({ state: 'visible', timeout: 15000 });
+      await page.getByRole('button', { name: 'TRAVEL', exact: true }).click();
       await page.getByText(TRIP_NAME, { exact: true }).first().waitFor({ state: 'visible', timeout: 15000 });
+      await page.getByText('← My Pets', { exact: true }).click();
       const sessionAgain = await readBrowserSession(page);
       if (sessionAgain.userId !== primarySession.userId) throw new Error('Re-login changed the test account identity');
     });
