@@ -57,12 +57,12 @@ async function sb(path) {
   return response.json();
 }
 
-async function ownedRecord(userId, petId, petName) {
+async function ownedRecord(userId, petId, legacyName) {
   let selector;
   if (petId && UUID_RE.test(petId)) {
     selector = `id=eq.${encodeURIComponent(petId)}`;
-  } else if (typeof petName === 'string' && petName.trim() && petName.trim().length <= 150) {
-    selector = `name=eq.${encodeURIComponent(petName.trim())}`;
+  } else if (typeof legacyName === 'string' && legacyName.trim() && legacyName.trim().length <= 150) {
+    selector = `name=eq.${encodeURIComponent(legacyName.trim())}`;
   } else {
     return { invalid: true };
   }
@@ -173,13 +173,13 @@ async function signedPdfUrl(raw, userId) {
   return data.signedUrl;
 }
 
-function wrap(petName, senderEmail, recordHtml, note, pdfUrl) {
+function wrap(displayName, senderEmail, recordHtml, note, pdfUrl) {
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:20px;background:#FAFCFB;font-family:Georgia,'Times New Roman',serif;color:#1A2E22;">
   <div style="max-width:720px;margin:0 auto;background:#FFFFFF;border:1px solid #DCE8E0;border-radius:16px;overflow:hidden;">
     <div style="background:#2C4A38;padding:20px 24px;">
       <img src="https://yourpetpass.com/logo_horizontal_cream_transparent.png" alt="YourPetPass" width="180" style="display:block;height:auto;margin-bottom:10px;" />
-      <div style="color:#FFFFFF;font-size:19px;font-weight:700;">${esc(petName)}'s Health Record</div>
+      <div style="color:#FFFFFF;font-size:19px;font-weight:700;">${esc(displayName)}'s Health Record</div>
       <div style="color:#9DC4AA;font-size:13px;margin-top:4px;">Shared via YourPetPass${senderEmail ? ` by ${esc(senderEmail)}` : ''}</div>
     </div>
     ${pdfUrl ? `<div style="background:#EAF4EE;border-bottom:1px solid #DCE8E0;padding:16px 24px;text-align:center;"><a href="${esc(pdfUrl)}" style="display:inline-block;background:#C9A84C;color:#1A2E22;text-decoration:none;font-weight:700;font-size:14px;padding:12px 24px;border-radius:10px;">Download PDF version</a><div style="color:#7C9E87;font-size:11px;margin-top:8px;">This private link expires after 24 hours.</div></div>` : ''}
@@ -209,10 +209,10 @@ export default async function handler(req, res) {
   const auth = await verifyUser(req);
   if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
 
-  // petName remains accepted for the existing UI, but it is only a selector.
-  // Browser-supplied petName/htmlContent never becomes the emailed record body.
-  const { recipientEmail, petId, petName, note, pdfUrl } = req.body || {};
-  if (!recipientEmail || (!petId && !petName)) {
+  // The legacy name field remains accepted for the existing UI, but it is only
+  // an owner-scoped selector. Browser-supplied HTML never becomes email body.
+  const { recipientEmail, petId, petName: legacyName, note, pdfUrl } = req.body || {};
+  if (!recipientEmail || (!petId && !legacyName)) {
     return res.status(400).json({ error: 'recipientEmail and pet are required.' });
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientEmail) || recipientEmail.length > 254) {
@@ -224,7 +224,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const record = await ownedRecord(auth.userId, petId, petName);
+    const record = await ownedRecord(auth.userId, petId, legacyName);
     if (record?.invalid) return res.status(400).json({ error: 'Invalid pet.' });
     if (record?.ambiguous) {
       return res.status(409).json({ error: 'More than one pet has this name. Please give each pet a unique name before emailing records.' });
