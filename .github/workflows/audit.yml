@@ -64,3 +64,6 @@ jobs:
 
       - name: Run public-form security audit
         run: python3 scripts/public_form_security_audit.py
+
+      - name: Run Content Security Policy audit
+        run: python3 scripts/csp_security_audit.py

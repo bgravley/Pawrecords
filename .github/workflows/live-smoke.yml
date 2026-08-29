@@ -128,6 +128,19 @@ jobs:
           test "$HEALTH_STATUS" = "401"
           test "$PREWARM_STATUS" = "401"
 
+      - name: Verify Content Security Policy is live
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSI 'https://www.yourpetpass.com/' > /tmp/headers.txt
+          cat /tmp/headers.txt
+          CSP="$(grep -i '^content-security-policy:' /tmp/headers.txt | tr -d '\r' || true)"
+          test -n "$CSP"
+          grep -Fq "object-src 'none'" <<<"$CSP"
+          grep -Fq "base-uri 'self'" <<<"$CSP"
+          grep -Fq "frame-ancestors 'self'" <<<"$CSP"
+          grep -Fq "https://*.supabase.co" <<<"$CSP"
+
       - name: Run public and authenticated production smoke tests
         shell: bash
         env:
