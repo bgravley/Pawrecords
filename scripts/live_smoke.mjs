@@ -408,10 +408,14 @@ await check('Authenticated production customer flow works end to end', async () 
       await page.getByText('QR Health Card', { exact: true }).first().click();
       await page.getByRole('heading', { name: 'Emergency QR', exact: true }).waitFor({ state: 'visible', timeout: 15000 });
 
-      const urlText = page.locator('span').filter({ hasText: `${BASE}/emergency/` }).first();
+      const urlText = page.locator('span').filter({ hasText: '/emergency/' }).first();
       await urlText.waitFor({ state: 'visible', timeout: 15000 });
       emergencyUrl = (await urlText.innerText()).trim();
-      if (!new RegExp(`^${BASE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/emergency/[a-f0-9]{32}$`, 'i').test(emergencyUrl)) {
+      let parsedEmergencyUrl = null;
+      try { parsedEmergencyUrl = new URL(emergencyUrl); } catch {}
+      if (!parsedEmergencyUrl ||
+          !['yourpetpass.com', 'www.yourpetpass.com'].includes(parsedEmergencyUrl.hostname) ||
+          !/^\/emergency\/[a-f0-9]{32}$/i.test(parsedEmergencyUrl.pathname)) {
         throw new Error(`Unexpected emergency URL: ${emergencyUrl}`);
       }
 

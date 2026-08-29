@@ -48,9 +48,15 @@ check("Magic-link response is no-store", "Cache-Control" in LOGIN and "no-store"
 check("Workflow can mint OIDC token", "id-token: write" in WORKFLOW)
 check("Workflow requests exact E2E audience", "audience=yourpetpass-production-e2e" in WORKFLOW)
 check("Workflow masks OIDC token", "::add-mask::" in WORKFLOW)
+check("Canonical production host used for E2E", "E2E_BASE_URL: https://www.yourpetpass.com" in WORKFLOW)
 check("No static E2E email/password secrets", "E2E_EMAIL" not in WORKFLOW + SMOKE and "E2E_PASSWORD" not in WORKFLOW + SMOKE)
 check("No service role secret passed to browser test", "SUPABASE_SERVICE_KEY" not in WORKFLOW + SMOKE)
 check("Authenticated smoke cannot silently skip", "E2E_GITHUB_OIDC_TOKEN is required" in SMOKE and "SKIP: Authenticated" not in SMOKE)
+
+# Emergency QR may be displayed on either legitimate YourPetPass hostname,
+# but the test must still require the exact high-entropy token-shaped path.
+check("Emergency QR hosts restricted to YourPetPass", "['yourpetpass.com', 'www.yourpetpass.com']" in SMOKE)
+check("Emergency QR requires 32-char hex token path", "/^\\/emergency\\/[a-f0-9]{32}$/i" in SMOKE)
 
 # Customer journey coverage.
 for label, needle in [
