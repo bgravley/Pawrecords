@@ -1,0 +1,38 @@
+name: Live Production Smoke
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '30 15 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  live-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install application dependencies
+        run: npm ci
+
+      - name: Install Playwright for smoke test
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+
+      - name: Run production browser smoke test
+        run: node scripts/live_smoke.mjs
+        env:
+          E2E_BASE_URL: https://yourpetpass.com
+          E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
