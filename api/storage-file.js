@@ -1,9 +1,10 @@
 // Authenticated same-origin gateway for files in the private `documents`
 // Supabase Storage bucket. Ordinary users can read only their own user-rooted
 // paths. Admins can read any path for support/bug review. Explicitly shared
-// PDFs under shared-records/ remain public by design.
+// PDFs under <user-id>/shared-records/ remain public by design.
 
 const COOKIE_NAME = 'ypp_file_session';
+const UUID_SHARED_RECORD = /^[0-9a-f-]{36}\/shared-records\//i;
 
 function readCookie(req, name) {
   const raw = req.headers.cookie || '';
@@ -64,7 +65,7 @@ export default async function handler(req, res) {
   const path = safePath(req.query?.path);
   if (!path) return res.status(400).json({ error: 'Invalid file path' });
 
-  const intentionallyShared = path.startsWith('shared-records/');
+  const intentionallyShared = UUID_SHARED_RECORD.test(path);
   let user = null;
 
   if (!intentionallyShared) {
