@@ -1,12 +1,65 @@
 import { createClient } from '@supabase/supabase-js'
+import { PRODUCT_EVENTS, trackProductEvent } from './analytics'
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
 
+const nativeFetch = globalThis.fetch.bind(globalThis)
+const INSERT_EVENT_BY_TABLE = Object.freeze({
+  dogs: PRODUCT_EVENTS.PET_CREATED,
+  vaccinations: PRODUCT_EVENTS.VACCINATION_RECORDED,
+  medications: PRODUCT_EVENTS.MEDICATION_RECORDED,
+  allergies: PRODUCT_EVENTS.ALLERGY_RECORDED,
+  vet_visits: PRODUCT_EVENTS.VET_VISIT_RECORDED,
+  documents: PRODUCT_EVENTS.DOCUMENT_ADDED,
+  trips: PRODUCT_EVENTS.TRIP_CREATED,
+})
+
+// Observe only successful Supabase INSERT/signup requests. No request body,
+// customer ID, pet data, document path, email, route, or medical value is read
+// or forwarded to analytics. This keeps funnel measurement useful without
+// turning health-record data into analytics data.
+const analyticsFetch = async (input, init) => {
+  const response = await nativeFetch(input, init)
+
+  try {
+    if (!response.ok || typeof window === 'undefined') return response
+
+    const method = String(init?.method || input?.method || 'GET').toUpperCase()
+    if (method !== 'POST') return response
+
+    const rawUrl = typeof input === 'string' ? input : input?.url
+    if (!rawUrl || !SUPABASE_URL) return response
+
+    const url = new URL(rawUrl, SUPABASE_URL)
+    const supabaseOrigin = new URL(SUPABASE_URL).origin
+    if (url.origin !== supabaseOrigin) return response
+
+    if (url.pathname.endsWith('/auth/v1/signup')) {
+      trackProductEvent(PRODUCT_EVENTS.SIGNUP_COMPLETED)
+      return response
+    }
+
+    const match = url.pathname.match(/\/rest\/v1\/([^/]+)/)
+    if (!match) return response
+
+    const table = decodeURIComponent(match[1])
+    const eventName = INSERT_EVENT_BY_TABLE[table]
+    if (eventName) trackProductEvent(eventName)
+  } catch {
+    // Analytics must never alter or fail the underlying Supabase request.
+  }
+
+  return response
+}
+
 const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     flowType: 'implicit',
-  }
+  },
+  global: {
+    fetch: analyticsFetch,
+  },
 })
 
 // The documents bucket is private in production. A large amount of legacy
