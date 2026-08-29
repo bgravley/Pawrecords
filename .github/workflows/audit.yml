@@ -34,3 +34,6 @@ jobs:
 
       - name: Run Digital Pet Pass audit
         run: python3 scripts/wallet_audit.py
+
+      - name: Run authenticated E2E security audit
+        run: python3 scripts/e2e_security_audit.py
