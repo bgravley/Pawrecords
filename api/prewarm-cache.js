@@ -17,6 +17,7 @@
 //    there's no real user traffic yet.
 
 import { setCorsHeaders } from './_cors.js';
+import { verifyCronRequest } from './_cronAuth.js';
 
 async function loadActiveRoutes() {
   const res = await fetch(
@@ -72,7 +73,9 @@ export default async function handler(req, res) {
   // Two legitimate ways to trigger this: Vercel's cron (sends CRON_SECRET),
   // or a verified admin from the dashboard. Nothing else gets through —
   // this triggers real AI spend, so it can't be left open.
-  const isCron = req.headers['authorization'] === `Bearer ${CRON_SECRET}`;
+  const cron = verifyCronRequest(req);
+  if (cron.status === 503) return res.status(503).json({ error: cron.error });
+  const isCron = cron.ok;
   let isAdmin = false;
 
   if (!isCron) {

@@ -2,6 +2,8 @@
 // Intended for Vercel Cron. Performs tiny read-only queries so a Free-plan
 // project receives regular database activity and failures are surfaced.
 
+import { verifyCronRequest } from './_cronAuth.js';
+
 const ALERT_TO = process.env.ADMIN_ALERT_EMAIL || 'bgravley@rdmarketingllc.com';
 const ALERT_FROM = 'YourPetPass <notifications@yourpetpass.com>';
 
@@ -12,7 +14,7 @@ async function sendFailureAlert(message) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
       },
       body: JSON.stringify({
         from: ALERT_FROM,
@@ -42,21 +44,18 @@ async function sb(path) {
     const detail = await response.text().catch(() => '');
     throw new Error(`Supabase ${response.status}: ${detail.slice(0, 250)}`);
   }
-
   return response.json();
 }
 
 export default async function handler(req, res) {
+  res.setHeader('Cache-Control', 'private, no-store');
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret) return res.status(500).json({ error: 'Cron is not configured' });
-  if ((req.headers.authorization || '') !== `Bearer ${cronSecret}`) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
+  const cron = verifyCronRequest(req);
+  if (!cron.ok) return res.status(cron.status).json({ error: cron.error });
 
   try {
     const [profiles, dogs, trips] = await Promise.all([

@@ -106,6 +106,28 @@ jobs:
           test "$SIGNUP_STATUS" = "401"
           test "$ERROR_STATUS" = "401"
 
+      - name: Verify cron secret is configured and required
+        shell: bash
+        run: |
+          set -euo pipefail
+          SEND_STATUS="$(curl -sS -o /tmp/send-notifications-response.json -w '%{http_code}' \
+            -X GET 'https://www.yourpetpass.com/api/send-notifications')"
+          WRAPPER_STATUS="$(curl -sS -o /tmp/cron-wrapper-response.json -w '%{http_code}' \
+            -X GET 'https://www.yourpetpass.com/api/cron-notifications')"
+          HEALTH_STATUS="$(curl -sS -o /tmp/health-response.json -w '%{http_code}' \
+            -X GET 'https://www.yourpetpass.com/api/supabase-health')"
+          PREWARM_STATUS="$(curl -sS -o /tmp/prewarm-response.json -w '%{http_code}' \
+            -X POST 'https://www.yourpetpass.com/api/prewarm-cache' \
+            -H 'Content-Type: application/json' --data '{}')"
+          cat /tmp/send-notifications-response.json || true
+          cat /tmp/cron-wrapper-response.json || true
+          cat /tmp/health-response.json || true
+          cat /tmp/prewarm-response.json || true
+          test "$SEND_STATUS" = "401"
+          test "$WRAPPER_STATUS" = "401"
+          test "$HEALTH_STATUS" = "401"
+          test "$PREWARM_STATUS" = "401"
+
       - name: Run public and authenticated production smoke tests
         shell: bash
         env:

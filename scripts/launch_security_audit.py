@@ -44,7 +44,7 @@ require("/api/cron-notifications" in cron_paths, "Notification compatibility cro
 require("/api/send-notifications" not in cron_paths, "Vercel no longer calls the legacy notification endpoint directly")
 
 cron_wrapper = read("api/cron-notifications.js")
-require("req.headers.authorization" in cron_wrapper and "Bearer ${cronSecret}" in cron_wrapper,
+require("verifyCronRequest" in cron_wrapper and "const cron = verifyCronRequest(req);" in cron_wrapper,
         "Notification cron validates Vercel Authorization bearer token")
 
 health = read("api/supabase-health.js")
