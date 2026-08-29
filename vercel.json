@@ -31,7 +31,11 @@
   ],
   "crons": [
     {
-      "path": "/api/send-notifications",
+      "path": "/api/supabase-health",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron-notifications",
       "schedule": "0 10 * * *"
     },
     {
