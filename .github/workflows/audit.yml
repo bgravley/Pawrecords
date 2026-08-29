@@ -55,3 +55,6 @@ jobs:
 
       - name: Run bug-report identity security audit
         run: python3 scripts/bug_report_security_audit.py
+
+      - name: Run privileged notification security audit
+        run: python3 scripts/privileged_notification_security_audit.py
