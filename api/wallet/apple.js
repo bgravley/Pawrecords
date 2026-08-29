@@ -36,11 +36,11 @@ export default async function handler(req, res) {
   res.setHeader('X-Content-Type-Options', 'nosniff');
 
   try {
+    const { user, pet: owned } = await ownedPet(req, req.body?.petId);
     if (!appleWalletConfigured()) {
       throw new WalletHttpError(503, 'Apple Wallet is not configured yet', 'apple_wallet_unconfigured');
     }
 
-    const { user, pet: owned } = await ownedPet(req, req.body?.petId);
     const pet = await ensureEmergencyToken(owned);
     const settings = await getWalletSettings(user.id, pet.id);
     const walletPass = await getOrCreateWalletPass(user.id, pet.id, 'apple');

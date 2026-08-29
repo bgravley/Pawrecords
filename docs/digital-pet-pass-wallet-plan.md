@@ -1,7 +1,27 @@
 # YourPetPass Digital Pet Pass — Apple Wallet + Google Wallet
 
-Status: Approved for implementation
+Status: Stage 1 foundation implemented; provider credentials and physical-device verification pending
 Priority: Next product feature after launch verification; before Stripe/payment work
+
+## Current implementation state — August 29, 2026
+
+Implemented in code/database:
+
+- Owner-scoped Wallet settings with privacy-first opt-ins.
+- Stable per-pet Apple/Google Wallet pass records.
+- Authenticated Wallet configuration endpoint.
+- Apple `.pkpass` generation endpoint with server-only signing material.
+- Google signed save-to-Wallet JWT endpoint, gated until Generic Private Pass approval is explicitly enabled.
+- Digital Pet Pass controls inside the existing Emergency QR area.
+- Automated Wallet security/regression audit in CI.
+
+Still requires provider/account setup before the buttons become visible in production:
+
+- Apple Pass Type ID, Team ID, signing certificate/private key, and WWDR certificate.
+- Google Wallet Issuer ID, class ID, service-account signing key, publishing access, and explicit private-pass approval for this use case.
+- Physical iPhone/Android Wallet verification after those credentials are installed.
+
+The feature is intentionally dark until at least one provider is fully configured.
 
 ## Product goal
 

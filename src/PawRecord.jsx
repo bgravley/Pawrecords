@@ -1546,15 +1546,13 @@ const QRSection=({dog,state,backBtn})=>{
             The Wallet card contains basic pet identity and the secure Emergency QR — <b>not</b> the full medical record or private documents.
           </div>
 
-          {(dog.microchip||dog.pet_type==="service_animal"||dog.emergency_contact||dog.emergency_phone)&&(
-            <div style={{background:"#EAF4EE",border:"1px solid #DCE8E0",borderRadius:12,padding:"6px 12px",marginBottom:14}}>
+          <div style={{background:"#EAF4EE",border:"1px solid #DCE8E0",borderRadius:12,padding:"6px 12px",marginBottom:14}}>
               <div style={{fontSize:11,fontWeight:800,color:"#2C4A38",textTransform:"uppercase",letterSpacing:".06em",padding:"6px 0 4px"}}>Optional details on the Wallet card</div>
               {toggle({key:'show_rabies_status',label:'Rabies status',sub:'Shows only Current or Review needed — never the certificate number.'})}
               {toggle({key:'show_microchip_last4',label:'Microchip ending',sub:'Shows only the last four characters.',show:!!dog.microchip})}
               {toggle({key:'show_service_animal',label:'Service animal designation',sub:'Shows Service Animal only when your pet is already classified that way.',show:dog.pet_type==="service_animal"})}
               {toggle({key:'show_emergency_contact',label:'Emergency contact',sub:'Adds the emergency name/phone currently saved for this pet.',show:!!(dog.emergency_contact||dog.emergency_phone)})}
             </div>
-          )}
 
           <div style={{display:"flex",flexDirection:"column",gap:9}}>
             {walletConfig.providers.apple?.available&&<button onClick={issueApple} disabled={!!walletIssuing} style={{width:"100%",background:"#000",color:"#fff",border:"none",borderRadius:11,padding:"12px 14px",fontSize:14,fontWeight:700,cursor:walletIssuing?"not-allowed":"pointer"}}>{walletIssuing==='apple'?"Creating Apple Wallet pass...":"Add to Apple Wallet"}</button>}

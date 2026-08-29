@@ -30,6 +30,7 @@ export default async function handler(req, res) {
   res.setHeader('X-Content-Type-Options', 'nosniff');
 
   try {
+    const { user, pet: owned } = await ownedPet(req, req.body?.petId);
     if (!googleWalletConfigured()) {
       throw new WalletHttpError(503, 'Google Wallet is not configured yet', 'google_wallet_unconfigured');
     }
@@ -45,7 +46,6 @@ export default async function handler(req, res) {
       );
     }
 
-    const { user, pet: owned } = await ownedPet(req, req.body?.petId);
     const pet = await ensureEmergencyToken(owned);
     const settings = await getWalletSettings(user.id, pet.id);
     const pass = await getOrCreateWalletPass(user.id, pet.id, 'google');
