@@ -14,15 +14,40 @@ const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 // here and route it through our authenticated same-origin file gateway.
 // Upload/download/remove/createSignedUrl continue using Supabase normally.
 const originalStorageFrom = client.storage.from.bind(client.storage)
+const pathAliases = new Map()
+
 client.storage.from = (bucketId) => {
   const bucket = originalStorageFrom(bucketId)
   if (bucketId !== 'documents') return bucket
 
-  bucket.getPublicUrl = (path) => ({
-    data: {
-      publicUrl: `/api/storage-file?path=${encodeURIComponent(path || '')}`,
-    },
-  })
+  const originalUpload = bucket.upload.bind(bucket)
+  bucket.upload = async (path, file, options) => {
+    let effectivePath = path
+
+    // Legacy shared-record and bug-report uploads used top-level folders,
+    // which required an overly broad Storage INSERT policy. Rewrite those
+    // transparently beneath the current user's UUID so the bucket can use a
+    // single owner-folder policy for all authenticated uploads.
+    if (typeof path === 'string' && (path.startsWith('shared-records/') || path.startsWith('bug-reports/'))) {
+      const { data: { session } } = await client.auth.getSession()
+      const userId = session?.user?.id
+      if (userId) effectivePath = `${userId}/${path}`
+    }
+
+    const result = await originalUpload(effectivePath, file, options)
+    if (!result?.error && effectivePath !== path) pathAliases.set(path, effectivePath)
+    return result
+  }
+
+  bucket.getPublicUrl = (path) => {
+    const effectivePath = pathAliases.get(path) || path
+    return {
+      data: {
+        publicUrl: `/api/storage-file?path=${encodeURIComponent(effectivePath || '')}`,
+      },
+    }
+  }
+
   return bucket
 }
 
