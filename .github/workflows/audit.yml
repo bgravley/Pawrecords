@@ -61,3 +61,6 @@ jobs:
 
       - name: Run cron authentication security audit
         run: python3 scripts/cron_security_audit.py
+
+      - name: Run public-form security audit
+        run: python3 scripts/public_form_security_audit.py
