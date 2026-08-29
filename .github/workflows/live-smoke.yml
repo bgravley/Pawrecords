@@ -37,7 +37,7 @@ jobs:
       - name: Run public and authenticated production smoke tests
         shell: bash
         env:
-          E2E_BASE_URL: https://yourpetpass.com
+          E2E_BASE_URL: https://www.yourpetpass.com
         run: |
           set -euo pipefail
           TOKEN_RESPONSE="$(curl -fsSL \

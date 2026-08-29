@@ -109,7 +109,7 @@ export default async function handler(req, res) {
           full_name: account.fullName,
           e2e_test: true,
         },
-        redirectTo: 'https://yourpetpass.com/',
+        redirectTo: 'https://www.yourpetpass.com/',
       },
     });
     if (error) throw new Error(`Could not create E2E login link: ${error.message}`);
