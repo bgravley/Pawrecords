@@ -1,0 +1,32 @@
+name: Temporary Cron Auth Patch
+
+"on":
+  push:
+    branches: [fix/cron-secret-auth]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v4
+
+      - name: Apply patch
+        run: python3 scripts/patch_cron_auth_temp.py
+
+      - name: Commit patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add api/send-notifications.js api/prewarm-cache.js
+          if git diff --cached --quiet; then
+            echo "Patch already applied"
+            exit 0
+          fi
+          git commit -m "Fail closed on bulk-email and prewarm cron auth"
+          git push origin HEAD:${GITHUB_REF_NAME}
