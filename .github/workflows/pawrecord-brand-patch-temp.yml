@@ -1,0 +1,32 @@
+name: Temporary PawRecord Brand Patch
+
+"on":
+  push:
+    branches: [design/authenticated-app-brand-refresh]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v4
+
+      - name: Apply brand patch
+        run: python3 scripts/patch_pawrecord_brand_temp.py
+
+      - name: Commit brand patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/PawRecord.jsx
+          if git diff --cached --quiet; then
+            echo "Brand patch already applied"
+            exit 0
+          fi
+          git commit -m "Align authenticated app with current brand system"
+          git push origin HEAD:${GITHUB_REF_NAME}
