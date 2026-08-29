@@ -131,7 +131,7 @@ export default async function handler(req, res) {
 
   const screenshotPath = ownedScreenshotPath(screenshotUrl, auth.userId);
   const adminScreenshotUrl = screenshotPath
-    ? `/api/admin-bug-file?path=${encodeURIComponent(screenshotPath)}`
+    ? `/api/storage-file?path=${encodeURIComponent(screenshotPath)}`
     : null;
   const emailScreenshotUrl = await signScreenshot(screenshotPath);
 
