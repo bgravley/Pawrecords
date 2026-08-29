@@ -6,6 +6,15 @@ function validToken(value) {
   return typeof value === 'string' && /^[a-f0-9]{32}$/i.test(value);
 }
 
+function queryParam(req, name) {
+  try {
+    const url = new URL(req.url || '/', 'https://www.yourpetpass.com');
+    return url.searchParams.get(name);
+  } catch {
+    return null;
+  }
+}
+
 async function sb(path) {
   const response = await fetch(`${process.env.SUPABASE_URL}/rest/v1/${path}`, {
     headers: {
@@ -30,7 +39,7 @@ export default async function handler(req, res) {
     return res.status(503).json({ error: 'Emergency record unavailable' });
   }
 
-  const token = req.query?.token;
+  const token = queryParam(req, 'token');
   if (!validToken(token)) return res.status(404).json({ error: 'Record not found' });
 
   try {
