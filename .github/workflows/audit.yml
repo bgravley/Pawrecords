@@ -37,3 +37,6 @@ jobs:
 
       - name: Run authenticated E2E security audit
         run: python3 scripts/e2e_security_audit.py
+
+      - name: Run query parser regression audit
+        run: python3 scripts/query_parser_audit.py
