@@ -62,9 +62,11 @@ async function resetTestData(supabase, userId) {
     if (error) throw new Error(`E2E reset failed for ${table}`);
   }
 
-  // Keep the synthetic test accounts permanently low privilege.
+  // The synthetic accounts are permanently non-admin. They are assigned the
+  // normal Premium app tier only so production E2E can exercise paid customer
+  // paths such as document storage and Emergency QR without touching Stripe.
   const { error: profileError } = await supabase.from('profiles').update({
-    subscription_tier: 'free',
+    subscription_tier: 'premium',
     is_admin: false,
     travel_credits_balance: 0,
   }).eq('id', userId);
