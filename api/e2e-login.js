@@ -94,15 +94,16 @@ export default async function handler(req, res) {
     if (!account) return res.status(400).json({ error: 'role must be primary or secondary' });
 
     const supabase = adminClient();
-    const redirectTo = 'https://yourpetpass.com/';
     const { data, error } = await supabase.auth.admin.generateLink({
       type: 'magiclink',
       email: account.email,
-      data: {
-        full_name: account.fullName,
-        e2e_test: true,
+      options: {
+        data: {
+          full_name: account.fullName,
+          e2e_test: true,
+        },
+        redirectTo: 'https://yourpetpass.com/',
       },
-      redirectTo,
     });
     if (error) throw new Error(`Could not create E2E login link: ${error.message}`);
 
