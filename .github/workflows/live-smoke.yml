@@ -78,6 +78,34 @@ jobs:
           cat /tmp/bug-report-response.json || true
           test "$STATUS" = "401"
 
+      - name: Verify affiliate welcome endpoint requires admin
+        shell: bash
+        run: |
+          set -euo pipefail
+          STATUS="$(curl -sS -o /tmp/affiliate-response.json -w '%{http_code}' \
+            -X POST 'https://www.yourpetpass.com/api/notify-affiliate' \
+            -H 'Content-Type: application/json' \
+            --data '{"referralCode":"PROBE","affiliateEmail":"relay-probe@example.com"}')"
+          cat /tmp/affiliate-response.json || true
+          test "$STATUS" = "401"
+
+      - name: Verify internal webhook secret is configured and required
+        shell: bash
+        run: |
+          set -euo pipefail
+          SIGNUP_STATUS="$(curl -sS -o /tmp/signup-webhook-response.json -w '%{http_code}' \
+            -X POST 'https://www.yourpetpass.com/api/notify-signup' \
+            -H 'Content-Type: application/json' \
+            --data '{"record":{}}')"
+          ERROR_STATUS="$(curl -sS -o /tmp/error-webhook-response.json -w '%{http_code}' \
+            -X POST 'https://www.yourpetpass.com/api/notify-error' \
+            -H 'Content-Type: application/json' \
+            --data '{"record":{}}')"
+          cat /tmp/signup-webhook-response.json || true
+          cat /tmp/error-webhook-response.json || true
+          test "$SIGNUP_STATUS" = "401"
+          test "$ERROR_STATUS" = "401"
+
       - name: Run public and authenticated production smoke tests
         shell: bash
         env:
