@@ -34,6 +34,17 @@ jobs:
           npm install --no-save playwright
           npx playwright install --with-deps chromium
 
+      - name: Verify notification endpoint rejects anonymous relay
+        shell: bash
+        run: |
+          set -euo pipefail
+          STATUS="$(curl -sS -o /tmp/notify-response.json -w '%{http_code}' \
+            -X POST 'https://www.yourpetpass.com/api/notify-user-action' \
+            -H 'Content-Type: application/json' \
+            --data '{"actionType":"profile_updated","recipientEmail":"relay-probe@example.com","data":{"name":"relay-probe"}}')"
+          cat /tmp/notify-response.json || true
+          test "$STATUS" = "401"
+
       - name: Run public and authenticated production smoke tests
         shell: bash
         env:
