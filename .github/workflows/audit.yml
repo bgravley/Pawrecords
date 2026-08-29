@@ -49,3 +49,6 @@ jobs:
 
       - name: Run checkout identity security audit
         run: python3 scripts/checkout_security_audit.py
+
+      - name: Run emailed-record security audit
+        run: python3 scripts/email_record_security_audit.py
