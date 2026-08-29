@@ -1,0 +1,63 @@
+name: Temporary E2E Emergency Assertion Patch
+
+on:
+  push:
+    branches:
+      - fix/e2e-emergency-host-assertion
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Patch Emergency QR assertion
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('scripts/live_smoke.mjs')
+          text = path.read_text()
+
+          old_locator = "page.locator('span').filter({ hasText: `${BASE}/emergency/` }).first()"
+          new_locator = "page.locator('span').filter({ hasText: '/emergency/' }).first()"
+          if old_locator in text:
+              text = text.replace(old_locator, new_locator, 1)
+
+          lines = text.splitlines()
+          replaced = False
+          for i, line in enumerate(lines):
+              if 'if (!new RegExp(`^${BASE.replace' in line and '/emergency/[a-f0-9]{32}$' in line:
+                  lines[i:i+1] = [
+                      '      let parsedEmergencyUrl = null;',
+                      '      try { parsedEmergencyUrl = new URL(emergencyUrl); } catch {}',
+                      '      if (!parsedEmergencyUrl ||',
+                      "          !['yourpetpass.com', 'www.yourpetpass.com'].includes(parsedEmergencyUrl.hostname) ||",
+                      "          !/^\\/emergency\\/[a-f0-9]{32}$/i.test(parsedEmergencyUrl.pathname)) {",
+                  ]
+                  replaced = True
+                  break
+
+          patched = '\n'.join(lines) + '\n'
+          if old_locator not in text and not replaced and "parsedEmergencyUrl.hostname" in text:
+              print('Assertion is already patched; no changes needed.')
+          elif not replaced:
+              raise SystemExit('Could not find Emergency QR host assertion to patch')
+
+          path.write_text(patched)
+          PY
+
+      - name: Commit patch when changed
+        run: |
+          if git diff --quiet -- scripts/live_smoke.mjs; then
+            echo "No patch commit needed."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/live_smoke.mjs
+          git commit -m "Make Emergency QR host assertion canonical-host tolerant"
+          git push origin HEAD:${GITHUB_REF_NAME}
