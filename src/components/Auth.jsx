@@ -140,7 +140,7 @@ export default function Auth() {
 
   const signUpWithEmail = async () => {
     if (!email || !password) return setErr("Please enter your email and password.");
-    if (password.length < 6) return setErr("Password must be at least 6 characters.");
+    if (password.length < 8) return setErr("Password must be at least 8 characters.");
 
     setLoading(true);
     clearAll();
@@ -306,7 +306,7 @@ export default function Auth() {
               <input
                 style={{ ...inp, paddingRight: 50 }}
                 type={showPassword ? "text" : "password"}
-                placeholder={authMode === "signup" ? "Password (min 6 characters)" : "Password"}
+                placeholder={authMode === "signup" ? "Password (min 8 characters)" : "Password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 onKeyDown={handleKeyDown}
