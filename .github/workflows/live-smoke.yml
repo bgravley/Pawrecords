@@ -56,6 +56,17 @@ jobs:
           cat /tmp/checkout-response.json || true
           test "$STATUS" = "401"
 
+      - name: Verify health-record email rejects anonymous branded mail
+        shell: bash
+        run: |
+          set -euo pipefail
+          STATUS="$(curl -sS -o /tmp/email-record-response.json -w '%{http_code}' \
+            -X POST 'https://www.yourpetpass.com/api/email-record' \
+            -H 'Content-Type: application/json' \
+            --data '{"recipientEmail":"relay-probe@example.com","petName":"Not A Real Pet","htmlContent":"<h1>spoof</h1>"}')"
+          cat /tmp/email-record-response.json || true
+          test "$STATUS" = "401"
+
       - name: Run public and authenticated production smoke tests
         shell: bash
         env:
