@@ -10,11 +10,12 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   live-smoke:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -33,9 +34,17 @@ jobs:
           npm install --no-save playwright
           npx playwright install --with-deps chromium
 
-      - name: Run production browser smoke test
-        run: node scripts/live_smoke.mjs
+      - name: Run public and authenticated production smoke tests
+        shell: bash
         env:
           E2E_BASE_URL: https://yourpetpass.com
-          E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
-          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+        run: |
+          set -euo pipefail
+          TOKEN_RESPONSE="$(curl -fsSL \
+            -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=yourpetpass-production-e2e")"
+          E2E_GITHUB_OIDC_TOKEN="$(jq -r '.value // empty' <<<"${TOKEN_RESPONSE}")"
+          test -n "${E2E_GITHUB_OIDC_TOKEN}"
+          echo "::add-mask::${E2E_GITHUB_OIDC_TOKEN}"
+          export E2E_GITHUB_OIDC_TOKEN
+          node scripts/live_smoke.mjs
