@@ -41,11 +41,13 @@ client.storage.from = (bucketId) => {
 
   bucket.getPublicUrl = (path) => {
     const effectivePath = pathAliases.get(path) || path
-    return {
-      data: {
-        publicUrl: `/api/storage-file?path=${encodeURIComponent(effectivePath || '')}`,
-      },
-    }
+    const relativeUrl = `/api/storage-file?path=${encodeURIComponent(effectivePath || '')}`
+    const isSharedRecord = typeof effectivePath === 'string' && effectivePath.includes('/shared-records/')
+    const publicUrl = isSharedRecord && typeof window !== 'undefined'
+      ? `${window.location.origin}${relativeUrl}`
+      : relativeUrl
+
+    return { data: { publicUrl } }
   }
 
   return bucket
