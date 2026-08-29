@@ -414,7 +414,7 @@ await check('Authenticated production customer flow works end to end', async () 
       const href = await docCard.locator('a').first().getAttribute('href');
       if (!href || !href.includes('/api/storage-file?path=')) throw new Error(`Document UI did not use the private same-origin gateway: ${href}`);
 
-      await waitForFileSessionCookie(context);
+      await waitForFileSessionCookie(context, primarySession.userId);
       const fileResponse = await context.request.get(new URL(href, BASE).toString());
       if (fileResponse.status() !== 200) throw new Error(`Private document retrieval returned ${fileResponse.status()}`);
       const bytes = await fileResponse.body();
@@ -555,7 +555,8 @@ await check('RLS and private Storage isolate one signed-in customer from another
     });
 
     await step('Private file gateway rejects the second customer for the first customer file', async () => {
-      await waitForFileSessionCookie(context);
+      const secondarySession = await readBrowserSession(page);
+      await waitForFileSessionCookie(context, secondarySession.userId);
       const response = await context.request.get(`${BASE}/api/storage-file?path=${encodeURIComponent(primaryDocument.path)}`);
       if (response.status() !== 403) throw new Error(`Expected 403 for cross-customer private file, got ${response.status()}`);
     });

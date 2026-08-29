@@ -54,6 +54,7 @@ check("No service role secret passed to browser test", "SUPABASE_SERVICE_KEY" no
 check("Authenticated smoke cannot silently skip", "E2E_GITHUB_OIDC_TOKEN is required" in SMOKE and "SKIP: Authenticated" not in SMOKE)
 check("OIDC identity refreshes during long runs", "ACTIONS_ID_TOKEN_REQUEST_URL" in SMOKE and "ACTIONS_ID_TOKEN_REQUEST_TOKEN" in SMOKE and "currentOidcToken()" in SMOKE)
 check("Private-file auth verified through gateway", "Private-file gateway did not authenticate browser session" in SMOKE and "/api/storage-file?path=" in SMOKE)
+check("Gateway probes always identify the signed-in user", "waitForFileSessionCookie(context);" not in SMOKE and SMOKE.count("waitForFileSessionCookie(context,") >= 3)
 
 # Emergency QR may be displayed on either legitimate YourPetPass hostname,
 # but the test must still require the exact high-entropy token-shaped path.
