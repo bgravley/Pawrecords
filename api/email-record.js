@@ -1,14 +1,15 @@
-// api/email-record.js
-// Sends a pet's health-record summary to a recipient. The caller must own the
-// pet, and the record body is generated from server-fetched Supabase rows.
-// Browser-supplied HTML is never embedded in YourPetPass-branded email.
+// Sends a pet health-record summary by email. The caller must be signed in,
+// the pet lookup is constrained to that owner, and all record HTML is generated
+// from server-fetched rows. Browser-supplied HTML is intentionally ignored.
 
+import { createClient } from '@supabase/supabase-js';
 import { verifyUser } from './_verifyUser.js';
 import { setCorsHeaders } from './_cors.js';
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const FROM_EMAIL = 'YourPetPass <notifications@yourpetpass.com>';
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+let adminClient = null;
 
 function esc(value) {
   if (value === null || value === undefined) return '';
@@ -24,7 +25,9 @@ function fmt(value) {
   if (!value) return '—';
   const date = new Date(`${value}T00:00:00`);
   if (Number.isNaN(date.getTime())) return esc(value);
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+  return date.toLocaleDateString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC',
+  });
 }
 
 function serviceHeaders() {
@@ -34,8 +37,19 @@ function serviceHeaders() {
   };
 }
 
+function supabaseAdmin() {
+  if (!adminClient) {
+    adminClient = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+  }
+  return adminClient;
+}
+
 async function sb(path) {
-  const response = await fetch(`${process.env.SUPABASE_URL}/rest/v1/${path}`, { headers: serviceHeaders() });
+  const response = await fetch(`${process.env.SUPABASE_URL}/rest/v1/${path}`, {
+    headers: serviceHeaders(),
+  });
   if (!response.ok) {
     const detail = await response.text().catch(() => '');
     throw new Error(`Supabase record lookup failed (${response.status}): ${detail.slice(0, 160)}`);
@@ -43,14 +57,24 @@ async function sb(path) {
   return response.json();
 }
 
-async function ownedRecord(userId, petId) {
-  const dogs = await sb(
-    `dogs?id=eq.${encodeURIComponent(petId)}&user_id=eq.${encodeURIComponent(userId)}` +
-    '&select=id,name,species,breed,dob,weight,microchip,pet_type,emergency_contact,emergency_phone&limit=1'
-  );
-  const dog = dogs?.[0];
-  if (!dog?.id) return null;
+async function ownedRecord(userId, petId, petName) {
+  let selector;
+  if (petId && UUID_RE.test(petId)) {
+    selector = `id=eq.${encodeURIComponent(petId)}`;
+  } else if (typeof petName === 'string' && petName.trim() && petName.trim().length <= 150) {
+    selector = `name=eq.${encodeURIComponent(petName.trim())}`;
+  } else {
+    return { invalid: true };
+  }
 
+  const dogs = await sb(
+    `dogs?${selector}&user_id=eq.${encodeURIComponent(userId)}` +
+    '&select=id,name,species,breed,dob,weight,microchip,pet_type,emergency_contact,emergency_phone&limit=2'
+  );
+  if (!dogs?.length) return null;
+  if (dogs.length > 1) return { ambiguous: true };
+
+  const dog = dogs[0];
   const dogId = encodeURIComponent(dog.id);
   const [vaccinations, medications, allergies, visits] = await Promise.all([
     sb(`vaccinations?dog_id=eq.${dogId}&select=name,type,date_given,next_due,vet_name&order=date_given.desc`),
@@ -92,7 +116,10 @@ function buildRecord(record) {
     ['Microchip', esc(dog.microchip || '—')],
   ];
   if (dog.emergency_contact || dog.emergency_phone) {
-    profileRows.push(['Emergency contact', `${esc(dog.emergency_contact || '')}${dog.emergency_phone ? ` ${esc(dog.emergency_phone)}` : ''}`]);
+    profileRows.push([
+      'Emergency contact',
+      `${esc(dog.emergency_contact || '')}${dog.emergency_phone ? ` ${esc(dog.emergency_phone)}` : ''}`,
+    ]);
   }
 
   const allergyRows = allergies.map(a => [
@@ -118,7 +145,7 @@ function buildRecord(record) {
   `;
 }
 
-function validatedPdfUrl(raw, userId) {
+function ownedSharedRecordPath(raw, userId) {
   if (!raw || typeof raw !== 'string' || raw.length > 1200) return null;
   try {
     const url = new URL(raw, 'https://www.yourpetpass.com');
@@ -127,10 +154,23 @@ function validatedPdfUrl(raw, userId) {
     const path = url.searchParams.get('path') || '';
     const prefix = `${userId}/shared-records/`;
     if (!path.startsWith(prefix) || path.includes('..') || path.includes('\\')) return null;
-    return `https://www.yourpetpass.com/api/storage-file?path=${encodeURIComponent(path)}`;
+    return path;
   } catch {
     return null;
   }
+}
+
+async function signedPdfUrl(raw, userId) {
+  const path = ownedSharedRecordPath(raw, userId);
+  if (!path) return null;
+  const { data, error } = await supabaseAdmin().storage
+    .from('documents')
+    .createSignedUrl(path, 24 * 60 * 60, { download: true });
+  if (error || !data?.signedUrl) {
+    console.error('Could not sign emailed PDF:', error?.message || 'missing signed URL');
+    return null;
+  }
+  return data.signedUrl;
 }
 
 function wrap(petName, senderEmail, recordHtml, note, pdfUrl) {
@@ -142,7 +182,7 @@ function wrap(petName, senderEmail, recordHtml, note, pdfUrl) {
       <div style="color:#FFFFFF;font-size:19px;font-weight:700;">${esc(petName)}'s Health Record</div>
       <div style="color:#9DC4AA;font-size:13px;margin-top:4px;">Shared via YourPetPass${senderEmail ? ` by ${esc(senderEmail)}` : ''}</div>
     </div>
-    ${pdfUrl ? `<div style="background:#EAF4EE;border-bottom:1px solid #DCE8E0;padding:16px 24px;text-align:center;"><a href="${esc(pdfUrl)}" style="display:inline-block;background:#C9A84C;color:#1A2E22;text-decoration:none;font-weight:700;font-size:14px;padding:12px 24px;border-radius:10px;">View PDF version</a></div>` : ''}
+    ${pdfUrl ? `<div style="background:#EAF4EE;border-bottom:1px solid #DCE8E0;padding:16px 24px;text-align:center;"><a href="${esc(pdfUrl)}" style="display:inline-block;background:#C9A84C;color:#1A2E22;text-decoration:none;font-weight:700;font-size:14px;padding:12px 24px;border-radius:10px;">Download PDF version</a><div style="color:#7C9E87;font-size:11px;margin-top:8px;">This private link expires after 24 hours.</div></div>` : ''}
     ${note ? `<div style="padding:16px 24px;border-bottom:1px solid #DCE8E0;color:#2C4A38;font-size:14px;font-style:italic;">“${esc(note)}”</div>` : ''}
     <div style="padding:4px 24px 28px;">${recordHtml}</div>
     <div style="background:#EAF4EE;padding:14px 24px;color:#7C9E87;font-size:11px;text-align:center;">YourPetPass · Health Records &amp; Travel, Simplified.</div>
@@ -169,21 +209,29 @@ export default async function handler(req, res) {
   const auth = await verifyUser(req);
   if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
 
-  const { recipientEmail, petId, note, pdfUrl } = req.body || {};
-  if (!recipientEmail || !petId) return res.status(400).json({ error: 'recipientEmail and petId are required.' });
+  // petName remains accepted for the existing UI, but it is only a selector.
+  // Browser-supplied petName/htmlContent never becomes the emailed record body.
+  const { recipientEmail, petId, petName, note, pdfUrl } = req.body || {};
+  if (!recipientEmail || (!petId && !petName)) {
+    return res.status(400).json({ error: 'recipientEmail and pet are required.' });
+  }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipientEmail) || recipientEmail.length > 254) {
     return res.status(400).json({ error: 'Please enter a valid recipient email address.' });
   }
-  if (!UUID_RE.test(petId)) return res.status(400).json({ error: 'Invalid pet.' });
+  if (petId && !UUID_RE.test(petId)) return res.status(400).json({ error: 'Invalid pet.' });
   if (note && (typeof note !== 'string' || note.length > 1000)) {
     return res.status(400).json({ error: 'Note is too long (max 1000 characters).' });
   }
 
   try {
-    const record = await ownedRecord(auth.userId, petId);
+    const record = await ownedRecord(auth.userId, petId, petName);
+    if (record?.invalid) return res.status(400).json({ error: 'Invalid pet.' });
+    if (record?.ambiguous) {
+      return res.status(409).json({ error: 'More than one pet has this name. Please give each pet a unique name before emailing records.' });
+    }
     if (!record) return res.status(404).json({ error: 'Pet not found.' });
 
-    const safePdfUrl = validatedPdfUrl(pdfUrl, auth.userId);
+    const safePdfUrl = await signedPdfUrl(pdfUrl, auth.userId);
     const html = wrap(record.dog.name, auth.email, buildRecord(record), note || '', safePdfUrl);
     const emailRes = await fetch('https://api.resend.com/emails', {
       method: 'POST',
