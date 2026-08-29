@@ -1,0 +1,55 @@
+name: Temporary E2E Probe Caller Patch
+
+on:
+  push:
+    branches:
+      - fix/e2e-gateway-probe-callers
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Patch gateway probe callers
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          smoke_path = Path('scripts/live_smoke.mjs')
+          text = smoke_path.read_text()
+
+          old_doc = "      await waitForFileSessionCookie(context);\n      const fileResponse = await context.request.get(new URL(href, BASE).toString());"
+          new_doc = "      await waitForFileSessionCookie(context, primarySession.userId);\n      const fileResponse = await context.request.get(new URL(href, BASE).toString());"
+          if old_doc not in text:
+              raise SystemExit('Could not find document gateway probe call')
+          text = text.replace(old_doc, new_doc, 1)
+
+          old_iso = "    await step('Private file gateway rejects the second customer for the first customer file', async () => {\n      await waitForFileSessionCookie(context);\n      const response = await context.request.get(`${BASE}/api/storage-file?path=${encodeURIComponent(primaryDocument.path)}`);"
+          new_iso = "    await step('Private file gateway rejects the second customer for the first customer file', async () => {\n      const secondarySession = await readBrowserSession(page);\n      await waitForFileSessionCookie(context, secondarySession.userId);\n      const response = await context.request.get(`${BASE}/api/storage-file?path=${encodeURIComponent(primaryDocument.path)}`);"
+          if old_iso not in text:
+              raise SystemExit('Could not find isolation gateway probe call')
+          text = text.replace(old_iso, new_iso, 1)
+          smoke_path.write_text(text)
+
+          audit_path = Path('scripts/e2e_security_audit.py')
+          audit = audit_path.read_text()
+          anchor = "check(\"Private-file auth verified through gateway\", \"Private-file gateway did not authenticate browser session\" in SMOKE and \"/api/storage-file?path=\" in SMOKE)"
+          extra = anchor + "\ncheck(\"Gateway probes always identify the signed-in user\", \"waitForFileSessionCookie(context);\" not in SMOKE and SMOKE.count(\"waitForFileSessionCookie(context,\") >= 3)"
+          if "Gateway probes always identify the signed-in user" not in audit:
+              if anchor not in audit:
+                  raise SystemExit('Could not find E2E audit gateway anchor')
+              audit = audit.replace(anchor, extra, 1)
+          audit_path.write_text(audit)
+          PY
+
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/live_smoke.mjs scripts/e2e_security_audit.py
+          git commit -m "Pass user identity to every gateway probe"
+          git push origin HEAD:${GITHUB_REF_NAME}
