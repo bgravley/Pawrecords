@@ -71,6 +71,10 @@ require("/api/storage-file?path=" in supabase_client, "Legacy document URLs are 
 require("/api/session-cookie" in supabase_client, "Private file gateway has authenticated session bridge")
 require("path.startsWith('shared-records/')" in supabase_client and "path.startsWith('bug-reports/')" in supabase_client,
         "Special Storage uploads are rewritten under the signed-in user folder")
+require("if (data?.session?.access_token) setGatewaySession(data.session)" in supabase_client,
+        "Initial null auth state cannot clear a newer private-file session")
+require("event === 'SIGNED_OUT'" in supabase_client and "clearGatewaySession()" in supabase_client,
+        "Private-file session is cleared only on explicit sign-out")
 
 storage_gateway = read("api/storage-file.js")
 require("path.startsWith(`${user.id}/`)" in storage_gateway, "Private file gateway enforces user-root ownership")
