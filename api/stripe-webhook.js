@@ -1,99 +1,88 @@
 // api/stripe-webhook.js
-// Handles Stripe payment events and updates subscription_tier in Supabase profiles
+// Signed Stripe lifecycle handler. Billing side effects are idempotent and
+// entitlement changes follow the specific product/subscription lifecycle.
 
 export const config = { api: { bodyParser: false } };
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const FROM_EMAIL = 'YourPetPass <notifications@yourpetpass.com>';
+const STRIPE_API_VERSION = '2026-04-22.dahlia';
+const SERVICE_HEADERS = () => ({
+  apikey: process.env.SUPABASE_SERVICE_KEY,
+  Authorization: `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
+  'Content-Type': 'application/json',
+});
 
-// Shared email wrapper — consistent branding across all transactional emails
+function esc(value) {
+  if (value === null || value === undefined) return '';
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 async function sendCustomerEmail({ to, subject, bodyHtml }) {
   if (!to || !RESEND_API_KEY) return;
   try {
-    const html = `
-<!DOCTYPE html>
-<html>
-<head><meta charset="UTF-8"><style>
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #FAF6F0; margin: 0; padding: 20px; }
-  .card { background: #FFFFFF; border-radius: 16px; max-width: 520px; margin: 0 auto; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
-  .header { background: #1E5C52; padding: 24px 28px; text-align: center; }
-  .header h1 { color: #FFFFFF; margin: 0; font-size: 22px; font-weight: 700; }
-  .header p { color: #A8D5CE; margin: 4px 0 0; font-size: 13px; font-style: italic; }
-  .body { padding: 28px; color: #5A4535; font-size: 15px; line-height: 1.7; }
-  .body h2 { color: #1E5C52; font-size: 19px; margin: 0 0 12px; }
-  .footer { background: #F4EFE8; padding: 16px 28px; font-size: 12px; color: #8B7355; text-align: center; }
-</style></head>
-<body>
-  <div class="card">
-    <div class="header"><img src="https://yourpetpass.com/logo_horizontal_cream_transparent.png" alt="YourPetPass" width="220" style="display:block;height:auto;" /></div>
-    <div class="body">${bodyHtml}</div>
-    <div class="footer">YourPetPass · yourpetpass.com · Questions? <a href="https://yourpetpass.com/contact.html" style="color:#2D7D6F;">Contact us</a></div>
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
+<body style="font-family:Georgia,'Times New Roman',serif;background:#FAFCFB;margin:0;padding:20px;color:#1A2E22;">
+  <div style="background:#FFFFFF;border:1px solid #DCE8E0;border-radius:16px;max-width:520px;margin:0 auto;overflow:hidden;">
+    <div style="background:#2C4A38;padding:24px 28px;"><img src="https://yourpetpass.com/logo_horizontal_cream_transparent.png" alt="YourPetPass" width="220" style="display:block;height:auto;" /></div>
+    <div style="padding:28px;font-size:15px;line-height:1.7;">${bodyHtml}</div>
+    <div style="background:#EAF4EE;padding:16px 28px;font-size:12px;color:#6A8372;text-align:center;">YourPetPass · Health Records &amp; Travel, Simplified. · <a href="https://yourpetpass.com/contact.html" style="color:#2C4A38;">Contact us</a></div>
   </div>
-</body>
-</html>`;
-    await fetch('https://api.resend.com/emails', {
+</body></html>`;
+    const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${RESEND_API_KEY}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${RESEND_API_KEY}` },
       body: JSON.stringify({ from: FROM_EMAIL, to, subject, html }),
     });
-  } catch (e) {
-    console.error('Customer email failed (non-critical):', e.message);
+    if (!response.ok) console.error('Customer email failed (non-critical):', response.status);
+  } catch (error) {
+    console.error('Customer email failed (non-critical):', error.message);
   }
 }
 
 const sendWelcomeEmail = (email, tierLabel) => sendCustomerEmail({
   to: email,
-  subject: `🎉 Welcome to YourPetPass ${tierLabel}!`,
-  bodyHtml: `
-    <h2>You're all set! 🐾</h2>
-    <p>Thank you for upgrading to <strong>${tierLabel}</strong>. Here's what's now unlocked on your account:</p>
-    <ul style="padding-left:20px;">
-      <li>AI Document Scanning</li>
-      <li>AI Travel Checklists</li>
-      <li>Weight Tracking with trend charts</li>
-      <li>Document Storage</li>
-      <li>QR Health Card for emergencies</li>
-      <li>Full record exports</li>
-    </ul>
-    <p>You can manage your subscription anytime from <strong>My Account → Billing</strong>.</p>
-    <p>Welcome aboard!</p>`
+  subject: `Welcome to YourPetPass ${tierLabel}`,
+  bodyHtml: `<h2 style="font-family:Georgia,'Times New Roman',serif;color:#2C4A38;margin-top:0;">You're all set 🐾</h2>
+    <p>Thank you for upgrading to <strong>${esc(tierLabel)}</strong>. AI document scanning, AI travel checklists, weight tracking, document storage, your emergency QR card, and full record exports are now available.</p>
+    <p>You can manage a recurring subscription anytime from <strong>My Account → Billing</strong>.</p>`,
 });
 
 const sendCancellationEmail = (email) => sendCustomerEmail({
   to: email,
-  subject: `Your YourPetPass subscription has been cancelled`,
-  bodyHtml: `
-    <h2>We're sorry to see you go</h2>
-    <p>Your YourPetPass Premium subscription has been cancelled. You'll continue to have Premium access through the end of your current billing period — after that, your account moves to the Free plan.</p>
-    <p><strong>Good news:</strong> nothing is deleted. All your pets' records, documents, and history stay safely on your account. If you upgrade again later, everything picks up right where you left off.</p>
-    <p>If this was a mistake or you have any feedback, just reply to this email — we'd love to hear from you.</p>`
+  subject: 'Your YourPetPass subscription has ended',
+  bodyHtml: `<h2 style="font-family:Georgia,'Times New Roman',serif;color:#2C4A38;margin-top:0;">Your subscription has ended</h2>
+    <p>Your recurring YourPetPass Premium subscription is no longer active. Your pet records and documents remain saved on your account.</p>
+    <p>If this was unexpected, open <strong>My Account → Billing</strong> or contact us.</p>`,
 });
 
-const sendRefundEmail = (email, amountCents) => sendCustomerEmail({
+const sendPaymentFailedEmail = (email) => sendCustomerEmail({
   to: email,
-  subject: `Your YourPetPass refund has been processed`,
-  bodyHtml: `
-    <h2>Refund confirmed</h2>
-    <p>We've processed a refund of <strong>$${(amountCents/100).toFixed(2)}</strong> to your original payment method. It typically takes 5–10 business days to appear on your statement, depending on your bank.</p>
-    <p>Your account has been moved back to the Free plan. As always, none of your pets' data was affected — everything is saved and ready whenever you'd like to upgrade again.</p>
-    <p>If you have any questions about this refund, just reply to this email.</p>`
+  subject: 'Action needed for your YourPetPass payment',
+  bodyHtml: `<h2 style="font-family:Georgia,'Times New Roman',serif;color:#2C4A38;margin-top:0;">We couldn't process your payment</h2>
+    <p>Stripe reported a failed subscription payment. Please open <strong>My Account → Billing</strong> to review or update your payment method.</p>
+    <p>YourPetPass will follow Stripe's subscription status for access; this email by itself does not remove your records.</p>`,
+});
+
+const sendRefundEmail = (email, amountCents, message) => sendCustomerEmail({
+  to: email,
+  subject: 'Your YourPetPass refund has been processed',
+  bodyHtml: `<h2 style="font-family:Georgia,'Times New Roman',serif;color:#2C4A38;margin-top:0;">Refund confirmed</h2>
+    <p>We've processed a refund of <strong>$${(Math.max(0, amountCents) / 100).toFixed(2)}</strong> to your original payment method. Banks commonly take several business days to post it.</p>
+    <p>${esc(message || 'Your pet records and documents were not deleted.')}</p>`,
 });
 
 const sendCreditPackEmail = (email, creditAmount) => sendCustomerEmail({
   to: email,
-  subject: `🎉 ${creditAmount} more travel checklists added to your account`,
-  bodyHtml: `
-    <h2>You're all set!</h2>
-    <p>We've added <strong>${creditAmount} extra travel checklist generations</strong> to your account — these don't expire and are used automatically once your monthly included checklists run out.</p>
-    <p>Plan your next trip anytime from the Travel tab.</p>`
+  subject: `${creditAmount} more travel checklists added to YourPetPass`,
+  bodyHtml: `<h2 style="font-family:Georgia,'Times New Roman',serif;color:#2C4A38;margin-top:0;">Travel credits added</h2>
+    <p>We've added <strong>${Number(creditAmount)} extra travel checklist generations</strong> to your account. They do not expire and are used after your included monthly generations.</p>`,
 });
-
-// One shared stripe instance per request
-let _stripe = null;
-const getStripe = async () => {
-  if (!_stripe) _stripe = (await import('stripe')).default(process.env.STRIPE_SECRET_KEY);
-  return _stripe;
-};
 
 async function getRawBody(req) {
   return new Promise((resolve, reject) => {
@@ -104,418 +93,541 @@ async function getRawBody(req) {
   });
 }
 
-// Returns the net amount in cents after Stripe fees for a given charge.
-// This is what you actually receive — what the affiliate commission should be based on.
-// Falls back to estimating (gross - 2.9% - $0.30) if balance transaction unavailable.
-async function getNetCents(chargeId, grossCents) {
-  if (!chargeId) return estimateNet(grossCents);
-  try {
-    const stripe = await getStripe();
-    const charge = await stripe.charges.retrieve(chargeId, { expand: ['balance_transaction'] });
-    const bt = charge.balance_transaction;
-    if (bt && typeof bt === 'object' && bt.net) {
-      console.log(`Net after Stripe fees: $${(bt.net/100).toFixed(2)} (gross $${(grossCents/100).toFixed(2)}, fee $${(bt.fee/100).toFixed(2)})`);
-      return bt.net;
-    }
-  } catch (e) {
-    console.error('Could not retrieve balance transaction, estimating net:', e.message);
-  }
-  return estimateNet(grossCents);
+let _stripe = null;
+async function getStripe() {
+  if (!process.env.STRIPE_SECRET_KEY) throw new Error('STRIPE_SECRET_KEY is not configured');
+  if (!_stripe) _stripe = (await import('stripe')).default(process.env.STRIPE_SECRET_KEY);
+  return _stripe;
 }
 
-function estimateNet(grossCents) {
-  // Stripe standard US rate: 2.9% + $0.30
-  // Used as fallback when balance transaction isn't available (e.g. test mode timing)
-  const fee = Math.round(grossCents * 0.029) + 30;
-  return Math.max(0, grossCents - fee);
+async function stripeGet(path, params = {}) {
+  if (!process.env.STRIPE_SECRET_KEY) throw new Error('STRIPE_SECRET_KEY is not configured');
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null || value === '') continue;
+    if (Array.isArray(value)) value.forEach(v => query.append(key, String(v)));
+    else query.append(key, String(value));
+  }
+  const suffix = query.toString() ? `?${query.toString()}` : '';
+  const response = await fetch(`https://api.stripe.com/v1/${path}${suffix}`, {
+    headers: {
+      Authorization: `Bearer ${process.env.STRIPE_SECRET_KEY}`,
+      'Stripe-Version': STRIPE_API_VERSION,
+    },
+  });
+  if (!response.ok) {
+    const detail = await response.text().catch(() => '');
+    throw new Error(`Stripe read failed (${path}, ${response.status}): ${detail.slice(0, 180)}`);
+  }
+  return response.json();
+}
+
+async function sbRpc(name, payload) {
+  const response = await fetch(`${process.env.SUPABASE_URL}/rest/v1/rpc/${name}`, {
+    method: 'POST',
+    headers: SERVICE_HEADERS(),
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const detail = await response.text().catch(() => '');
+    throw new Error(`Supabase RPC ${name} failed (${response.status}): ${detail.slice(0, 200)}`);
+  }
+  return response.json();
+}
+
+async function claimStripeEvent(event) {
+  return sbRpc('claim_stripe_webhook_event', {
+    p_event_id: event.id,
+    p_event_type: event.type,
+  });
+}
+
+async function finishStripeEvent(eventId, success, error = null) {
+  await sbRpc('finish_stripe_webhook_event', {
+    p_event_id: eventId,
+    p_success: !!success,
+    p_error: error ? String(error).slice(0, 1000) : null,
+  });
+}
+
+async function grantTravelCreditsOnce(sessionId, userId, creditAmount) {
+  const rows = await sbRpc('grant_travel_credits_once', {
+    p_session_id: sessionId,
+    p_user_id: userId,
+    p_credit_amount: creditAmount,
+  });
+  const row = Array.isArray(rows) ? rows[0] : rows;
+  if (!row) throw new Error('Travel credit grant returned no profile');
+  return {
+    email: row.customer_email || null,
+    newBalance: Number(row.new_balance || 0),
+    granted: row.granted === true,
+  };
+}
+
+async function revokeTravelCreditsOnce(sessionId, userId, refundEventId) {
+  const rows = await sbRpc('revoke_travel_credits_once', {
+    p_session_id: sessionId,
+    p_user_id: userId,
+    p_refund_event_id: refundEventId,
+  });
+  const row = Array.isArray(rows) ? rows[0] : rows;
+  if (!row) return { email: null, revoked: false, creditAmount: 0 };
+  return {
+    email: row.customer_email || null,
+    newBalance: Number(row.new_balance || 0),
+    revoked: row.revoked === true,
+    creditAmount: Number(row.credit_amount || 0),
+  };
+}
+
+async function fetchProfile({ userId = null, stripeCustomerId = null }) {
+  let selector = null;
+  if (userId) selector = `id=eq.${encodeURIComponent(userId)}`;
+  else if (stripeCustomerId) selector = `stripe_customer_id=eq.${encodeURIComponent(stripeCustomerId)}`;
+  if (!selector) return null;
+
+  const response = await fetch(
+    `${process.env.SUPABASE_URL}/rest/v1/profiles?${selector}&select=id,email,referral_code_used,subscription_tier,stripe_customer_id&limit=1`,
+    { headers: SERVICE_HEADERS() }
+  );
+  if (!response.ok) {
+    const detail = await response.text().catch(() => '');
+    throw new Error(`Profile lookup failed (${response.status}): ${detail.slice(0, 160)}`);
+  }
+  const rows = await response.json();
+  return rows?.[0] || null;
+}
+
+async function updateUserTier(stripeCustomerId, tier, userId = null, { preserveLifetime = true } = {}) {
+  let profile = await fetchProfile({ userId, stripeCustomerId });
+  if (!profile && userId && stripeCustomerId) profile = await fetchProfile({ stripeCustomerId });
+  if (!profile) throw new Error('Could not match Stripe billing event to a YourPetPass profile');
+
+  if (profile.stripe_customer_id && stripeCustomerId && profile.stripe_customer_id !== stripeCustomerId) {
+    throw new Error('Stripe customer does not match the YourPetPass profile');
+  }
+
+  const nextTier = preserveLifetime && profile.subscription_tier === 'lifetime' ? 'lifetime' : tier;
+  const updates = { subscription_tier: nextTier };
+  if (!profile.stripe_customer_id && stripeCustomerId) updates.stripe_customer_id = stripeCustomerId;
+
+  const response = await fetch(`${process.env.SUPABASE_URL}/rest/v1/profiles?id=eq.${encodeURIComponent(profile.id)}`, {
+    method: 'PATCH',
+    headers: { ...SERVICE_HEADERS(), Prefer: 'return=representation' },
+    body: JSON.stringify(updates),
+  });
+  if (!response.ok) {
+    const detail = await response.text().catch(() => '');
+    throw new Error(`Tier update failed (${response.status}): ${detail.slice(0, 160)}`);
+  }
+  const rows = await response.json();
+  return rows?.[0] || { ...profile, ...updates };
 }
 
 async function linkStripeCustomerToProfile(userId, stripeCustomerId) {
   if (!userId || !stripeCustomerId) return;
-  try {
-    const r = await fetch(
-      `${process.env.SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}`,
-      {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': process.env.SUPABASE_SERVICE_KEY,
-          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
-          'Prefer': 'return=minimal',
-        },
-        body: JSON.stringify({ stripe_customer_id: stripeCustomerId }),
-      }
-    );
-    if (!r.ok) {
-      console.error('Failed to link Stripe customer to profile:', r.status, await r.text().catch(() => ''));
-      return;
-    }
-    console.log(`Linked Stripe customer ${stripeCustomerId} to profile ${userId}`);
-  } catch (e) {
-    console.error('Failed to link Stripe customer to profile:', e.message);
+  const profile = await fetchProfile({ userId });
+  if (!profile) throw new Error('Checkout profile was not found');
+  if (profile.stripe_customer_id && profile.stripe_customer_id !== stripeCustomerId) {
+    throw new Error('Checkout Stripe customer conflicts with existing profile billing account');
   }
+  if (profile.stripe_customer_id === stripeCustomerId) return;
+
+  const response = await fetch(`${process.env.SUPABASE_URL}/rest/v1/profiles?id=eq.${encodeURIComponent(userId)}`, {
+    method: 'PATCH',
+    headers: { ...SERVICE_HEADERS(), Prefer: 'return=minimal' },
+    body: JSON.stringify({ stripe_customer_id: stripeCustomerId }),
+  });
+  if (!response.ok) throw new Error(`Could not link Stripe customer (${response.status})`);
 }
 
-async function addTravelCredits(userId, creditAmount) {
-  if (!userId || !creditAmount) return null;
-  try {
-    const profRes = await fetch(
-      `${process.env.SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=id,email,travel_credits_balance`,
-      { headers: { 'apikey': process.env.SUPABASE_SERVICE_KEY, 'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}` } }
-    );
-    if (!profRes.ok) {
-      console.error('Failed to look up profile for travel credits:', profRes.status, await profRes.text().catch(() => ''));
-      return null;
-    }
-    const profiles = await profRes.json();
-    const profile = profiles?.[0];
-    if (!profile) return null;
-
-    const newBalance = (profile.travel_credits_balance || 0) + creditAmount;
-    const patchRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': process.env.SUPABASE_SERVICE_KEY,
-        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
-        'Prefer': 'return=minimal',
-      },
-      body: JSON.stringify({ travel_credits_balance: newBalance }),
-    });
-    if (!patchRes.ok) {
-      console.error('Failed to save new travel credit balance:', patchRes.status, await patchRes.text().catch(() => ''));
-      return null;
-    }
-
-    console.log(`Added ${creditAmount} travel credits to ${profile.email} (new balance: ${newBalance})`);
-    return profile;
-  } catch (e) {
-    console.error('Failed to add travel credits:', e.message);
-    return null;
-  }
+function estimateNet(grossCents) {
+  const fee = Math.round(Math.max(0, grossCents) * 0.029) + 30;
+  return Math.max(0, grossCents - fee);
 }
 
-// THROWS on failure (rather than silently continuing) so the outer webhook
-// handler's catch block returns a 500 and Stripe retries the delivery —
-// this is billing-critical, a silent no-op here would mean a paying
-// customer's tier never actually updates.
-async function updateUserTier(stripeCustomerId, tier) {
-  const searchRes = await fetch(
-    `${process.env.SUPABASE_URL}/rest/v1/profiles?stripe_customer_id=eq.${stripeCustomerId}&select=id,email,referral_code_used`,
-    {
-      headers: {
-        'apikey': process.env.SUPABASE_SERVICE_KEY,
-        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
-      }
+async function getNetCents(chargeId, grossCents) {
+  if (!chargeId) return estimateNet(grossCents);
+  try {
+    const charge = await stripeGet(`charges/${encodeURIComponent(chargeId)}`, { 'expand[]': 'balance_transaction' });
+    const bt = charge.balance_transaction;
+    if (bt && typeof bt === 'object' && Number.isFinite(bt.net)) return bt.net;
+  } catch (error) {
+    console.error('Could not retrieve balance transaction; estimating net:', error.message);
+  }
+  return estimateNet(grossCents);
+}
+
+async function chargeIdFromPaymentIntent(paymentIntent) {
+  if (!paymentIntent) return null;
+  if (typeof paymentIntent === 'object') return paymentIntent.latest_charge || null;
+  const pi = await stripeGet(`payment_intents/${encodeURIComponent(paymentIntent)}`);
+  return typeof pi.latest_charge === 'string' ? pi.latest_charge : pi.latest_charge?.id || null;
+}
+
+async function invoiceLifecycleContext(invoice) {
+  const subscriptionId = invoice?.parent?.subscription_details?.subscription || invoice?.subscription || null;
+  if (!subscriptionId) return { subscriptionId: null, userId: null, chargeId: null };
+
+  let userId = invoice?.parent?.subscription_details?.metadata?.userId || null;
+  if (!userId) {
+    try {
+      const subscription = await stripeGet(`subscriptions/${encodeURIComponent(subscriptionId)}`);
+      userId = subscription?.metadata?.userId || null;
+    } catch (error) {
+      console.error('Could not read subscription metadata:', error.message);
     }
+  }
+
+  let chargeId = null;
+  const payments = await stripeGet('invoice_payments', {
+    invoice: invoice.id,
+    status: 'paid',
+    limit: 5,
+    'expand[]': 'data.payment.payment_intent',
+  });
+  for (const item of payments?.data || []) {
+    const pi = item?.payment?.payment_intent;
+    const latestCharge = typeof pi === 'object' ? pi.latest_charge : null;
+    if (latestCharge) {
+      chargeId = typeof latestCharge === 'string' ? latestCharge : latestCharge.id;
+      break;
+    }
+  }
+
+  return { subscriptionId, userId, chargeId };
+}
+
+async function recordCommission({ profile, grossCents, netCents, sourcePaymentId, periodMonth }) {
+  if (!profile?.referral_code_used || !sourcePaymentId || netCents <= 0) return;
+
+  const affRes = await fetch(
+    `${process.env.SUPABASE_URL}/rest/v1/affiliates?referral_code=eq.${encodeURIComponent(profile.referral_code_used)}&status=eq.active&select=id,commission_rate&limit=1`,
+    { headers: SERVICE_HEADERS() }
   );
-  if (!searchRes.ok) {
-    const errText = await searchRes.text().catch(() => '');
-    console.error('Profile lookup by Stripe customer failed:', searchRes.status, errText);
-    throw new Error(`Profile lookup failed for Stripe customer ${stripeCustomerId}`);
-  }
-  const profiles = await searchRes.json();
-  if (!profiles?.length) {
-    console.error('No profile found for Stripe customer:', stripeCustomerId);
-    return null;
-  }
+  if (!affRes.ok) throw new Error(`Affiliate lookup failed (${affRes.status})`);
+  const affiliates = await affRes.json();
+  if (!affiliates?.length) return;
 
-  const profile = profiles[0];
-  const patchRes = await fetch(
-    `${process.env.SUPABASE_URL}/rest/v1/profiles?id=eq.${profile.id}`,
-    {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': process.env.SUPABASE_SERVICE_KEY,
-        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
-        'Prefer': 'return=minimal',
-      },
-      body: JSON.stringify({ subscription_tier: tier })
-    }
+  const affiliate = affiliates[0];
+  const rate = parseFloat(affiliate.commission_rate) || 25;
+  const commissionCents = Math.round(netCents * (rate / 100));
+  const insertRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/affiliate_commissions`, {
+    method: 'POST',
+    headers: { ...SERVICE_HEADERS(), Prefer: 'return=minimal' },
+    body: JSON.stringify({
+      affiliate_id: affiliate.id,
+      referred_user_id: profile.id,
+      stripe_payment_id: sourcePaymentId,
+      payment_amount_cents: netCents,
+      gross_amount_cents: grossCents,
+      commission_rate: rate,
+      commission_amount_cents: commissionCents,
+      status: 'pending',
+      period_month: periodMonth,
+    }),
+  });
+  if (insertRes.status === 409) return; // unique source-payment guard: already recorded
+  if (!insertRes.ok) {
+    const detail = await insertRes.text().catch(() => '');
+    throw new Error(`Commission insert failed (${insertRes.status}): ${detail.slice(0, 160)}`);
+  }
+}
+
+async function recordRefundCommission({ sourcePaymentId, refundEventId, incrementalRefundCents, periodMonth }) {
+  if (!sourcePaymentId || !refundEventId || incrementalRefundCents <= 0) return;
+
+  const originalRes = await fetch(
+    `${process.env.SUPABASE_URL}/rest/v1/affiliate_commissions?stripe_payment_id=eq.${encodeURIComponent(sourcePaymentId)}&status=eq.pending&payment_amount_cents=gt.0&select=*&limit=1`,
+    { headers: SERVICE_HEADERS() }
   );
-  if (!patchRes.ok) {
-    const errText = await patchRes.text().catch(() => '');
-    console.error('Tier update failed:', patchRes.status, errText);
-    throw new Error(`Failed to update tier to ${tier} for profile ${profile.id}`);
-  }
+  if (!originalRes.ok) throw new Error(`Original commission lookup failed (${originalRes.status})`);
+  const originals = await originalRes.json();
+  const original = originals?.[0];
+  if (!original) return;
 
-  console.log(`Updated ${profile.email} to tier: ${tier}`);
-  return profile;
-}
+  const originalGross = Number(original.gross_amount_cents || 0);
+  if (originalGross <= 0) return;
+  const proportion = Math.min(1, incrementalRefundCents / originalGross);
+  const netClawback = Math.round(Number(original.payment_amount_cents || 0) * proportion);
+  const commissionClawback = Math.round(Number(original.commission_amount_cents || 0) * proportion);
+  if (commissionClawback <= 0) return;
 
-async function recordCommission({ profile, grossCents, netCents, stripeInvoiceId, periodMonth }) {
-  if (!profile?.referral_code_used || netCents <= 0) return;
-
-  try {
-    const affRes = await fetch(
-      `${process.env.SUPABASE_URL}/rest/v1/affiliates?referral_code=eq.${profile.referral_code_used}&status=eq.active&select=id,commission_rate`,
-      { headers: { 'apikey': process.env.SUPABASE_SERVICE_KEY, 'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}` } }
-    );
-    if (!affRes.ok) {
-      console.error('Affiliate lookup failed for commission:', affRes.status, await affRes.text().catch(() => ''));
-      return;
-    }
-    const affiliates = await affRes.json();
-    if (!affiliates?.length) return;
-
-    const affiliate = affiliates[0];
-    const rate = parseFloat(affiliate.commission_rate) || 25;
-    const commissionCents = Math.round(netCents * (rate / 100));
-
-    const insertRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/affiliate_commissions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': process.env.SUPABASE_SERVICE_KEY,
-        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
-        'Prefer': 'return=minimal',
-      },
-      body: JSON.stringify({
-        affiliate_id: affiliate.id,
-        referred_user_id: profile.id,
-        stripe_payment_id: stripeInvoiceId,
-        payment_amount_cents: netCents,
-        gross_amount_cents: grossCents,
-        commission_rate: rate,
-        commission_amount_cents: commissionCents,
-        status: 'pending',
-        period_month: periodMonth,
-      }),
-    });
-    if (!insertRes.ok) {
-      console.error('Commission insert failed:', insertRes.status, await insertRes.text().catch(() => ''));
-      return;
-    }
-
-    console.log(`Commission: ${rate}% of net $${(netCents/100).toFixed(2)} = $${(commissionCents/100).toFixed(2)} (gross $${(grossCents/100).toFixed(2)})`);
-  } catch (e) {
-    console.error('Commission recording failed:', e.message);
+  const insertRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/affiliate_commissions`, {
+    method: 'POST',
+    headers: { ...SERVICE_HEADERS(), Prefer: 'return=minimal' },
+    body: JSON.stringify({
+      affiliate_id: original.affiliate_id,
+      referred_user_id: original.referred_user_id,
+      stripe_payment_id: refundEventId,
+      payment_amount_cents: -netClawback,
+      gross_amount_cents: -incrementalRefundCents,
+      commission_rate: original.commission_rate,
+      commission_amount_cents: -commissionClawback,
+      status: 'refund',
+      period_month: periodMonth,
+    }),
+  });
+  if (insertRes.status === 409) return;
+  if (!insertRes.ok) {
+    const detail = await insertRes.text().catch(() => '');
+    throw new Error(`Refund commission insert failed (${insertRes.status}): ${detail.slice(0, 160)}`);
   }
 }
 
-async function recordRefund({ stripeChargeId, stripeCustomerId, refundAmountCents, periodMonth }) {
-  if (!refundAmountCents || refundAmountCents <= 0) return;
-  try {
-    const commRes = await fetch(
-      `${process.env.SUPABASE_URL}/rest/v1/affiliate_commissions?stripe_payment_id=eq.${stripeChargeId}&status=eq.pending&select=*`,
-      { headers: { 'apikey': process.env.SUPABASE_SERVICE_KEY, 'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}` } }
-    );
-    if (!commRes.ok) {
-      console.error('Commission lookup failed for refund:', commRes.status, await commRes.text().catch(() => ''));
+async function hasActiveSubscription(stripeCustomerId) {
+  if (!stripeCustomerId) return false;
+  const subs = await stripeGet('subscriptions', { customer: stripeCustomerId, status: 'all', limit: 100 });
+  return (subs?.data || []).some(sub => sub.status === 'active' || sub.status === 'trialing');
+}
+
+async function resolveRefundContext(charge) {
+  const piId = typeof charge?.payment_intent === 'string' ? charge.payment_intent : charge?.payment_intent?.id;
+  let paymentIntent = typeof charge?.payment_intent === 'object' ? charge.payment_intent : null;
+  if (piId && !paymentIntent) paymentIntent = await stripeGet(`payment_intents/${encodeURIComponent(piId)}`);
+
+  let userId = paymentIntent?.metadata?.userId || null;
+  let purchaseType = paymentIntent?.metadata?.purchaseType || null;
+  let sourcePaymentId = null;
+  let checkoutSession = null;
+  const orderReference = paymentIntent?.payment_details?.order_reference || null;
+
+  if (orderReference && String(orderReference).startsWith('in_')) {
+    sourcePaymentId = orderReference;
+    purchaseType = purchaseType || 'subscription';
+  }
+
+  if (piId && (!sourcePaymentId || !purchaseType || !userId)) {
+    const sessions = await stripeGet('checkout/sessions', { payment_intent: piId, limit: 1 });
+    checkoutSession = sessions?.data?.[0] || null;
+    if (checkoutSession) {
+      sourcePaymentId = sourcePaymentId || checkoutSession.id;
+      userId = userId || checkoutSession.metadata?.userId || checkoutSession.client_reference_id || null;
+      purchaseType = purchaseType || checkoutSession.metadata?.purchaseType || (checkoutSession.mode === 'subscription' ? 'subscription' : null);
+    }
+  }
+
+  return { paymentIntent, checkoutSession, userId, purchaseType, sourcePaymentId };
+}
+
+function refundIncrementCents(event, charge) {
+  const previous = Number(event?.data?.previous_attributes?.amount_refunded || 0);
+  return Math.max(0, Number(charge?.amount_refunded || 0) - previous);
+}
+
+async function processStripeEvent(event, notifications) {
+  switch (event.type) {
+    case 'checkout.session.completed': {
+      const session = event.data.object;
+      const customerId = session.customer || null;
+      const userId = session.metadata?.userId || session.client_reference_id || null;
+      const purchaseType = session.metadata?.purchaseType || null;
+      const creditAmount = parseInt(session.metadata?.creditAmount || '0', 10) || 0;
+
+      if (!userId) throw new Error('Checkout Session is missing trusted YourPetPass user metadata');
+      if (customerId) await linkStripeCustomerToProfile(userId, customerId);
+
+      if (session.mode === 'payment' && session.payment_status !== 'paid') {
+        console.log('Payment-mode Checkout completed without paid status; no entitlement granted');
+        return;
+      }
+
+      if (purchaseType === 'travel_credits' && creditAmount > 0) {
+        const grant = await grantTravelCreditsOnce(session.id, userId, creditAmount);
+        const profile = await fetchProfile({ userId });
+        if (!profile) throw new Error('Travel-credit checkout profile was not found');
+        const grossCents = Number(session.amount_total || 0);
+        const chargeId = await chargeIdFromPaymentIntent(session.payment_intent);
+        const netCents = await getNetCents(chargeId, grossCents);
+        await recordCommission({
+          profile,
+          grossCents,
+          netCents,
+          sourcePaymentId: session.id,
+          periodMonth: new Date().toISOString().slice(0, 7),
+        });
+        if (grant.granted && grant.email) notifications.push(() => sendCreditPackEmail(grant.email, creditAmount));
+      } else if (purchaseType === 'lifetime' || session.mode === 'payment') {
+        const profile = await updateUserTier(customerId, 'lifetime', userId, { preserveLifetime: false });
+        const grossCents = Number(session.amount_total || 0);
+        const chargeId = await chargeIdFromPaymentIntent(session.payment_intent);
+        const netCents = await getNetCents(chargeId, grossCents);
+        await recordCommission({
+          profile,
+          grossCents,
+          netCents,
+          sourcePaymentId: session.id,
+          periodMonth: new Date().toISOString().slice(0, 7),
+        });
+        if (profile.email) notifications.push(() => sendWelcomeEmail(profile.email, 'Lifetime'));
+      } else if (session.mode === 'subscription') {
+        const profile = await updateUserTier(customerId, 'premium', userId, { preserveLifetime: true });
+        if (profile.email && profile.subscription_tier !== 'lifetime') notifications.push(() => sendWelcomeEmail(profile.email, 'Premium'));
+      }
       return;
     }
-    const commissions = await commRes.json();
 
-    const profRes = await fetch(
-      `${process.env.SUPABASE_URL}/rest/v1/profiles?stripe_customer_id=eq.${stripeCustomerId}&select=id,referral_code_used`,
-      { headers: { 'apikey': process.env.SUPABASE_SERVICE_KEY, 'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}` } }
-    );
-    if (!profRes.ok) {
-      console.error('Profile lookup failed for refund:', profRes.status, await profRes.text().catch(() => ''));
-      return;
-    }
-    const profiles = await profRes.json();
-    const profile = profiles?.[0];
-
-    if (!profile?.referral_code_used) return;
-
-    const affRes = await fetch(
-      `${process.env.SUPABASE_URL}/rest/v1/affiliates?referral_code=eq.${profile.referral_code_used}&select=id,commission_rate`,
-      { headers: { 'apikey': process.env.SUPABASE_SERVICE_KEY, 'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}` } }
-    );
-    if (!affRes.ok) {
-      console.error('Affiliate lookup failed for refund:', affRes.status, await affRes.text().catch(() => ''));
-      return;
-    }
-    const affiliates = await affRes.json();
-    if (!affiliates?.length) return;
-
-    const affiliate = affiliates[0];
-    const rate = parseFloat(affiliate.commission_rate) || 25;
-    const refundCommissionCents = Math.round(refundAmountCents * (rate / 100));
-
-    const insertRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/affiliate_commissions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': process.env.SUPABASE_SERVICE_KEY,
-        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
-        'Prefer': 'return=minimal',
-      },
-      body: JSON.stringify({
-        affiliate_id: affiliate.id,
-        referred_user_id: profile.id,
-        stripe_payment_id: stripeChargeId,
-        payment_amount_cents: -refundAmountCents,
-        commission_rate: rate,
-        commission_amount_cents: -refundCommissionCents,
-        status: 'refund',
-        period_month: periodMonth,
-      }),
-    });
-    if (!insertRes.ok) {
-      console.error('Refund commission insert failed:', insertRes.status, await insertRes.text().catch(() => ''));
+    case 'invoice.payment_succeeded': {
+      const invoice = event.data.object;
+      const context = await invoiceLifecycleContext(invoice);
+      if (!context.subscriptionId) {
+        console.log('Paid invoice is not subscription-backed; no subscription entitlement update');
+        return;
+      }
+      const profile = await updateUserTier(invoice.customer, 'premium', context.userId, { preserveLifetime: true });
+      const grossCents = Number(invoice.amount_paid || 0);
+      const netCents = await getNetCents(context.chargeId, grossCents);
+      await recordCommission({
+        profile,
+        grossCents,
+        netCents,
+        sourcePaymentId: invoice.id,
+        periodMonth: new Date(Number(invoice.period_start || Math.floor(Date.now() / 1000)) * 1000).toISOString().slice(0, 7),
+      });
       return;
     }
 
-    console.log(`Refund recorded: -$${(refundCommissionCents/100).toFixed(2)} clawback for affiliate ${affiliate.id}`);
-  } catch (e) {
-    console.error('Refund recording failed:', e.message);
+    case 'invoice.payment_failed': {
+      const invoice = event.data.object;
+      const context = await invoiceLifecycleContext(invoice);
+      if (!context.subscriptionId) return;
+      const profile = await fetchProfile({ userId: context.userId, stripeCustomerId: invoice.customer });
+      if (profile?.email) notifications.push(() => sendPaymentFailedEmail(profile.email));
+      return;
+    }
+
+    case 'customer.subscription.updated': {
+      const subscription = event.data.object;
+      const status = subscription.status;
+      const userId = subscription.metadata?.userId || null;
+      if (status === 'active' || status === 'trialing') {
+        await updateUserTier(subscription.customer, 'premium', userId, { preserveLifetime: true });
+      } else if (status === 'canceled' || status === 'unpaid') {
+        await updateUserTier(subscription.customer, 'free', userId, { preserveLifetime: true });
+      }
+      // past_due alone does not immediately remove Premium; Stripe recovery
+      // may still succeed and the subscription status remains the authority.
+      return;
+    }
+
+    case 'customer.subscription.deleted': {
+      const subscription = event.data.object;
+      const profile = await updateUserTier(subscription.customer, 'free', subscription.metadata?.userId || null, { preserveLifetime: true });
+      if (profile.email && profile.subscription_tier !== 'lifetime') notifications.push(() => sendCancellationEmail(profile.email));
+      return;
+    }
+
+    case 'charge.refunded': {
+      const charge = event.data.object;
+      const incrementalRefund = refundIncrementCents(event, charge);
+      if (incrementalRefund <= 0) return;
+
+      const context = await resolveRefundContext(charge);
+      let profile = await fetchProfile({ userId: context.userId, stripeCustomerId: charge.customer });
+      const fullRefund = Number(charge.amount_refunded || 0) >= Number(charge.amount || 0) && Number(charge.amount || 0) > 0;
+      let refundMessage = 'Your pet records and documents were not deleted, and your subscription access was not changed by this refund.';
+
+      if (context.purchaseType === 'travel_credits') {
+        if (fullRefund && context.checkoutSession?.id && context.userId) {
+          const revocation = await revokeTravelCreditsOnce(context.checkoutSession.id, context.userId, event.id);
+          if (revocation.email) profile = profile || await fetchProfile({ userId: context.userId });
+          refundMessage = revocation.revoked
+            ? `${revocation.creditAmount} refunded travel checklist credits were removed. Your Premium/Lifetime subscription access was not changed.`
+            : 'Your travel-credit purchase was refunded. Your Premium/Lifetime subscription access was not changed.';
+        } else {
+          refundMessage = 'This was a partial travel-credit refund, so no subscription access was changed and no whole credit pack was automatically removed.';
+        }
+      } else if (context.purchaseType === 'lifetime' && fullRefund) {
+        if (!profile) throw new Error('Could not identify the lifetime-purchase profile for refund');
+        const keepPremium = await hasActiveSubscription(charge.customer);
+        profile = await updateUserTier(charge.customer, keepPremium ? 'premium' : 'free', profile.id, { preserveLifetime: false });
+        refundMessage = keepPremium
+          ? 'Lifetime access was removed, but your active recurring Premium subscription remains in place.'
+          : 'Lifetime access was removed. Your pet records and documents remain saved on your account.';
+      } else if (context.purchaseType === 'subscription') {
+        refundMessage = 'This refund did not directly change your Premium access; YourPetPass follows the Stripe subscription status for entitlement.';
+      }
+
+      await recordRefundCommission({
+        sourcePaymentId: context.sourcePaymentId,
+        refundEventId: event.id,
+        incrementalRefundCents: incrementalRefund,
+        periodMonth: new Date().toISOString().slice(0, 7),
+      });
+
+      if (profile?.email) notifications.push(() => sendRefundEmail(profile.email, incrementalRefund, refundMessage));
+      return;
+    }
+
+    default:
+      console.log('Unhandled Stripe event type:', event.type);
   }
 }
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).end();
+  res.setHeader('Cache-Control', 'private, no-store');
+  if (req.method !== 'POST') {
+    res.setHeader('Allow', 'POST');
+    return res.status(405).end();
+  }
 
-  const sig = req.headers['stripe-signature'];
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY || !process.env.STRIPE_SECRET_KEY) {
+    return res.status(503).json({ error: 'Billing integration is not configured' });
+  }
+
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-
   if (!webhookSecret) {
     console.error('STRIPE_WEBHOOK_SECRET not set');
-    return res.status(500).json({ error: 'Webhook secret not configured' });
+    return res.status(503).json({ error: 'Webhook secret not configured' });
   }
 
   let rawBody;
   try {
     rawBody = await getRawBody(req);
-  } catch (err) {
+  } catch {
     return res.status(400).json({ error: 'Could not read body' });
   }
 
-  // Verify Stripe signature
   let event;
   try {
-    const stripe = (await import('stripe')).default(process.env.STRIPE_SECRET_KEY);
-    event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
-  } catch (err) {
-    console.error('Stripe signature verification failed:', err.message);
-    return res.status(400).json({ error: `Webhook signature invalid: ${err.message}` });
+    const stripe = await getStripe();
+    event = stripe.webhooks.constructEvent(rawBody, req.headers['stripe-signature'], webhookSecret);
+  } catch (error) {
+    console.error('Stripe signature verification failed:', error.message);
+    return res.status(400).json({ error: 'Webhook signature invalid' });
   }
 
-  console.log('Stripe event received:', event.type);
-
+  let claim;
   try {
-    switch (event.type) {
-      // Payment succeeded — activate subscription
-      case 'checkout.session.completed': {
-        const session = event.data.object;
-        const customerId = session.customer;
-        const mode = session.mode;
-        const userId = session.metadata?.userId;
-        const purchaseType = session.metadata?.purchaseType;
-        const creditAmount = parseInt(session.metadata?.creditAmount) || 0;
+    claim = await claimStripeEvent(event);
+  } catch (error) {
+    console.error('Could not claim Stripe event:', error.message);
+    return res.status(503).json({ error: 'Could not establish webhook idempotency' });
+  }
 
-        // Link this Stripe customer to the Supabase profile so future
-        // lookups (renewals, refunds) can find it by stripe_customer_id
-        await linkStripeCustomerToProfile(userId, customerId);
+  if (claim === 'processed') return res.status(200).json({ received: true, duplicate: true });
+  if (claim === 'busy') return res.status(409).json({ error: 'Webhook event is already being processed' });
+  if (claim !== 'claimed') return res.status(503).json({ error: 'Could not claim webhook event' });
 
-        if (purchaseType === 'travel_credits' && creditAmount > 0) {
-          // Add purchased checklist credits — does NOT touch subscription tier
-          const profile = await addTravelCredits(userId, creditAmount);
-          if (profile?.email) await sendCreditPackEmail(profile.email, creditAmount);
-          // Still record commission for affiliates on this purchase
-          const grossCents = session.amount_total || 0;
-          const netCents = await getNetCents(session.payment_intent, grossCents);
-          await recordCommission({
-            profile, grossCents, netCents,
-            stripeInvoiceId: session.id,
-            periodMonth: new Date().toISOString().slice(0, 7),
-          });
-        } else if (mode === 'payment') {
-          const profile = await updateUserTier(customerId, 'lifetime');
-          // One-time lifetime payment — get net after Stripe fees
-          const grossCents = session.amount_total || 0;
-          const netCents = await getNetCents(session.payment_intent, grossCents);
-          await recordCommission({
-            profile,
-            grossCents,
-            netCents,
-            stripeInvoiceId: session.id,
-            periodMonth: new Date().toISOString().slice(0, 7),
-          });
-          if (profile?.email) await sendWelcomeEmail(profile.email, 'Lifetime');
-        } else if (mode === 'subscription') {
-          const profile = await updateUserTier(customerId, 'premium');
-          if (profile?.email) await sendWelcomeEmail(profile.email, 'Premium');
-          // Commission for subscription is recorded on invoice.payment_succeeded
-        }
-        break;
-      }
+  const notifications = [];
+  try {
+    await processStripeEvent(event, notifications);
+    await finishStripeEvent(event.id, true);
 
-      // Subscription renewed — this fires for every monthly/annual payment
-      case 'invoice.payment_succeeded': {
-        const invoice = event.data.object;
-        if (invoice.subscription) {
-          const profile = await updateUserTier(invoice.customer, 'premium');
-          // Get net after Stripe fees — commission base is what we actually receive
-          const grossCents = invoice.amount_paid || 0;
-          const netCents = await getNetCents(invoice.charge, grossCents);
-          await recordCommission({
-            profile,
-            grossCents,
-            netCents,
-            stripeInvoiceId: invoice.id,
-            periodMonth: new Date(invoice.period_start * 1000).toISOString().slice(0, 7),
-          });
-        }
-        break;
-      }
-
-      // Subscription cancelled or payment failed
-      case 'customer.subscription.deleted': {
-        const sub = event.data.object;
-        const profile = await updateUserTier(sub.customer, 'free');
-        if (profile?.email) await sendCancellationEmail(profile.email);
-        break;
-      }
-
-      case 'invoice.payment_failed': {
-        const invoice = event.data.object;
-        await updateUserTier(invoice.customer, 'free');
-        // Note: no email sent here yet — a "payment failed, update your card"
-        // email would need different messaging than cancellation. Can add later.
-        break;
-      }
-
-      // Subscription updated (e.g. plan change)
-      case 'customer.subscription.updated': {
-        const sub = event.data.object;
-        const status = sub.status;
-        const customerId = sub.customer;
-        if (status === 'active' || status === 'trialing') {
-          await updateUserTier(customerId, 'premium');
-        } else if (status === 'canceled' || status === 'unpaid' || status === 'past_due') {
-          await updateUserTier(customerId, 'free');
-        }
-        break;
-      }
-
-      // Refund issued — downgrade tier AND record a negative commission (clawback)
-      case 'charge.refunded': {
-        const charge = event.data.object;
-
-        // Downgrade the user back to free immediately on any refund
-        const profile = await updateUserTier(charge.customer, 'free');
-        if (profile?.email) await sendRefundEmail(profile.email, charge.amount_refunded || 0);
-
-        await recordRefund({
-          stripeChargeId: charge.id,
-          stripeCustomerId: charge.customer,
-          refundAmountCents: charge.amount_refunded || 0,
-          periodMonth: new Date().toISOString().slice(0, 7),
-        });
-        break;
-      }
-
-      default:
-        console.log('Unhandled event type:', event.type);
-    }
+    // Customer email is intentionally after the billing event is durably
+    // marked processed. A mail-provider outage must not cause Stripe to replay
+    // financial side effects, and duplicate webhook delivery must not resend it.
+    for (const notify of notifications) await notify();
 
     return res.status(200).json({ received: true });
-
-  } catch (err) {
-    console.error('Webhook handler error:', err);
-    return res.status(500).json({ error: err.message });
+  } catch (error) {
+    console.error('Stripe webhook handler error:', error);
+    try {
+      await finishStripeEvent(event.id, false, error.message);
+    } catch (finishError) {
+      console.error('Could not mark Stripe event failed:', finishError.message);
+    }
+    return res.status(500).json({ error: 'Webhook processing failed' });
   }
 }
