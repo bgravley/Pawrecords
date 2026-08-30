@@ -94,6 +94,18 @@ export default async function handler(req, res) {
     const stripe = await getStripe();
     const discount = await validatedDiscount(stripe, auth.userId, priceId, couponCode);
 
+    // Keep the same trusted metadata on the Checkout Session AND on the
+    // underlying PaymentIntent/Subscription. Stripe does not guarantee event
+    // ordering, and refund/renewal events can arrive without the original
+    // Checkout Session in hand. Propagating these server-derived values gives
+    // those later lifecycle events a reliable ownership/purchase context.
+    const billingMetadata = {
+      userId: auth.userId,
+      purchaseType: product.purchaseType,
+      creditAmount: product.creditAmount || '0',
+      priceId,
+    };
+
     const sessionParams = {
       payment_method_types: ['card'],
       line_items: [{ price: priceId, quantity: 1 }],
@@ -101,12 +113,15 @@ export default async function handler(req, res) {
       success_url: `${BASE_URL}?payment=success`,
       cancel_url: `${BASE_URL}?payment=canceled`,
       customer_email: auth.email,
-      metadata: {
-        userId: auth.userId,
-        purchaseType: product.purchaseType,
-        creditAmount: product.creditAmount,
-      },
+      client_reference_id: auth.userId,
+      metadata: billingMetadata,
     };
+
+    if (product.mode === 'payment') {
+      sessionParams.payment_intent_data = { metadata: billingMetadata };
+    } else if (product.mode === 'subscription') {
+      sessionParams.subscription_data = { metadata: billingMetadata };
+    }
 
     if (discount) sessionParams.discounts = [discount];
     else sessionParams.allow_promotion_codes = true;
