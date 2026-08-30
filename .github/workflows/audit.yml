@@ -67,3 +67,6 @@ jobs:
 
       - name: Run Content Security Policy audit
         run: python3 scripts/csp_security_audit.py
+
+      - name: Run authenticated app brand audit
+        run: python3 scripts/authenticated_brand_audit.py
