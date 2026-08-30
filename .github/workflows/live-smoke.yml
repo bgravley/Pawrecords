@@ -56,6 +56,17 @@ jobs:
           cat /tmp/checkout-response.json || true
           test "$STATUS" = "401"
 
+      - name: Verify Stripe webhook rejects unsigned events
+        shell: bash
+        run: |
+          set -euo pipefail
+          STATUS="$(curl -sS -o /tmp/stripe-webhook-response.json -w '%{http_code}' \
+            -X POST 'https://www.yourpetpass.com/api/stripe-webhook' \
+            -H 'Content-Type: application/json' \
+            --data '{"id":"evt_unsigned_probe","type":"checkout.session.completed","data":{"object":{}}}')"
+          cat /tmp/stripe-webhook-response.json || true
+          test "$STATUS" = "400"
+
       - name: Verify health-record email rejects anonymous branded mail
         shell: bash
         run: |
