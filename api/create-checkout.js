@@ -110,7 +110,10 @@ export default async function handler(req, res) {
       payment_method_types: ['card'],
       line_items: [{ price: priceId, quantity: 1 }],
       mode: product.mode,
-      success_url: `${BASE_URL}?payment=success`,
+      // Stripe replaces this literal placeholder after successful Checkout.
+      // The browser uses the resulting session id only to ask our authenticated
+      // API whether the signed webhook has durably confirmed the purchase.
+      success_url: `${BASE_URL}?payment=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${BASE_URL}?payment=canceled`,
       customer_email: auth.email,
       client_reference_id: auth.userId,
