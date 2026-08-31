@@ -468,8 +468,11 @@ async function processStripeEvent(event, notifications) {
         });
         if (profile.email) notifications.push(() => sendWelcomeEmail(profile.email, 'Lifetime'));
       } else if (purchaseType === 'subscription' && session.mode === 'subscription') {
-        const profile = await updateUserTier(customerId, 'premium', userId, { preserveLifetime: true });
-        if (profile.email && profile.subscription_tier !== 'lifetime') notifications.push(() => sendWelcomeEmail(profile.email, 'Premium'));
+        // A completed Checkout Session is not payment authority: Stripe can
+        // report status=complete while payment_status is still unpaid. Link the
+        // Stripe customer here, but wait for invoice.payment_succeeded or an
+        // active/trialing subscription event before granting Premium.
+        console.log('Subscription Checkout completed; waiting for paid invoice/subscription status before entitlement');
       }
       return;
     }
@@ -491,6 +494,9 @@ async function processStripeEvent(event, notifications) {
         sourcePaymentId: invoice.id,
         periodMonth: new Date(Number(invoice.period_start || Math.floor(Date.now() / 1000)) * 1000).toISOString().slice(0, 7),
       });
+      if (invoice.billing_reason === 'subscription_create' && profile.email && profile.subscription_tier !== 'lifetime') {
+        notifications.push(() => sendWelcomeEmail(profile.email, 'Premium'));
+      }
       return;
     }
 

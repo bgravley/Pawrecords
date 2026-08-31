@@ -1,8 +1,11 @@
 from pathlib import Path
+import subprocess
 
 webhook = Path('api/stripe-webhook.js').read_text(encoding='utf-8', errors='ignore')
 checkout = Path('api/create-checkout.js').read_text(encoding='utf-8', errors='ignore')
 migration = Path('supabase/migrations/20260830093208_stripe_webhook_idempotency_foundation.sql').read_text(encoding='utf-8', errors='ignore').lower()
+checkout_handler = webhook.split("case 'checkout.session.completed':", 1)[1].split("case 'invoice.payment_succeeded':", 1)[0]
+invoice_handler = webhook.split("case 'invoice.payment_succeeded':", 1)[1].split("case 'invoice.payment_failed':", 1)[0]
 
 checks = {
     'Stripe signature is verified against the raw request body': (
@@ -57,6 +60,15 @@ checks = {
         'getNetCents(invoice.charge' not in webhook and
         'invoice?.charge' not in webhook
     ),
+    'subscription Checkout never grants Premium before authoritative paid lifecycle': (
+        "purchaseType === 'subscription' && session.mode === 'subscription'" in checkout_handler and
+        "updateUserTier(customerId, 'premium'" not in checkout_handler and
+        'waiting for paid invoice/subscription status before entitlement' in checkout_handler
+    ),
+    'paid invoice is authoritative for Premium activation': (
+        "updateUserTier(invoice.customer, 'premium'" in invoice_handler and
+        "invoice.billing_reason === 'subscription_create'" in invoice_handler
+    ),
     'payment failed sends recovery email without immediate entitlement downgrade': (
         "case 'invoice.payment_failed'" in webhook and
         'sendPaymentFailedEmail' in webhook and
@@ -70,10 +82,9 @@ checks = {
     'past_due is not treated as immediate cancellation': (
         "status === 'past_due'" not in webhook
     ),
-    'Checkout entitlements require trusted purchase type and matching mode': (
+    'Checkout one-time entitlements require trusted purchase type and matching mode': (
         "purchaseType === 'travel_credits' && session.mode === 'payment'" in webhook and
         "purchaseType === 'lifetime' && session.mode === 'payment'" in webhook and
-        "purchaseType === 'subscription' && session.mode === 'subscription'" in webhook and
         "purchaseType === 'lifetime' || session.mode === 'payment'" not in webhook
     ),
     'refund handler distinguishes travel credits, lifetime, and subscription': (
@@ -141,4 +152,11 @@ for name, ok in checks.items():
 if failed:
     raise SystemExit('Stripe webhook lifecycle audit failed: ' + ', '.join(failed))
 
-print(f'Stripe webhook lifecycle audit passed ({len(checks)}/{len(checks)}).')
+print(f'Stripe webhook lifecycle static audit passed ({len(checks)}/{len(checks)}).')
+print('Running synthetic Stripe lifecycle behavior tests...')
+subprocess.run([
+    'node',
+    '--import', './scripts/stripe_behavior_postgrest_setup.mjs',
+    '--test', 'scripts/stripe_lifecycle_behavior.test.mjs',
+], check=True)
+print('Stripe webhook lifecycle behavior tests passed.')
