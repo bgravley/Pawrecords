@@ -39,19 +39,23 @@ checks = {
         'revoke_travel_credits_once' in webhook and
         'revokeTravelCreditsOnce(context.checkoutSession.id, context.userId, event.id)' in webhook
     ),
-    '2026 Stripe invoice subscription path is supported': (
-        'invoice?.parent?.subscription_details?.subscription' in webhook
+    '2026 Stripe invoice subscription path and parent discriminator are required': (
+        "invoice?.parent?.type === 'subscription_details'" in webhook and
+        'invoice.parent.subscription_details' in webhook and
+        'subscriptionDetails?.subscription' in webhook
+    ),
+    'legacy top-level invoice.subscription is completely absent': (
+        'invoice?.subscription' not in webhook and
+        'invoice.subscription' not in webhook
     ),
     'renewal charge is resolved through the current invoice payments resource': (
         "stripeGet('invoice_payments'" in webhook and
         "'expand[]': 'data.payment.payment_intent'" in webhook and
         'pi.latest_charge' in webhook
     ),
-    'renewal handler no longer gates only on legacy top-level invoice.subscription': (
-        'if (invoice.subscription)' not in webhook
-    ),
     'renewal commission no longer reads legacy invoice.charge': (
-        'getNetCents(invoice.charge' not in webhook
+        'getNetCents(invoice.charge' not in webhook and
+        'invoice?.charge' not in webhook
     ),
     'payment failed sends recovery email without immediate entitlement downgrade': (
         "case 'invoice.payment_failed'" in webhook and
@@ -66,6 +70,12 @@ checks = {
     'past_due is not treated as immediate cancellation': (
         "status === 'past_due'" not in webhook
     ),
+    'Checkout entitlements require trusted purchase type and matching mode': (
+        "purchaseType === 'travel_credits' && session.mode === 'payment'" in webhook and
+        "purchaseType === 'lifetime' && session.mode === 'payment'" in webhook and
+        "purchaseType === 'subscription' && session.mode === 'subscription'" in webhook and
+        "purchaseType === 'lifetime' || session.mode === 'payment'" not in webhook
+    ),
     'refund handler distinguishes travel credits, lifetime, and subscription': (
         "context.purchaseType === 'travel_credits'" in webhook and
         "context.purchaseType === 'lifetime'" in webhook and
@@ -78,6 +88,15 @@ checks = {
     'lifetime entitlement is removed only on full refund': (
         "context.purchaseType === 'lifetime' && fullRefund" in webhook and
         'hasActiveSubscription(charge.customer)' in webhook
+    ),
+    'affiliate refund clawback works after pending commissions are marked paid': (
+        'commission_amount_cents=gt.0' in webhook and
+        '&status=eq.pending&payment_amount_cents=gt.0' not in webhook
+    ),
+    'affiliate refund clawback uses original stored commission economics': (
+        'Number(original.payment_amount_cents || 0)' in webhook and
+        'Number(original.commission_amount_cents || 0)' in webhook and
+        'commission_rate: original.commission_rate' in webhook
     ),
     'affiliate refund clawback uses original Stripe source and refund event id': (
         'sourcePaymentId: context.sourcePaymentId' in webhook and
