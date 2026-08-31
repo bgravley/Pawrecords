@@ -16,6 +16,7 @@ export const PRODUCT_EVENTS = Object.freeze({
   DOCUMENT_ADDED: 'document_added',
   TRIP_CREATED: 'trip_created',
   TRAVEL_CHECKLIST_SAVED: 'travel_checklist_saved',
+  PURCHASE_COMPLETED: 'purchase_completed',
 })
 
 export function trackProductEvent(name) {
