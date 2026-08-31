@@ -267,10 +267,13 @@ async function chargeIdFromPaymentIntent(paymentIntent) {
 }
 
 async function invoiceLifecycleContext(invoice) {
-  const subscriptionId = invoice?.parent?.subscription_details?.subscription || invoice?.subscription || null;
+  const subscriptionDetails = invoice?.parent?.type === 'subscription_details'
+    ? invoice.parent.subscription_details
+    : null;
+  const subscriptionId = subscriptionDetails?.subscription || null;
   if (!subscriptionId) return { subscriptionId: null, userId: null, chargeId: null };
 
-  let userId = invoice?.parent?.subscription_details?.metadata?.userId || null;
+  let userId = subscriptionDetails?.metadata?.userId || null;
   if (!userId) {
     try {
       const subscription = await stripeGet(`subscriptions/${encodeURIComponent(subscriptionId)}`);
@@ -338,8 +341,11 @@ async function recordCommission({ profile, grossCents, netCents, sourcePaymentId
 async function recordRefundCommission({ sourcePaymentId, refundEventId, incrementalRefundCents, periodMonth }) {
   if (!sourcePaymentId || !refundEventId || incrementalRefundCents <= 0) return;
 
+  // A customer can be refunded after an affiliate payout has already been
+  // marked paid. Match the original positive commission by its immutable
+  // Stripe payment identifier, not by its current pending/paid status.
   const originalRes = await fetch(
-    `${process.env.SUPABASE_URL}/rest/v1/affiliate_commissions?stripe_payment_id=eq.${encodeURIComponent(sourcePaymentId)}&status=eq.pending&payment_amount_cents=gt.0&select=*&limit=1`,
+    `${process.env.SUPABASE_URL}/rest/v1/affiliate_commissions?stripe_payment_id=eq.${encodeURIComponent(sourcePaymentId)}&payment_amount_cents=gt.0&commission_amount_cents=gt.0&select=*&limit=1`,
     { headers: SERVICE_HEADERS() }
   );
   if (!originalRes.ok) throw new Error(`Original commission lookup failed (${originalRes.status})`);
@@ -433,7 +439,7 @@ async function processStripeEvent(event, notifications) {
         return;
       }
 
-      if (purchaseType === 'travel_credits' && creditAmount > 0) {
+      if (purchaseType === 'travel_credits' && session.mode === 'payment' && creditAmount > 0) {
         const grant = await grantTravelCreditsOnce(session.id, userId, creditAmount);
         const profile = await fetchProfile({ userId });
         if (!profile) throw new Error('Travel-credit checkout profile was not found');
@@ -448,7 +454,7 @@ async function processStripeEvent(event, notifications) {
           periodMonth: new Date().toISOString().slice(0, 7),
         });
         if (grant.granted && grant.email) notifications.push(() => sendCreditPackEmail(grant.email, creditAmount));
-      } else if (purchaseType === 'lifetime' || session.mode === 'payment') {
+      } else if (purchaseType === 'lifetime' && session.mode === 'payment') {
         const profile = await updateUserTier(customerId, 'lifetime', userId, { preserveLifetime: false });
         const grossCents = Number(session.amount_total || 0);
         const chargeId = await chargeIdFromPaymentIntent(session.payment_intent);
@@ -461,7 +467,7 @@ async function processStripeEvent(event, notifications) {
           periodMonth: new Date().toISOString().slice(0, 7),
         });
         if (profile.email) notifications.push(() => sendWelcomeEmail(profile.email, 'Lifetime'));
-      } else if (session.mode === 'subscription') {
+      } else if (purchaseType === 'subscription' && session.mode === 'subscription') {
         const profile = await updateUserTier(customerId, 'premium', userId, { preserveLifetime: true });
         if (profile.email && profile.subscription_tier !== 'lifetime') notifications.push(() => sendWelcomeEmail(profile.email, 'Premium'));
       }
