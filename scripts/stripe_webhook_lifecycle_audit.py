@@ -156,7 +156,7 @@ print(f'Stripe webhook lifecycle static audit passed ({len(checks)}/{len(checks)
 print('Running synthetic Stripe lifecycle behavior tests...')
 subprocess.run([
     'node',
-    '--import', 'scripts/stripe_behavior_postgrest_setup.mjs',
+    '--import', './scripts/stripe_behavior_postgrest_setup.mjs',
     '--test', 'scripts/stripe_lifecycle_behavior.test.mjs',
 ], check=True)
 print('Stripe webhook lifecycle behavior tests passed.')
