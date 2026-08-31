@@ -2,6 +2,9 @@ from pathlib import Path
 
 ANALYTICS = Path('src/lib/analytics.js').read_text()
 SUPABASE = Path('src/lib/supabase.js').read_text()
+BRIDGE = Path('src/PurchaseAnalyticsBridge.jsx').read_text()
+CONFIRM = Path('api/confirm-purchase.js').read_text()
+CHECKOUT = Path('api/create-checkout.js').read_text()
 
 checks = []
 def check(name, ok):
@@ -19,6 +22,15 @@ check('Core funnel covers pet creation', 'dogs: PRODUCT_EVENTS.PET_CREATED' in S
 check('Core funnel covers vaccinations', 'vaccinations: PRODUCT_EVENTS.VACCINATION_RECORDED' in SUPABASE)
 check('Core funnel covers documents', 'documents: PRODUCT_EVENTS.DOCUMENT_ADDED' in SUPABASE)
 check('Core funnel covers trips', 'trips: PRODUCT_EVENTS.TRIP_CREATED' in SUPABASE)
+check('Core funnel covers authoritative purchase conversion', "PURCHASE_COMPLETED: 'purchase_completed'" in ANALYTICS)
+check('Checkout return includes Stripe session id placeholder', 'session_id={CHECKOUT_SESSION_ID}' in CHECKOUT)
+check('Purchase bridge asks authenticated confirmation endpoint', "fetch('/api/confirm-purchase'" in BRIDGE and 'Authorization: `Bearer ${token}`' in BRIDGE)
+check('Purchase bridge tracks only confirmed webhook-backed result', 'result?.confirmed === true' in BRIDGE and 'trackProductEvent(PRODUCT_EVENTS.PURCHASE_COMPLETED)' in BRIDGE)
+check('Purchase bridge never sends checkout session id to analytics', 'trackProductEvent(PRODUCT_EVENTS.PURCHASE_COMPLETED)' in BRIDGE and 'trackProductEvent(sessionId' not in BRIDGE)
+check('Purchase confirmation endpoint requires signed-in identity', 'verifyUser(req)' in CONFIRM and 'checkoutUserId !== auth.userId' in CONFIRM)
+check('One-time conversion requires paid Checkout completion', "checkout.payment_status !== 'paid'" in CONFIRM and "eventType = 'checkout.session.completed'" in CONFIRM)
+check('Subscription conversion requires initial invoice payment success', "eventType = 'invoice.payment_succeeded'" in CONFIRM and 'checkout.invoice' in CONFIRM)
+check('Conversion requires durable signed-webhook processing', 'stripe_webhook_events' in CONFIRM and 'status=eq.processed' in CONFIRM and 'matchingEvent.id' in CONFIRM)
 check('Analytics wrapper does not inspect request bodies', '.json()' not in SUPABASE.split('const analyticsFetch', 1)[1].split('const client', 1)[0] and '.text()' not in SUPABASE.split('const analyticsFetch', 1)[1].split('const client', 1)[0])
 
 # Guard against accidentally adding obvious PII/health fields to the analytics helper.
