@@ -56,6 +56,17 @@ jobs:
           cat /tmp/checkout-response.json || true
           test "$STATUS" = "401"
 
+      - name: Verify purchase confirmation requires authentication
+        shell: bash
+        run: |
+          set -euo pipefail
+          STATUS="$(curl -sS -o /tmp/purchase-confirmation-response.json -w '%{http_code}' \
+            -X POST 'https://www.yourpetpass.com/api/confirm-purchase' \
+            -H 'Content-Type: application/json' \
+            --data '{"sessionId":"cs_live_unauthorized_probe"}')"
+          cat /tmp/purchase-confirmation-response.json || true
+          test "$STATUS" = "401"
+
       - name: Verify Stripe webhook rejects unsigned events
         shell: bash
         run: |
