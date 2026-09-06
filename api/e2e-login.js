@@ -65,8 +65,10 @@ async function resetTestData(supabase, userId) {
 
   // Trip children and pet health rows are ON DELETE CASCADE. Every delete is
   // additionally scoped by this exact E2E user's UUID so this endpoint can
-  // never clean up another customer's records.
-  for (const table of ['trips', 'dogs', 'emergency_contacts', 'saved_vets']) {
+  // never clean up another customer's records. bug_reports is explicitly
+  // cleared because the synthetic profile persists between runs and its FK is
+  // intentionally ON DELETE SET NULL for real-account deletion history.
+  for (const table of ['trips', 'dogs', 'emergency_contacts', 'saved_vets', 'bug_reports']) {
     const { error } = await supabase.from(table).delete().eq('user_id', userId);
     if (error) throw new Error(`E2E reset failed for ${table}`);
   }

@@ -137,8 +137,13 @@ export default async function handler(req, res) {
         const report = reports?.[0];
         if (!report) return res.status(404).json({ error: 'Report not found' });
 
-        let rewardType = 'no_reward';
-        let rewardMessage = '';
+        const reportType = report.report_type || 'bug';
+        let rewardType = reportType === 'bug' ? 'no_reward' : 'not_applicable';
+        let rewardMessage = reportType === 'feature'
+          ? "Thanks for the idea — we've reviewed your feature request and added it to our product feedback queue."
+          : reportType === 'feedback'
+            ? "Thanks for taking the time to share your feedback — we've reviewed it."
+            : '';
 
         if (report.user_id) {
           const profRes = await checkedFetch(
@@ -148,7 +153,10 @@ export default async function handler(req, res) {
           const profiles = await profRes.json();
           const profile = profiles?.[0];
 
-          if (profile?.subscription_tier === 'lifetime') {
+          if (reportType !== 'bug') {
+            // Feature requests and general feedback are valuable, but they are
+            // not bug-bounty submissions and must never modify billing.
+          } else if (profile?.subscription_tier === 'lifetime') {
             rewardType = 'lifetime_thanks';
             rewardMessage = "You're already on Lifetime, so there's no extra month to add — but we really appreciate you catching this!";
           } else if (profile?.subscription_tier === 'free' || !profile?.stripe_customer_id) {
@@ -177,8 +185,8 @@ export default async function handler(req, res) {
               body: JSON.stringify({
                 from: 'YourPetPass <notifications@yourpetpass.com>',
                 to: profile.email,
-                subject: '🐛 Your bug report was reviewed',
-                html: `<div style="font-family:sans-serif;max-width:500px;margin:0 auto;"><div style="background:#1E5C52;padding:20px 24px;border-radius:12px 12px 0 0;"><img src="https://yourpetpass.com/logo_horizontal_cream_transparent.png" alt="YourPetPass" width="160" style="display:block;height:auto;" /></div><div style="padding:20px;"><h2>Thanks for reporting that!</h2><p>${rewardMessage}</p></div></div>`,
+                subject: reportType === 'bug' ? '🐛 Your bug report was reviewed' : 'Your YourPetPass feedback was reviewed',
+                html: `<div style="font-family:sans-serif;max-width:500px;margin:0 auto;"><div style="background:#1E5C52;padding:20px 24px;border-radius:12px 12px 0 0;"><img src="https://yourpetpass.com/logo_horizontal_cream_transparent.png" alt="YourPetPass" width="160" style="display:block;height:auto;" /></div><div style="padding:20px;"><h2>${reportType === 'bug' ? 'Thanks for reporting that!' : 'Thanks for helping us improve YourPetPass.'}</h2><p>${rewardMessage}</p></div></div>`,
               }),
             });
             if (!emailRes.ok) console.error('Bug report outcome email failed (non-critical):', emailRes.status, await emailRes.text().catch(() => ''));
