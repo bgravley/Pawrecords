@@ -26,6 +26,9 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Show production dependency advisory details
+        run: npm audit --omit=dev || true
+
       - name: Run full site audit
         run: python3 scripts/audit.py
 
