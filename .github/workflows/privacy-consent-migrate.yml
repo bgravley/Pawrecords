@@ -1,0 +1,33 @@
+name: Privacy Consent Migration
+
+"on":
+  push:
+    branches: [fix/privacy-analytics-consent]
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/privacy-analytics-consent
+
+      - name: Apply analytics consent loader across HTML
+        run: python3 scripts/privacy_consent_migrate.py
+
+      - name: Commit generated HTML updates
+        run: |
+          if git diff --quiet; then
+            echo "No generated changes"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html public
+          git commit -m "Gate public analytics behind consent"
+          git push origin HEAD:fix/privacy-analytics-consent
