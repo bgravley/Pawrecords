@@ -14,11 +14,18 @@ html_files = [ROOT / 'index.html', *sorted((ROOT / 'public').rglob('*.html'))]
 for path in html_files:
     text = path.read_text(encoding='utf-8', errors='ignore')
     rel = path.relative_to(ROOT)
-    check(text.count('/privacy-consent.js') == 1, f'{rel} loads the shared privacy consent manager exactly once')
+    if rel == Path('public/unsubscribe.html'):
+        check('/privacy-consent.js' not in text, f'{rel} intentionally loads no analytics consent manager or optional analytics')
+    else:
+        check(text.count('/privacy-consent.js') == 1, f'{rel} loads the shared privacy consent manager exactly once')
     check('googletagmanager.com/gtag/js?id=G-GLHNVC9XZV' not in text,
           f'{rel} does not load GA4 directly before consent')
     check('www.clarity.ms/tag/' not in text,
           f'{rel} does not load Microsoft Clarity directly before consent')
+
+unsubscribe_page = (ROOT / 'public/unsubscribe.html').read_text(encoding='utf-8', errors='ignore')
+check('googletagmanager' not in unsubscribe_page and 'clarity.ms' not in unsubscribe_page and 'vercel-scripts' not in unsubscribe_page,
+      'Unsubscribe page remains analytics-free because its URL carries a signed preference token')
 
 consent = (ROOT / 'public/privacy-consent.js').read_text(encoding='utf-8', errors='ignore')
 check("ypp_analytics_consent_v1" in consent, 'Analytics preference uses a dedicated local-storage key')
