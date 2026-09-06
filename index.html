@@ -1,22 +1,33 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <!-- Microsoft Clarity -->
+    <!-- Analytics bootstrap. Synthetic production E2E browsers deliberately do
+         not load third-party analytics; real visitors are unchanged. -->
     <script type="text/javascript">
-        (function(c,l,a,r,i,t,y){
-            c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-            t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-            y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-        })(window, document, "clarity", "script", "xd47rh2htp");
-    </script>
+      (function () {
+        var ua = navigator.userAgent || "";
+        var syntheticE2E = ua.indexOf("YourPetPass-Authenticated-E2E") !== -1 ||
+          ua.indexOf("YourPetPass-Isolation-E2E") !== -1;
+        window.__YPP_ANALYTICS_EXCLUDED__ = syntheticE2E;
+        if (syntheticE2E) return;
 
-    <!-- Google Analytics (GA4) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-GLHNVC9XZV"></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag("js", new Date());
-      gtag("config", "G-GLHNVC9XZV");
+        // Microsoft Clarity
+        (function(c,l,a,r,i,t,y){
+          c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+          t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+          y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+        })(window, document, "clarity", "script", "xd47rh2htp");
+
+        // Google Analytics (GA4)
+        window.dataLayer = window.dataLayer || [];
+        window.gtag = function(){window.dataLayer.push(arguments);};
+        window.gtag("js", new Date());
+        window.gtag("config", "G-GLHNVC9XZV");
+        var gtagScript = document.createElement("script");
+        gtagScript.async = true;
+        gtagScript.src = "https://www.googletagmanager.com/gtag/js?id=G-GLHNVC9XZV";
+        document.head.appendChild(gtagScript);
+      })();
     </script>
 
     <meta charset="UTF-8" />
