@@ -39,6 +39,10 @@ check('item.human_review_status === "verified" && item.last_verified_at' in trav
       'travel UI only displays human-verified date when review status is verified')
 check('Researched ${new Date(item.researched_at).toLocaleDateString()}' in travel,
       'travel UI labels AI research time as Researched')
+check("'<br><small>Researched ' + new Date(i.researched_at).toLocaleDateString()" in travel,
+      'exported travel checklist labels AI source date as Researched')
+check("'<br><small>Checked ' + new Date(i.researched_at).toLocaleDateString()" not in travel,
+      'export cannot imply that AI research alone was a verification check')
 check('AI-assisted planning only. Country rules should link to the responsible government authority.' in travel,
       'travel checklist carries an in-context AI planning disclosure')
 check('Country entry/export/transit/quarantine/health requirements MUST use source_type government' in travel,
