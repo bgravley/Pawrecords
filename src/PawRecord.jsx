@@ -871,7 +871,6 @@ const EmailRecordModal=({dog,state,userEmail,onClose})=>{
       const data=await res.json();
       if(!res.ok||data.error)throw new Error(data.error||'Could not send email');
       setSent(true);
-      onSubmitted?.(reportType);
     }catch(e){setErr(e.message);}
     setSending(false);
   };
@@ -1578,36 +1577,6 @@ const OverviewTab=({dog,state,userId,tier,setModal,onUpgrade,onScan,dispatch})=>
   const meds=state.medications.filter(m=>m.dog_id===dog.id&&m.active);
   const sev=s=>({mild:"#2C4A38",moderate:"#C9A84C",severe:"#C4714A"}[s]||"#C9A84C");
   const premium=isPremium(tier);
-  const healthRecordCount=state.vaccinations.length+state.medications.length+state.visits.length+state.allergies.length;
-  const successMilestones=(state.dogs.length>0?1:0)+(healthRecordCount>=2?1:0)+(upcomingTrips.length>0?1:0)+(state.documents.length>0?1:0);
-  const feedbackPromptStorageKey=`ypp_feedback_prompt_v1_${userId}`;
-
-  useEffect(()=>{
-    const synthetic=POST_SUCCESS_FEEDBACK_TEST_EMAILS.has((userEmail||"").toLowerCase());
-    if(synthetic||successMilestones<2){setFeedbackPromptVisible(false);return;}
-    try{
-      const raw=localStorage.getItem(feedbackPromptStorageKey);
-      if(!raw){setFeedbackPromptVisible(true);return;}
-      const saved=JSON.parse(raw);
-      if(saved?.status==="submitted"){setFeedbackPromptVisible(false);return;}
-      const at=Number(saved?.at)||0;
-      setFeedbackPromptVisible(!at||Date.now()-at>=POST_SUCCESS_FEEDBACK_COOLDOWN_MS);
-    }catch(e){
-      // If storage is unavailable, do not nag the user on every render/session.
-      setFeedbackPromptVisible(false);
-    }
-  },[feedbackPromptStorageKey,successMilestones,userEmail]);
-
-  const rememberFeedbackPrompt=(status)=>{
-    try{localStorage.setItem(feedbackPromptStorageKey,JSON.stringify({status,at:Date.now()}));}catch(e){/* non-critical */}
-    setFeedbackPromptVisible(false);
-  };
-  const openPostSuccessFeedback=()=>{
-    setFeedbackModalInitialType("feedback");
-    rememberFeedbackPrompt("opened");
-    setShowBugReport(true);
-  };
-  const dismissPostSuccessFeedback=()=>rememberFeedbackPrompt("dismissed");
   const ptLabel=petTypeLabel(dog.pet_type);
   const ptColor=petTypeColor(dog.pet_type);
   const ptFull=dog.pet_type==="service_animal"?"Service Animal":dog.pet_type==="esa"?"Emotional Support Animal":null;
@@ -2378,6 +2347,7 @@ const BugReportModal=({userId,userEmail,onClose,initialType="bug",onSubmitted})=
       const data=await res.json();
       if(!res.ok||data.error)throw new Error(data.error||'Could not submit report');
       setSent(true);
+      onSubmitted?.(reportType);
     }catch(e){setErr(e.message);}
     setSending(false);
   };
@@ -2691,6 +2661,36 @@ const Home=({state,dispatch,userId,tier,userEmail,onSignOut,isAdmin,onOpenAdmin,
     if(upgradeRequestKey>0)setShowUpgrade(true);
   },[upgradeRequestKey]);
   const premium=isPremium(tier);
+  const healthRecordCount=state.vaccinations.length+state.medications.length+state.visits.length+state.allergies.length;
+  const successMilestones=(state.dogs.length>0?1:0)+(healthRecordCount>=2?1:0)+(upcomingTrips.length>0?1:0)+(state.documents.length>0?1:0);
+  const feedbackPromptStorageKey=`ypp_feedback_prompt_v1_${userId}`;
+
+  useEffect(()=>{
+    const synthetic=POST_SUCCESS_FEEDBACK_TEST_EMAILS.has((userEmail||"").toLowerCase());
+    if(synthetic||successMilestones<2){setFeedbackPromptVisible(false);return;}
+    try{
+      const raw=localStorage.getItem(feedbackPromptStorageKey);
+      if(!raw){setFeedbackPromptVisible(true);return;}
+      const saved=JSON.parse(raw);
+      if(saved?.status==="submitted"){setFeedbackPromptVisible(false);return;}
+      const at=Number(saved?.at)||0;
+      setFeedbackPromptVisible(!at||Date.now()-at>=POST_SUCCESS_FEEDBACK_COOLDOWN_MS);
+    }catch(e){
+      // If storage is unavailable, do not nag the user on every render/session.
+      setFeedbackPromptVisible(false);
+    }
+  },[feedbackPromptStorageKey,successMilestones,userEmail]);
+
+  const rememberFeedbackPrompt=(status)=>{
+    try{localStorage.setItem(feedbackPromptStorageKey,JSON.stringify({status,at:Date.now()}));}catch(e){/* non-critical */}
+    setFeedbackPromptVisible(false);
+  };
+  const openPostSuccessFeedback=()=>{
+    setFeedbackModalInitialType("feedback");
+    rememberFeedbackPrompt("opened");
+    setShowBugReport(true);
+  };
+  const dismissPostSuccessFeedback=()=>rememberFeedbackPrompt("dismissed");
 
   useEffect(()=>{
     if(!isAdmin)return;
