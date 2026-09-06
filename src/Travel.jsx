@@ -897,7 +897,7 @@ const ChecklistItem = ({ item, tripPets, onTogglePet, onToggleAll, onUpload, onD
                   🔗 Official Source →
                 </span>
               </a>
-              {(item.source_authority || item.last_verified_at || item.researched_at) && <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>{item.source_authority || "Official authority"}{(item.last_verified_at || item.researched_at) ? ` · Checked ${new Date(item.last_verified_at || item.researched_at).toLocaleDateString()}` : ""}{item.effective_date ? ` · Effective ${fmt(item.effective_date)}` : ""}{item.source_expires_at ? ` · Expires ${fmt(item.source_expires_at)}` : ""}</div>}
+              {(item.source_authority || item.last_verified_at || item.researched_at) && <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>{item.source_authority || "Official authority"}{item.human_review_status === "verified" && item.last_verified_at ? ` · Human verified ${new Date(item.last_verified_at).toLocaleDateString()}` : item.researched_at ? ` · Researched ${new Date(item.researched_at).toLocaleDateString()}` : ""}{item.effective_date ? ` · Effective ${fmt(item.effective_date)}` : ""}{item.source_expires_at ? ` · Expires ${fmt(item.source_expires_at)}` : ""}</div>}
               {item.requirement_type && <div style={{ fontSize: 11, color: C.muted, marginTop: 3 }}>Requirement: {item.requirement_type.replace(/_/g, " ")}{item.origin_country_scope || item.destination_country_scope ? ` · ${item.origin_country_scope || "—"} → ${item.destination_country_scope || "—"}` : ""}</div>}
             </div>
           )}
@@ -1167,7 +1167,7 @@ const TripDetail = ({ trip, userId, dogs, premium, onUpgrade, onBack, onUpdate, 
         requires_document: item.requires_document === true,
         source_url: item.source_url || null,
         source_authority: item.source_authority || null,
-        last_verified_at: now,
+        last_verified_at: null,
         researched_at: now,
         notes: item.notes || null,
         timeline_stage: item.timeline_stage || 'start_now',
@@ -1539,7 +1539,10 @@ ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.i
 
         <div style={{ marginBottom: 16 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-            <h3 style={{ fontFamily: "'Lora', serif", fontSize: 20, color: C.text }}>Requirements Checklist</h3>
+            <div>
+              <h3 style={{ fontFamily: "'Lora', serif", fontSize: 20, color: C.text }}>Requirements Checklist</h3>
+              <div style={{fontSize:11,color:C.muted,marginTop:3,maxWidth:420,lineHeight:1.45}}>AI-assisted planning only. Country rules should link to the responsible government authority. Confirm official requirements before travel.</div>
+            </div>
             <div style={{ display: "flex", gap: 8 }}>
               <Btn sm v="secondary" onClick={() => setShowAddItem(true)}>+ Add</Btn>
               {checklist.length === 0 && (
