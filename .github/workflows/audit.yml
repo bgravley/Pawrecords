@@ -83,5 +83,8 @@ jobs:
       - name: Run authenticated app brand audit
         run: python3 scripts/authenticated_brand_audit.py
 
+      - name: Run accessibility and empty-state audit
+        run: python3 scripts/accessibility_audit.py
+
       - name: Run Stripe webhook lifecycle audit
         run: python3 scripts/stripe_webhook_lifecycle_audit.py
