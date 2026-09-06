@@ -5,14 +5,20 @@ SUPABASE = Path('src/lib/supabase.js').read_text()
 BRIDGE = Path('src/PurchaseAnalyticsBridge.jsx').read_text()
 CONFIRM = Path('api/confirm-purchase.js').read_text()
 CHECKOUT = Path('api/create-checkout.js').read_text()
+MAIN = Path('src/main.jsx').read_text()
+CONSENT = Path('public/privacy-consent.js').read_text()
 
 checks = []
 def check(name, ok):
     checks.append((name, bool(ok)))
 
-check('GA4 receives product events', "window.gtag?.('event', name)" in ANALYTICS)
-check('Clarity receives product events', "window.clarity?.('event', name)" in ANALYTICS)
-check('Vercel receives product events', 'vercelTrack(name)' in ANALYTICS)
+check('GA4 receives product events only through analytics helper', "window.gtag?.('event', name)" in ANALYTICS)
+check('Clarity receives product events only through analytics helper', "window.clarity?.('event', name)" in ANALYTICS)
+check('Vercel receives product events only through analytics helper', 'vercelTrack(name)' in ANALYTICS)
+check('Product events require affirmative analytics consent', "window.YPPAnalyticsConsent?.isGranted?.() !== true" in ANALYTICS)
+check('Vercel page analytics is consent-gated', 'ConsentAnalytics' in MAIN and 'return allowed ? <Analytics /> : null' in MAIN)
+check('GA4 and Clarity are dynamically loaded by consent manager', 'googletagmanager.com/gtag/js' in CONSENT and 'www.clarity.ms/tag/' in CONSENT)
+check('Consent manager fails closed before analytics load', "getStatus() !== 'granted'" in CONSENT)
 check('Synthetic E2E traffic is excluded', 'YourPetPass-Authenticated-E2E' in ANALYTICS and 'YourPetPass-Isolation-E2E' in ANALYTICS)
 check('Local development traffic is excluded', "window.location.hostname === 'localhost'" in ANALYTICS)
 check('Analytics event names are allowlisted constants', 'PRODUCT_EVENTS = Object.freeze' in ANALYTICS and 'SAFE_EVENT_NAME' in ANALYTICS)
