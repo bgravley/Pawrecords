@@ -29,6 +29,12 @@ check('googletagmanager.com/gtag/js' in consent and 'www.clarity.ms/tag/' in con
       'GA4 and Clarity are loaded only by the shared consent manager')
 check('Privacy choices' in consent and '/privacy.html' in consent,
       'Visitors can reopen privacy choices and reach the Privacy Policy')
+check("previous === 'granted' && status === 'denied'" in consent and 'window.location.reload()' in consent,
+      'Withdrawing analytics consent removes already-loaded vendor scripts on reload')
+check("window[`ga-disable-${GA_ID}`] = true" in consent,
+      'Google Analytics is disabled immediately when consent is denied')
+check('clearAnalyticsCookies()' in consent and "name.startsWith('_ga')" in consent and "name === '_clck'" in consent,
+      'Known GA4 and Clarity first-party analytics cookies are cleared on denial')
 
 main = (ROOT / 'src/main.jsx').read_text(encoding='utf-8', errors='ignore')
 check('ConsentAnalytics' in main and 'return allowed ? <Analytics /> : null' in main,
