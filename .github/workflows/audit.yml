@@ -92,5 +92,8 @@ jobs:
       - name: Run post-success feedback audit
         run: python3 scripts/post_success_feedback_audit.py
 
+      - name: Run AI claims and source hierarchy audit
+        run: python3 scripts/ai_claims_source_audit.py
+
       - name: Run Stripe webhook lifecycle audit
         run: python3 scripts/stripe_webhook_lifecycle_audit.py
