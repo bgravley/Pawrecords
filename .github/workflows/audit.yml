@@ -29,6 +29,9 @@ jobs:
       - name: Run full site audit
         run: python3 scripts/audit.py
 
+      - name: Parse every serverless JavaScript module
+        run: python3 scripts/serverless_syntax_audit.py
+
       - name: Run launch security audit
         run: python3 scripts/launch_security_audit.py
 
