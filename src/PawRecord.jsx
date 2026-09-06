@@ -113,7 +113,9 @@ const GLOBAL=`
     border:1.5px solid #DCE8E0;border-radius:10px;padding:10px 14px;width:100%;outline:none;transition:border-color .15s,box-shadow .15s}
   input:focus,select:focus,textarea:focus{border-color:#2C4A38;box-shadow:0 0 0 3px #2C4A3814}
   select option{background:#FFFFFF} button{font-family:'Lora',serif;cursor:pointer;border:none}
-  button:active{transform:scale(.97)} ::-webkit-scrollbar{width:3px}
+  button:active{transform:scale(.97)}
+  button:focus-visible,[role="button"]:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid #C9A84C;outline-offset:3px}
+  ::-webkit-scrollbar{width:3px}
   ::-webkit-scrollbar-thumb{background:#DCE8E0;border-radius:4px}
   .fade{animation:fu .22s ease}
   @keyframes fu{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
@@ -295,16 +297,16 @@ const Ic=({n,s=18,c="currentColor"})=>{
     lock:<><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></>,
     logout:<><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></>,
   };
-  return <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{p[n]}</svg>;
+  return <svg aria-hidden="true" focusable="false" width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{p[n]}</svg>;
 };
 
-const Btn=({children,onClick,v="primary",sm,full,style:s,disabled})=>{
+const Btn=({children,onClick,v="primary",sm,full,style:s,disabled,...props})=>{
   const V={primary:{background:"#2C4A38",color:"#FAFCFB"},secondary:{background:"#FFFFFF",color:"#1A2E22",border:"1px solid #DCE8E0"},danger:{background:"#C4714A14",color:"#C4714A",border:"1px solid #C4714A44"},ghost:{background:"transparent",color:"#385744"}};
-  return <button onClick={disabled?undefined:onClick} style={{...V[v],borderRadius:10,fontWeight:600,display:"inline-flex",alignItems:"center",gap:6,transition:"opacity .15s",width:full?"100%":"auto",justifyContent:full?"center":"flex-start",padding:sm?"7px 14px":"10px 20px",fontSize:sm?13:14,opacity:disabled?.5:1,border:"none",...s}} onMouseEnter={e=>!disabled&&(e.currentTarget.style.opacity="0.8")} onMouseLeave={e=>e.currentTarget.style.opacity="1"}>{children}</button>;
+  return <button type="button" disabled={!!disabled} aria-disabled={disabled?true:undefined} onClick={onClick} {...props} style={{...V[v],borderRadius:10,fontWeight:600,display:"inline-flex",alignItems:"center",gap:6,transition:"opacity .15s",width:full?"100%":"auto",justifyContent:full?"center":"flex-start",padding:sm?"7px 14px":"10px 20px",fontSize:sm?13:14,opacity:disabled?.5:1,border:"none",cursor:disabled?"not-allowed":"pointer",...s}} onMouseEnter={e=>!disabled&&(e.currentTarget.style.opacity="0.8")} onMouseLeave={e=>e.currentTarget.style.opacity="1"}>{children}</button>;
 };
 
-const Card=({children,style:s,onClick})=>(
-  <div onClick={onClick} style={{background:"#FFFFFF",border:"1px solid #DCE8E0",borderRadius:16,padding:18,boxShadow:"0 2px 12px rgba(44,32,23,0.06)",...s,cursor:onClick?"pointer":"default",transition:"border-color .2s"}} onMouseEnter={e=>onClick&&(e.currentTarget.style.borderColor="#2C4A3855")} onMouseLeave={e=>onClick&&(e.currentTarget.style.borderColor="#DCE8E0")}>{children}</div>
+const Card=({children,style:s,onClick,ariaLabel})=>(
+  <div onClick={onClick} role={onClick?"button":undefined} tabIndex={onClick?0:undefined} aria-label={ariaLabel} onKeyDown={e=>{if(onClick&&(e.key==="Enter"||e.key===" ")){e.preventDefault();onClick(e);}}} style={{background:"#FFFFFF",border:"1px solid #DCE8E0",borderRadius:16,padding:18,boxShadow:"0 2px 12px rgba(44,32,23,0.06)",...s,cursor:onClick?"pointer":"default",transition:"border-color .2s"}} onMouseEnter={e=>onClick&&(e.currentTarget.style.borderColor="#2C4A3855")} onMouseLeave={e=>onClick&&(e.currentTarget.style.borderColor="#DCE8E0")}>{children}</div>
 );
 
 const Badge=({label,color})=>(
@@ -312,18 +314,18 @@ const Badge=({label,color})=>(
 );
 
 const Field=({label,children,col})=>(
-  <div style={{display:"flex",flexDirection:"column",gap:5,gridColumn:col}}>
-    <label style={{fontSize:11,fontWeight:600,color:"#385744",textTransform:"uppercase",letterSpacing:".05em"}}>{label}</label>
+  <label style={{display:"flex",flexDirection:"column",gap:5,gridColumn:col}}>
+    <span style={{fontSize:11,fontWeight:600,color:"#385744",textTransform:"uppercase",letterSpacing:".05em"}}>{label}</span>
     {children}
-  </div>
+  </label>
 );
 
 const Modal=({title,onClose,children,wide})=>(
   <div style={{position:"fixed",inset:0,background:"#000000bb",zIndex:500,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={e=>e.target===e.currentTarget&&onClose()}>
-    <div style={{background:"#FFFFFF",border:"1px solid #DCE8E0",borderRadius:20,width:"100%",maxWidth:wide?620:500,maxHeight:"92vh",overflow:"auto",padding:24,boxShadow:"0 8px 40px rgba(44,32,23,0.15)"}} className="fade">
+    <div role="dialog" aria-modal="true" aria-label={title} style={{background:"#FFFFFF",border:"1px solid #DCE8E0",borderRadius:20,width:"100%",maxWidth:wide?620:500,maxHeight:"92vh",overflow:"auto",padding:24,boxShadow:"0 8px 40px rgba(44,32,23,0.15)"}} className="fade">
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
         <h3 style={{fontFamily:"'Lora',serif",fontSize:22}}>{title}</h3>
-        <button onClick={onClose} style={{background:"#FFFFFF",border:"1px solid #DCE8E0",borderRadius:8,padding:"6px 8px",color:"#385744"}}><Ic n="x" s={16}/></button>
+        <button type="button" aria-label={`Close ${title}`} onClick={onClose} style={{background:"#FFFFFF",border:"1px solid #DCE8E0",borderRadius:8,padding:"6px 8px",color:"#385744"}}><Ic n="x" s={16}/></button>
       </div>
       {children}
     </div>
@@ -331,12 +333,12 @@ const Modal=({title,onClose,children,wide})=>(
 );
 
 const Empty=({icon,title,sub,action})=>(
-  <div style={{textAlign:"center",padding:"48px 20px"}}>
-    <div style={{color:"#6A8372",marginBottom:12}}><Ic n={icon} s={36} c="#6A8372"/></div>
-    <div style={{fontFamily:"'Lora',serif",fontSize:20,marginBottom:6}}>{title}</div>
-    <div style={{color:"#385744",fontSize:14,marginBottom:22}}>{sub}</div>
+  <section aria-label={title} style={{textAlign:"center",padding:"48px 20px"}}>
+    <div aria-hidden="true" style={{color:"#6A8372",marginBottom:12}}><Ic n={icon} s={36} c="#6A8372"/></div>
+    <h3 style={{fontFamily:"'Lora',serif",fontSize:20,marginBottom:6}}>{title}</h3>
+    <p style={{color:"#385744",fontSize:14,marginBottom:22,lineHeight:1.6}}>{sub}</p>
     {action}
-  </div>
+  </section>
 );
 
 const Avatar=({dog,size=48})=>{
@@ -1688,9 +1690,9 @@ const VaccinesTab=({dog,state,dispatch,userId,tier,onUpgrade})=>{
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 14px 8px"}}>
           <span style={{fontWeight:700,fontSize:15}}>{v.name}</span>
           <div style={{display:"flex",gap:5}}>
-            {v.next_due&&<button title="Add to Calendar" onClick={()=>exportICS(dog.name,v.name,v.next_due)} style={{background:"#2C4A3814",border:"1px solid #2C4A3844",borderRadius:8,padding:"5px 8px",color:"#2C4A38"}}><Ic n="cal" s={13}/></button>}
-            <button onClick={()=>setModal({type:"edit",v})} style={{background:"#FFFFFF",border:"1px solid #DCE8E0",borderRadius:8,padding:"5px 8px",color:"#385744"}}><Ic n="edit" s={13}/></button>
-            <button onClick={()=>delVacc(v.id)} style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:8,padding:"5px 8px",color:"#C4714A"}}><Ic n="trash" s={13}/></button>
+            {v.next_due&&<button type="button" aria-label={`Add ${v.name} vaccination due date to calendar`} title="Add to Calendar" onClick={()=>exportICS(dog.name,v.name,v.next_due)} style={{background:"#2C4A3814",border:"1px solid #2C4A3844",borderRadius:8,padding:"5px 8px",color:"#2C4A38"}}><Ic n="cal" s={13}/></button>}
+            <button type="button" aria-label={`Edit ${v.name} vaccination`} onClick={()=>setModal({type:"edit",v})} style={{background:"#FFFFFF",border:"1px solid #DCE8E0",borderRadius:8,padding:"5px 8px",color:"#385744"}}><Ic n="edit" s={13}/></button>
+            <button type="button" aria-label={`Delete ${v.name} vaccination`} onClick={()=>delVacc(v.id)} style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:8,padding:"5px 8px",color:"#C4714A"}}><Ic n="trash" s={13}/></button>
           </div>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",borderTop:"1px solid #F0E8DC",background:"#FAFCFB"}}>
@@ -1715,7 +1717,7 @@ const VaccinesTab=({dog,state,dispatch,userId,tier,onUpgrade})=>{
       <Btn sm onClick={()=>setModal({type:"add"})}><Ic n="plus" s={14}/> Add</Btn>
     </div>
     {vaccines.length>2&&(
-      <input maxLength={150} value={filter} onChange={e=>setFilter(e.target.value)} placeholder="Search vaccines..."
+      <input aria-label="Search vaccinations" maxLength={150} value={filter} onChange={e=>setFilter(e.target.value)} placeholder="Search vaccines..."
         style={{background:"#FAFCFB",border:"1.5px solid #DCE8E0",borderRadius:10,padding:"9px 14px",fontSize:14,color:"#1A2E22",outline:"none",fontFamily:"'Lora',serif"}}/>
     )}
     {vaccines.length===0
@@ -1770,7 +1772,7 @@ const HealthTab=({dog,state,dispatch,userId,tier,onUpgrade})=>{
       Known Allergies {al.length>0&&`(${al.length})`}
     </div>
     {sortedAllergies.length===0
-      ?<Card style={{borderStyle:"dashed"}}><div style={{color:"#385744",fontSize:14,textAlign:"center",padding:"12px 0"}}>No allergies recorded. <span style={{color:"#2C4A38",cursor:"pointer"}} onClick={()=>setModal({type:"addAlrg"})}>Add one</span></div></Card>
+      ?<Empty icon="alert" title="No allergies recorded" sub="Add a known allergy or sensitivity so it stays with your pet's health history." action={<Btn onClick={()=>setModal({type:"addAlrg"})}><Ic n="plus" s={14}/> Add Allergy</Btn>}/>
       :sortedAllergies.map(a=>(
         <div key={a.id} style={{background:"#FFFFFF",border:`1px solid ${sevColor(a.severity)}44`,borderLeft:`5px solid ${sevBorder(a.severity)}`,borderRadius:"0 12px 12px 0",padding:"14px 16px",display:"flex",justifyContent:"space-between",alignItems:"flex-start",boxShadow:"0 2px 8px rgba(44,32,23,0.06)"}}>
           <div style={{flex:1}}>
@@ -1783,8 +1785,8 @@ const HealthTab=({dog,state,dispatch,userId,tier,onUpgrade})=>{
             {a.date_discovered&&<div style={{fontSize:12,color:"#6A8372",marginTop:4}}>Identified: {fmt(a.date_discovered)}</div>}
           </div>
           <div style={{display:"flex",gap:5,marginLeft:10}}>
-            <button onClick={()=>setModal({type:"editAlrg",a})} style={{background:"#FFFFFF",border:"1px solid #DCE8E0",borderRadius:8,padding:"5px 8px",color:"#385744"}}><Ic n="edit" s={13}/></button>
-            <button onClick={()=>delAlrg(a.id)} style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:8,padding:"5px 8px",color:"#C4714A"}}><Ic n="trash" s={13}/></button>
+            <button type="button" aria-label={`Edit ${a.allergen} allergy`} onClick={()=>setModal({type:"editAlrg",a})} style={{background:"#FFFFFF",border:"1px solid #DCE8E0",borderRadius:8,padding:"5px 8px",color:"#385744"}}><Ic n="edit" s={13}/></button>
+            <button type="button" aria-label={`Delete ${a.allergen} allergy`} onClick={()=>delAlrg(a.id)} style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:8,padding:"5px 8px",color:"#C4714A"}}><Ic n="trash" s={13}/></button>
           </div>
         </div>
       ))}
@@ -1828,8 +1830,8 @@ const HealthTab=({dog,state,dispatch,userId,tier,onUpgrade})=>{
               </div>
             </div>
             <div style={{display:"flex",gap:5}}>
-              <button onClick={()=>setModal({type:"editMed",m})} style={{background:"#FFFFFF",border:"1px solid #DCE8E0",borderRadius:8,padding:"5px 8px",color:"#385744"}}><Ic n="edit" s={13}/></button>
-              <button onClick={()=>delMed(m.id)} style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:8,padding:"5px 8px",color:"#C4714A"}}><Ic n="trash" s={13}/></button>
+              <button type="button" aria-label={`Edit ${m.name} medication`} onClick={()=>setModal({type:"editMed",m})} style={{background:"#FFFFFF",border:"1px solid #DCE8E0",borderRadius:8,padding:"5px 8px",color:"#385744"}}><Ic n="edit" s={13}/></button>
+              <button type="button" aria-label={`Delete ${m.name} medication`} onClick={()=>delMed(m.id)} style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:8,padding:"5px 8px",color:"#C4714A"}}><Ic n="trash" s={13}/></button>
             </div>
           </div>
         </Card>
@@ -1864,7 +1866,7 @@ const RecordsTab=({dog,state,dispatch,userId})=>{
     </div>
 
     {visits.length>2&&(
-      <input maxLength={150} value={filter} onChange={e=>setFilter(e.target.value)} placeholder="Search visits by reason, vet, or diagnosis..."
+      <input aria-label="Search vet visits" maxLength={150} value={filter} onChange={e=>setFilter(e.target.value)} placeholder="Search visits by reason, vet, or diagnosis..."
         style={{background:"#FAFCFB",border:"1.5px solid #DCE8E0",borderRadius:10,padding:"9px 14px",fontSize:14,color:"#1A2E22",outline:"none",fontFamily:"'Lora',serif"}}/>
     )}
 
@@ -1890,7 +1892,7 @@ const RecordsTab=({dog,state,dispatch,userId})=>{
                   <div style={{fontWeight:700,fontSize:15,flex:1}}>{v.reason}</div>
                   <div style={{display:"flex",gap:5,marginLeft:8}}>
                     <button onClick={()=>setModal({type:"edit",v})} style={{background:"#FFFFFF",border:"1px solid #DCE8E0",borderRadius:8,padding:"5px 8px",color:"#385744"}}><Ic n="edit" s={13}/></button>
-                    <button onClick={()=>delVisit(v.id)} style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:8,padding:"5px 8px",color:"#C4714A"}}><Ic n="trash" s={13}/></button>
+                    <button type="button" aria-label={`Delete vet visit ${v.reason}`} onClick={()=>delVisit(v.id)} style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:8,padding:"5px 8px",color:"#C4714A"}}><Ic n="trash" s={13}/></button>
                   </div>
                 </div>
 
@@ -2070,7 +2072,7 @@ const MoreTab=({dog,state,dispatch,userId,tier,onUpgrade,onScan})=>{
     <div style={{display:"flex",alignItems:"center",gap:10}}>{backBtn}<h3 style={{fontFamily:"'Lora',serif",fontSize:20,flex:1}}>Weight History</h3>{premium&&<Btn sm onClick={()=>setModal("addWeight")}><Ic n="plus" s={14}/> Log</Btn>}</div>
     {premium?<>
       {weights.length>=2&&(<Card><div style={{width:"100%",height:180}}><ResponsiveContainer width="100%" height={180}><LineChart data={weights.map(w=>({date:w.log_date.slice(5),weight:w.weight_lbs}))}><CartesianGrid strokeDasharray="3 3" stroke="#DCE8E0"/><XAxis dataKey="date" stroke="#385744" tick={{fontSize:11}}/><YAxis stroke="#385744" tick={{fontSize:11}} domain={["auto","auto"]}/><Tooltip contentStyle={{background:"#FFFFFF",border:"1px solid #DCE8E0",borderRadius:10,color:"#1A2E22",fontSize:13}} formatter={v=>[v+" lbs","Weight"]}/><Line type="monotone" dataKey="weight" stroke="#2C4A38" strokeWidth={2} dot={{r:3,fill:"#2C4A38"}}/></LineChart></ResponsiveContainer></div></Card>)}
-      {weights.length===0?<Empty icon="weight" title="No weight records" sub="Log weight at each vet visit to track trends." action={<Btn onClick={()=>setModal("addWeight")}><Ic n="plus" s={14}/> Log Weight</Btn>}/>:weights.slice().reverse().map(w=>(<Card key={w.id}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><span style={{fontFamily:"'Lora',serif",fontSize:22,fontWeight:600}}>{w.weight_lbs}<span style={{fontSize:14,color:"#385744"}}> lbs</span></span><div style={{fontSize:12,color:"#385744",marginTop:2}}>{fmt(w.log_date)}{w.notes?` · ${w.notes}`:""}</div></div><button onClick={async()=>{try{await db.deleteWeight(w.id);dispatch({t:"DEL_WT",id:w.id});}catch(e){alert("Could not delete: "+e.message);}}} style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:8,padding:"5px 8px",color:"#C4714A"}}><Ic n="trash" s={13}/></button></div></Card>))}
+      {weights.length===0?<Empty icon="weight" title="No weight records" sub="Log weight at each vet visit to track trends." action={<Btn onClick={()=>setModal("addWeight")}><Ic n="plus" s={14}/> Log Weight</Btn>}/>:weights.slice().reverse().map(w=>(<Card key={w.id}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><span style={{fontFamily:"'Lora',serif",fontSize:22,fontWeight:600}}>{w.weight_lbs}<span style={{fontSize:14,color:"#385744"}}> lbs</span></span><div style={{fontSize:12,color:"#385744",marginTop:2}}>{fmt(w.log_date)}{w.notes?` · ${w.notes}`:""}</div></div><button type="button" aria-label={`Delete weight record from ${fmt(w.log_date)}`} onClick={async()=>{try{await db.deleteWeight(w.id);dispatch({t:"DEL_WT",id:w.id});}catch(e){alert("Could not delete: "+e.message);}}} style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:8,padding:"5px 8px",color:"#C4714A"}}><Ic n="trash" s={13}/></button></div></Card>))}
       {modal==="addWeight"&&<WeightLogModal userId={userId} dog={dog} dispatch={dispatch} onClose={()=>setModal(null)}/>}
     </>:<PremiumLock onUpgrade={onUpgrade} label="Weight Tracking — Premium Feature"/>}
   </div>);
@@ -2078,7 +2080,8 @@ const MoreTab=({dog,state,dispatch,userId,tier,onUpgrade,onScan})=>{
   if(section==="vets")return(<div style={{display:"flex",flexDirection:"column",gap:12}}>
     <div style={{display:"flex",alignItems:"center",gap:10}}>{backBtn}<h3 style={{fontFamily:"'Lora',serif",fontSize:20,flex:1}}>Saved Vets</h3><Btn sm onClick={()=>setModal({type:"addVet"})}><Ic n="plus" s={14}/> Add</Btn></div>
     <Btn full v="secondary" onClick={()=>window.open("https://www.google.com/maps/search/veterinarian+near+me","_blank")}><Ic n="map" s={15}/> Find Nearby Vets</Btn>
-    {vets.map(v=>(<Card key={v.id}><div style={{display:"flex",justifyContent:"space-between"}}><div><div style={{fontWeight:600}}>{v.name}</div>{v.clinic&&<div style={{fontSize:13,color:"#385744"}}>{v.clinic}</div>}{v.phone&&<a href={`tel:${v.phone}`} style={{fontSize:13,color:"#2C4A38",display:"flex",alignItems:"center",gap:4,marginTop:4,textDecoration:"none"}}><Ic n="phone" s={12} c="#2C4A38"/>{v.phone}</a>}</div><button onClick={async()=>{await db.deleteSavedVet(v.id);dispatch({t:"DEL_VET",id:v.id});}} style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:8,padding:"5px 8px",color:"#C4714A"}}><Ic n="trash" s={13}/></button></div></Card>))}
+    {vets.length===0&&<Empty icon="stethoscope" title="No saved vets yet" sub="Save your regular vet or a clinic you trust so their contact details stay easy to find." action={<Btn onClick={()=>setModal({type:"addVet"})}><Ic n="plus" s={14}/> Save a Vet</Btn>}/>}
+    {vets.map(v=>(<Card key={v.id}><div style={{display:"flex",justifyContent:"space-between"}}><div><div style={{fontWeight:600}}>{v.name}</div>{v.clinic&&<div style={{fontSize:13,color:"#385744"}}>{v.clinic}</div>}{v.phone&&<a href={`tel:${v.phone}`} style={{fontSize:13,color:"#2C4A38",display:"flex",alignItems:"center",gap:4,marginTop:4,textDecoration:"none"}}><Ic n="phone" s={12} c="#2C4A38"/>{v.phone}</a>}</div><button type="button" aria-label={`Delete saved vet ${v.name}`} onClick={async()=>{await db.deleteSavedVet(v.id);dispatch({t:"DEL_VET",id:v.id});}} style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:8,padding:"5px 8px",color:"#C4714A"}}><Ic n="trash" s={13}/></button></div></Card>))}
     {modal?.type==="addVet"&&<VetForm userId={userId} onSave={v=>{dispatch({t:"ADD_VET",v});setModal(null);}} onClose={()=>setModal(null)}/>}
   </div>);
 
@@ -2098,13 +2101,7 @@ const MoreTab=({dog,state,dispatch,userId,tier,onUpgrade,onScan})=>{
     {!premium&&<PremiumLock onUpgrade={onUpgrade} label="Document Storage — Premium Feature"/>}
     {premium&&(<>
       {docs.length===0
-        ?(<div style={{textAlign:"center",padding:"24px 0"}}>
-            <div style={{fontSize:40,marginBottom:12}}>📄</div>
-            <div style={{fontFamily:"'Lora',serif",fontSize:18,marginBottom:6}}>No documents yet</div>
-            <div style={{fontSize:13,color:"#385744",marginBottom:4}}>Use AI Scan to upload vet records, vaccine docs, or service animal certs.</div>
-            <div style={{fontSize:12,color:"#6A8372",marginBottom:16}}>Scanned records are automatically saved to your pet's health profile.</div>
-            <Btn onClick={onScan}><Ic n="camera" s={14}/> Start AI Scan</Btn>
-          </div>)
+        ?<Empty icon="doc" title="No documents yet" sub="Scan a vet record, vaccine certificate, or travel document. YourPetPass will keep it with this pet's health history." action={<Btn onClick={onScan}><Ic n="camera" s={14}/> Scan First Document</Btn>}/>
         :docs.map(d=>(<Card key={d.id}><div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
           <div style={{width:56,height:56,borderRadius:10,background:"#FFFFFF",border:"1px solid #DCE8E0",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
             <Ic n="doc" s={22} c="#6A8372"/>
@@ -2114,11 +2111,11 @@ const MoreTab=({dog,state,dispatch,userId,tier,onUpgrade,onScan})=>{
             <div style={{fontSize:12,color:"#385744",marginTop:2}}>{fmt(d.doc_date)}</div>
             {d.doc_type&&<div style={{fontSize:11,color:"#2C4A38",fontWeight:600,marginTop:3}}>{d.doc_type}</div>}
           </div>
-          <a href={supabase.storage.from("documents").getPublicUrl(d.file_path).data.publicUrl} target="_blank" rel="noopener noreferrer"
+          <a href={supabase.storage.from("documents").getPublicUrl(d.file_path).data.publicUrl} target="_blank" rel="noopener noreferrer" aria-label={`Open ${d.name||"document"}`}
             style={{background:"#2C4A3814",border:"1px solid #2C4A3844",borderRadius:8,padding:"5px 8px",color:"#2C4A38",textDecoration:"none",display:"flex",alignItems:"center"}}>
             <Ic n="download" s={13}/>
           </a>
-          <button onClick={async()=>{await db.deleteDocument(d.id,d.file_path);dispatch({t:"DEL_DOC",id:d.id});}} style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:8,padding:"5px 8px",color:"#C4714A"}}>
+          <button type="button" aria-label={`Delete ${d.name||"document"}`} onClick={async()=>{await db.deleteDocument(d.id,d.file_path);dispatch({t:"DEL_DOC",id:d.id});}} style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:8,padding:"5px 8px",color:"#C4714A"}}>
             <Ic n="trash" s={13}/>
           </button>
         </div></Card>))}
@@ -2569,7 +2566,7 @@ const OwnerProfileModal=({userId,tier,userEmail,isAffiliate,onOpenAffiliate,onUp
         {contacts.map(ec=>(<div key={ec.id} style={{background:"#FAFCFB",border:"1px solid #DCE8E0",borderRadius:12,padding:14,marginBottom:8}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
             <div><div style={{fontWeight:700,fontSize:15}}>{ec.name}</div><div style={{fontSize:13,color:"#385744"}}>{ec.relationship&&<span>{ec.relationship} · </span>}<a href={`tel:${ec.phone}`} style={{color:"#2C4A38",textDecoration:"none"}}>{ec.phone}</a></div>{ec.email&&<div style={{fontSize:12,color:"#6A8372"}}>{ec.email}</div>}</div>
-            <button onClick={()=>deleteContact(ec.id)} style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:8,padding:"5px 8px",color:"#C4714A",cursor:"pointer"}}><Ic n="trash" s={13}/></button>
+            <button type="button" aria-label={`Delete emergency contact ${ec.name}`} onClick={()=>deleteContact(ec.id)} style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:8,padding:"5px 8px",color:"#C4714A",cursor:"pointer"}}><Ic n="trash" s={13}/></button>
           </div>
         </div>))}
         {addingContact&&(<div style={{background:"#FAFCFB",border:"1.5px solid #2C4A3844",borderRadius:12,padding:16,marginTop:8}}>
@@ -2710,7 +2707,7 @@ const Home=({state,dispatch,userId,tier,userEmail,onSignOut,isAdmin,onOpenAdmin,
     <div style={{maxWidth:680,margin:"0 auto",padding:"20px 16px"}}>
       {state.dogs.length===0?(<div style={{textAlign:"center",paddingTop:60}}>
         <div style={{fontSize:56,marginBottom:14}}>🐕</div>
-        <div style={{fontFamily:"'Lora',serif",fontSize:28,marginBottom:8,fontStyle:"italic"}}>Welcome to YourPetPass</div>
+        <h2 style={{fontFamily:"'Lora',serif",fontSize:28,marginBottom:8,fontStyle:"italic"}}>Welcome to YourPetPass</h2>
         <div style={{color:"#385744",marginBottom:28,fontSize:15,lineHeight:1.7}}>Keep your pet's health records organized,<br/>vaccination schedules on track, and every<br/>document ready when you travel.</div>
         <Btn onClick={()=>setAddDog(true)} style={{margin:"0 auto",fontSize:16,padding:"14px 28px"}}><Ic n="plus" s={16}/> Add Your First Pet</Btn>
       </div>):(<>
