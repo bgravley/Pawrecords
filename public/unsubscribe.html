@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="referrer" content="no-referrer">
+  <title>Email Preferences | YourPetPass</title>
+  <link rel="icon" href="/favicon.svg">
+  <style>
+    :root { color-scheme: light; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; background: #EAF4EE; color: #1A2E22; font-family: Georgia, 'Times New Roman', serif; display: grid; place-items: center; padding: 24px; }
+    main { width: min(100%, 620px); background: #FAFCFB; border: 1px solid #9DC4AA; border-radius: 22px; overflow: hidden; box-shadow: 0 16px 44px rgba(26,46,34,.14); }
+    header { background: #2C4A38; padding: 30px 30px 26px; text-align: center; }
+    header img { width: min(260px, 75vw); height: auto; display: inline-block; }
+    section { padding: 34px 32px 36px; }
+    h1 { margin: 0 0 14px; color: #2C4A38; font-size: clamp(30px, 6vw, 40px); line-height: 1.1; }
+    p { margin: 0 0 18px; line-height: 1.65; font-size: 16px; color: #385744; }
+    .note { background: #EAF4EE; border-radius: 14px; padding: 16px; font-size: 14px; margin: 20px 0; }
+    button, .link-button { appearance: none; display: inline-block; border-radius: 12px; padding: 12px 18px; font: 700 15px Georgia, 'Times New Roman', serif; text-decoration: none; cursor: pointer; }
+    button { border: 1px solid #2C4A38; background: #2C4A38; color: #fff; }
+    button:disabled { opacity: .55; cursor: not-allowed; }
+    .link-button { margin-left: 8px; border: 1px solid #7C9E87; color: #2C4A38; background: #FAFCFB; }
+    #status { margin-top: 20px; min-height: 24px; font-weight: 700; }
+    #status.success { color: #2C4A38; }
+    #status.error { color: #8B3A2E; }
+    footer { margin-top: 24px; font-size: 13px; color: #61786A; }
+    @media (max-width: 520px) { section { padding: 28px 22px 30px; } button, .link-button { width: 100%; text-align: center; margin: 8px 0 0; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <img src="/logo_horizontal_cream_transparent.png" alt="YourPetPass">
+    </header>
+    <section>
+      <h1>Email preferences</h1>
+      <p>You can turn off YourPetPass reminder emails here. This includes vaccine reminders, travel checklist reminders, and weekly pet-health summaries.</p>
+      <div class="note"><strong>Your account and your pet's records are not affected.</strong> Important account, security, billing, or service messages may still be sent when needed.</div>
+      <button id="unsubscribe-button" type="button">Turn off reminder emails</button>
+      <a class="link-button" href="https://www.yourpetpass.com/">Keep reminders on</a>
+      <div id="status" role="status" aria-live="polite"></div>
+      <footer>This page does not load optional product analytics.</footer>
+    </section>
+  </main>
+  <script src="/unsubscribe.js" defer></script>
+</body>
+</html>
