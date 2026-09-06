@@ -38,7 +38,13 @@ async function supabase(path, options = {}) {
 }
 
 function readToken(req) {
-  const queryToken = typeof req.query?.token === 'string' ? req.query.token : '';
+  let queryToken = '';
+  try {
+    const requestUrl = new URL(req.url || '/', 'https://www.yourpetpass.com');
+    queryToken = requestUrl.searchParams.get('token') || '';
+  } catch {
+    queryToken = '';
+  }
   const bodyToken = typeof req.body?.token === 'string' ? req.body.token : '';
   return queryToken || bodyToken;
 }
