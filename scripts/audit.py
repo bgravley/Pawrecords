@@ -235,6 +235,12 @@ for root, dirs, files in os.walk("public"):
     for f in files:
         if f.endswith(".html") and f not in ("404.html",):
             path = os.path.join(root, f)
+            content = open(path, errors='ignore').read()
+            # Preference/action pages marked noindex should not be advertised
+            # to search engines in sitemap.xml. The unsubscribe page is one
+            # such page because its URL carries a signed capability token.
+            if re.search(r'<meta[^>]+name=["\']robots["\'][^>]+content=["\'][^"\']*noindex', content, re.IGNORECASE):
+                continue
             url_path = path.replace("public/", "/").replace("public", "")
             full_url = f"https://yourpetpass.com{url_path}"
             if full_url not in sitemap_urls:
@@ -457,7 +463,8 @@ def endpoint_verifies_identity(content):
         "verifyCronRequest(" in content or       # shared fail-closed cron helper
         "CRON_SECRET" in content or
         "WEBHOOK_SECRET" in content or
-        "SIGNUP_WEBHOOK_SECRET" in content
+        "SIGNUP_WEBHOOK_SECRET" in content or
+        "verifyUnsubscribeToken(" in content     # signed capability authorizes preference change
     )
 for f in sorted(subprocess.run(["find", "api", "-name", "*.js"],
                 capture_output=True, text=True).stdout.split()):
