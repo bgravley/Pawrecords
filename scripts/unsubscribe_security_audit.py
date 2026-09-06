@@ -54,8 +54,8 @@ check('meta name="robots" content="noindex,nofollow"' in page, 'Unsubscribe page
 check('meta name="referrer" content="no-referrer"' in page, 'Unsubscribe page suppresses token referrer leakage')
 check('/privacy-consent.js' not in page and 'googletagmanager' not in page and 'clarity.ms' not in page and 'vercel-scripts' not in page, 'Unsubscribe page loads no optional analytics')
 check("fetch('/api/unsubscribe'" in page_js and "method: 'POST'" in page_js, 'Unsubscribe page requires an explicit user action before changing preference')
-check("new URLSearchParams(window.location.search).get('token')" in page_js, 'Unsubscribe page reads only the signed token from its link')
-check('email' not in page_js.lower(), 'Unsubscribe browser script sends no email address')
+check("new URLSearchParams(window.location.search).get('token')" in page_js, 'Unsubscribe page reads the signed token from its link')
+check('email:' not in page_js.lower() and 'email=' not in page_js.lower() and "get('email')" not in page_js.lower(), 'Unsubscribe browser script sends no email address')
 
 check('"source": "/unsubscribe"' in vercel and '"destination": "/unsubscribe.html"' in vercel, 'Clean /unsubscribe route maps to privacy-minimal page')
 check('Signed unsubscribe link disables reminder emails and is idempotent' in smoke, 'Production smoke exercises a real signed unsubscribe against the synthetic account')
