@@ -26,6 +26,7 @@ check('disabled={!!disabled}' in travel and 'aria-disabled={disabled ? true : un
 check('role={onClick?"button":undefined}' in paw and 'tabIndex={onClick?0:undefined}' in paw and 'e.key==="Enter"' in paw and 'e.key===" "' in paw, 'Clickable PawRecord cards support keyboard activation')
 check('role={onClick ? "button" : undefined}' in travel and 'tabIndex={onClick ? 0 : undefined}' in travel and 'e.key === "Enter"' in travel and 'e.key === " "' in travel, 'Clickable Travel cards support keyboard activation')
 check('aria-label="YourPetPass home"' in paw, 'Home logo button has an explicit accessible name')
+check('aria-label="Back to More features"' in paw, 'More sub-section back button has an explicit accessible name')
 
 # Forms/dialogs.
 check('const Field=({label,children,col})=>(\n  <label' in paw, 'PawRecord Field wraps its form control with its visible label')
