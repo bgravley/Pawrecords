@@ -42,12 +42,11 @@ text = replace_once(
     "<p style=\"margin:0;font-size:11px;\">You're receiving this because YourPetPass reminder emails are enabled for your account.</p>",
     'email footer reason',
 )
-# There are exactly three outbound reminder email calls.
-needle = "          const sent = await sendEmail({\n            to: profile.email,"
-count = text.count(needle)
-if count != 3:
-    raise SystemExit(f'Expected 3 sendEmail reminder calls, found {count}')
-text = text.replace(needle, "          const sent = await sendEmail({\n            to: profile.email,\n            userId: profile.id,", 3)
+if 'userId: profile.id,' not in text:
+    count = text.count('to: profile.email,')
+    if count != 3:
+        raise SystemExit(f'Expected 3 reminder recipients, found {count}')
+    text = text.replace('to: profile.email,', 'to: profile.email,\n            userId: profile.id,')
 path.write_text(text, encoding='utf-8')
 
 # api/e2e-login.js
