@@ -59,8 +59,14 @@ check('title="No saved vets yet"' in paw and 'Save a Vet' in paw, 'Saved-vets em
 check('<h2 style={{fontFamily:"\'Lora\',serif",fontSize:28' in paw and '>Welcome to YourPetPass</h2>' in paw, 'First-run My Pets state has a real heading')
 check('<section aria-label={filter === "upcoming" ? "No upcoming trips" : "No past trips"}' in travel and '+ Plan First Trip' in travel, 'Travel empty state is semantic and actionable')
 
-# The production smoke must eventually enforce browser-rendered names/labels too.
+# The production smoke must enforce rendered names/labels without becoming stale
+# when the app moves from sibling labels to properly nested accessible labels.
 check('assertAccessibleControls' in smoke, 'Production smoke checks rendered accessible names and form labels')
+check(
+    "const nested = label.locator(selector).first();" in smoke
+    and "label.locator('..').locator(selector).first()" in smoke,
+    'Production smoke field lookup follows accessible label nesting with legacy fallback',
+)
 
 print('\nYourPetPass accessibility + empty-state audit')
 print('=' * 48)
