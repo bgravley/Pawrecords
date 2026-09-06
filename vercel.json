@@ -26,6 +26,10 @@
       "destination": "/index.html"
     },
     {
+      "source": "/unsubscribe",
+      "destination": "/unsubscribe.html"
+    },
+    {
       "source": "/((?!api/).*)",
       "destination": "/index.html"
     }

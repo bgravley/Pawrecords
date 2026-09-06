@@ -312,6 +312,19 @@ await check('Private Storage gateway rejects anonymous access', async () => {
   if (response.status() !== 401) throw new Error(`Expected 401, got ${response.status()}`);
 });
 
+await check('Unsubscribe endpoint rejects forged public tokens without changing preferences', async () => {
+  const response = await publicContext.request.post(`${BASE}/api/unsubscribe?token=v1.Zm9yZ2Vk.invalid`);
+  if (response.status() !== 400) throw new Error(`Expected 400 for forged unsubscribe token, got ${response.status()}`);
+});
+
+await check('Unsubscribe page is public and loads no optional analytics bootstrap', async () => {
+  const response = await publicContext.request.get(`${BASE}/unsubscribe`);
+  if (response.status() !== 200) throw new Error(`Unsubscribe page returned ${response.status()}`);
+  const html = await response.text();
+  if (!html.includes('Email preferences') || !html.includes('/unsubscribe.js')) throw new Error('Unsubscribe page content was not served');
+  if (/privacy-consent|googletagmanager|clarity\.ms|vercel-scripts/i.test(html)) throw new Error('Optional analytics appeared on unsubscribe page');
+});
+
 await check('Health-certificate article has the correct body', async () => {
   const response = await publicPage.goto(`${BASE}/blog/pet-health-certificates-explained.html`, { waitUntil: 'domcontentloaded', timeout: 30000 });
   if (!response || response.status() !== 200) throw new Error(`Article returned ${response?.status()}`);
@@ -580,6 +593,18 @@ await check('RLS and private Storage isolate one signed-in customer from another
     });
   } finally {
     await context.close();
+  }
+});
+
+await check('Signed unsubscribe link disables reminder emails and is idempotent', async () => {
+  const primary = await bootstrap('primary', false, false);
+  if (!primary.unsubscribeToken) throw new Error('OIDC-gated E2E bootstrap did not issue an unsubscribe token');
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const response = await fetch(`${BASE}/api/unsubscribe?token=${encodeURIComponent(primary.unsubscribeToken)}`, { method: 'POST' });
+    if (response.status !== 200) throw new Error(`Signed unsubscribe returned ${response.status}`);
+    const result = await response.json();
+    if (result?.success !== true) throw new Error('Signed unsubscribe did not return success');
   }
 });
 

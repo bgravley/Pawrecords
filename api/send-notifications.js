@@ -3,6 +3,7 @@
 // Sends vaccine reminders, travel document reminders, and weekly digest
 
 import { verifyCronRequest } from './_cronAuth.js';
+import { unsubscribeApiUrlForUser, unsubscribePageUrlForUser } from './_unsubscribe.js';
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const FROM_EMAIL = 'YourPetPass <notifications@yourpetpass.com>';
@@ -14,14 +15,26 @@ function esc(str) {
 }
 
 // ── EMAIL SENDER ──────────────────────────────────────────
-async function sendEmail({ to, subject, html }) {
+async function sendEmail({ to, subject, html, userId }) {
+  const oneClickUnsubscribe = unsubscribeApiUrlForUser(userId);
+  const pageUnsubscribe = unsubscribePageUrlForUser(userId);
+  const personalizedHtml = html.replaceAll('__YPP_UNSUBSCRIBE_URL__', pageUnsubscribe);
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${RESEND_API_KEY}`,
     },
-    body: JSON.stringify({ from: FROM_EMAIL, to, subject, html }),
+    body: JSON.stringify({
+      from: FROM_EMAIL,
+      to,
+      subject,
+      html: personalizedHtml,
+      headers: {
+        'List-Unsubscribe': `<${oneClickUnsubscribe}>`,
+        'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+      },
+    }),
   });
   const data = await res.json();
   if (!res.ok) console.error('Resend error:', data);
@@ -97,8 +110,8 @@ function emailWrapper(content) {
   </div>
   <div class="body">${content}</div>
   <div class="footer">
-    <p style="margin:0 0 8px;">© 2026 YourPetPass · <a href="${APP_URL}" style="color:#2D7D6F;">Open App</a> · <a href="${APP_URL}/unsubscribe" style="color:#8B7355;">Unsubscribe</a></p>
-    <p style="margin:0;font-size:11px;">You're receiving this because you have an active YourPetPass account.</p>
+    <p style="margin:0 0 8px;">© 2026 YourPetPass · <a href="${APP_URL}" style="color:#2D7D6F;">Open App</a> · <a href="__YPP_UNSUBSCRIBE_URL__" style="color:#8B7355;">Unsubscribe</a></p>
+    <p style="margin:0;font-size:11px;">You're receiving this because YourPetPass reminder emails are enabled for your account.</p>
   </div>
 </div>
 </body></html>`;
@@ -253,6 +266,7 @@ export default async function handler(req, res) {
         if (days === 60 || days === 30 || days === 7) {
           const sent = await sendEmail({
             to: profile.email,
+            userId: profile.id,
             subject: `${pet.name}'s ${v.name} is due in ${days} days`,
             html: vaccineReminderEmail({
               petName: pet.name,
@@ -280,6 +294,7 @@ export default async function handler(req, res) {
           const tripName = trip.name || `${trip.origin_city} → ${trip.destination_city}`;
           const sent = await sendEmail({
             to: profile.email,
+            userId: profile.id,
             subject: `✈️ ${dueItems.length} travel action${dueItems.length > 1 ? 's' : ''} due soon — ${tripName}`,
             html: travelReminderEmail({ ownerName, tripName, items: dueItems }),
           });
@@ -314,6 +329,7 @@ export default async function handler(req, res) {
 
         const sent = await sendEmail({
           to: profile.email,
+            userId: profile.id,
           subject: `🐾 Your weekly pet health summary`,
           html: weeklyDigestEmail({
             ownerName,
