@@ -1,0 +1,33 @@
+name: Patch Accessibility Smoke Field Locator
+
+"on":
+  push:
+    branches: [fix/accessibility-smoke-field-locator]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/accessibility-smoke-field-locator
+
+      - name: Update smoke field locator
+        run: python3 scripts/patch_accessibility_smoke_field_locator.py
+
+      - name: Parse smoke script
+        run: node --check scripts/live_smoke.mjs
+
+      - name: Commit fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/live_smoke.mjs
+          git diff --cached --quiet && exit 0
+          git commit -m "Make smoke field lookup follow accessible labels"
+          git push origin HEAD:fix/accessibility-smoke-field-locator
