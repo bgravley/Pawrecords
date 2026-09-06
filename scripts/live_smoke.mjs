@@ -46,6 +46,21 @@ async function expectVisibleText(page, text, timeout = 15000) {
   await page.getByText(text, { exact: false }).first().waitFor({ state: 'visible', timeout });
 }
 
+async function chooseEssentialAnalytics(page) {
+  const essential = page.getByRole('button', { name: 'Essential only', exact: true });
+  try {
+    await essential.waitFor({ state: 'visible', timeout: 5000 });
+  } catch {
+    // A stored privacy choice means the first-visit dialog is intentionally absent.
+    return;
+  }
+
+  await essential.click();
+  const stored = await page.evaluate(() => localStorage.getItem('ypp_analytics_consent_v1'));
+  if (stored !== 'denied') throw new Error(`Essential-only analytics preference was not stored (got ${stored})`);
+  await page.getByRole('button', { name: 'Open privacy choices', exact: true }).waitFor({ state: 'visible', timeout: 5000 });
+}
+
 function captureSupabase(page) {
   const info = { origin: '', anonKey: '' };
   page.on('request', request => {
@@ -260,6 +275,7 @@ attachPageErrorCollector(publicPage, 'Public smoke');
 await check('Homepage renders the interactive marketing experience', async () => {
   const response = await publicPage.goto(BASE, { waitUntil: 'domcontentloaded', timeout: 30000 });
   if (!response || response.status() !== 200) throw new Error(`Homepage returned ${response?.status()}`);
+  await chooseEssentialAnalytics(publicPage);
   await publicPage.getByRole('button', { name: 'Login' }).waitFor({ state: 'visible', timeout: 15000 });
   const title = await publicPage.title();
   if (!title.includes('YourPetPass')) throw new Error(`Unexpected title: ${title}`);
@@ -337,6 +353,7 @@ await check('Authenticated production customer flow works end to end', async () 
   try {
     await step('One-time magic link signs into production', async () => {
       await loginWithActionLink(page, primary.actionLink);
+      await chooseEssentialAnalytics(page);
       primarySession = await readBrowserSession(page);
       if (primarySession.userId !== primary.userId) throw new Error('Browser session belongs to an unexpected user');
       await waitForFileSessionCookie(context, primarySession.userId);
@@ -527,6 +544,7 @@ await check('RLS and private Storage isolate one signed-in customer from another
   try {
     await step('Second synthetic customer signs in independently', async () => {
       await loginWithActionLink(page, secondary.actionLink);
+      await chooseEssentialAnalytics(page);
       await expectVisibleText(page, 'Welcome to YourPetPass');
       const body = await page.locator('body').innerText();
       if (body.includes(PET_NAME) || body.includes(TRIP_NAME) || body.includes(DOC_NAME)) throw new Error('Primary customer data appeared in the secondary customer UI');
