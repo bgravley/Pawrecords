@@ -1062,7 +1062,7 @@ const AirportGuideCard = ({ code, role }) => {
   );
 };
 
-const TripDetail = ({ trip, userId, dogs, onBack, onUpdate, onDelete, onEdit, onDuplicate }) => {
+const TripDetail = ({ trip, userId, dogs, premium, onUpgrade, onBack, onUpdate, onDelete, onEdit, onDuplicate }) => {
   const [checklist, setChecklist] = useState([]);
   const [legs, setLegs] = useState([]);
   const [documents, setDocuments] = useState([]);
@@ -1125,6 +1125,10 @@ const TripDetail = ({ trip, userId, dogs, onBack, onUpdate, onDelete, onEdit, on
   };
 
   const generateRequirements = async () => {
+    if (!premium) {
+      onUpgrade?.();
+      return;
+    }
     setGenerating(true); setGenError(null);
     try {
       // Multi-leg trips generate ONE checklist covering the real origin
@@ -1539,9 +1543,13 @@ ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.i
             <div style={{ display: "flex", gap: 8 }}>
               <Btn sm v="secondary" onClick={() => setShowAddItem(true)}>+ Add</Btn>
               {checklist.length === 0 && (
-                <Btn sm onClick={generateRequirements} disabled={generating} style={{ background: C.warn, color: "#2C2017" }}>
-                  {generating ? "Researching..." : "🤖 AI Generate"}
-                </Btn>
+                premium
+                  ? <Btn sm onClick={generateRequirements} disabled={generating} style={{ background: C.warn, color: "#2C2017" }}>
+                      {generating ? "Researching..." : "🤖 AI Generate"}
+                    </Btn>
+                  : <Btn sm onClick={onUpgrade} style={{ background: C.warnDim, color: C.text, border: `1px solid ${C.warn}66` }}>
+                      ✨ Premium AI
+                    </Btn>
               )}
               {checklist.length > 0 && (
                 <Btn sm onClick={generateRequirements} disabled={generating} v="secondary">
@@ -1599,9 +1607,18 @@ ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.i
           {!generating && checklist.length === 0 && (
             <Card style={{ textAlign: "center", padding: 32, borderStyle: "dashed" }}>
               <div style={{ fontSize: 36, marginBottom: 12 }}>🛂</div>
-              <div style={{ fontFamily: "'Lora', serif", fontSize: 18, marginBottom: 6 }}>No requirements yet</div>
-              <div style={{ color: C.muted, fontSize: 14, marginBottom: 20 }}>Let AI research the requirements for this route, or add them manually</div>
-              <Btn onClick={generateRequirements} style={{ margin: "0 auto", background: C.warn, color: "#2C2017" }}>🤖 Generate Requirements with AI</Btn>
+              <div style={{ fontFamily: "'Lora', serif", fontSize: 18, marginBottom: 6 }}>Your trip is saved</div>
+              <div style={{ color: C.muted, fontSize: 14, lineHeight: 1.6, marginBottom: 20 }}>
+                {premium
+                  ? "Let AI research official requirements for this route, or build the checklist yourself."
+                  : "You can build the requirements checklist yourself for free. Premium adds AI research that turns the route into a starting checklist for you."}
+              </div>
+              <div style={{display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap"}}>
+                <Btn v="secondary" onClick={() => setShowAddItem(true)}>+ Add Requirement Manually</Btn>
+                {premium
+                  ? <Btn onClick={generateRequirements} style={{ background: C.warn, color: "#2C2017" }}>🤖 Generate with AI</Btn>
+                  : <Btn onClick={onUpgrade} style={{ background: C.warn, color: "#2C2017" }}>✨ See Premium AI Options</Btn>}
+              </div>
             </Card>
           )}
 
@@ -1716,7 +1733,8 @@ ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.i
 };
 
 // ── TRAVEL DASHBOARD ─────────────────────────────────────
-export default function Travel({ userId, onBack }) {
+export default function Travel({ userId, tier = "free", onUpgrade, onBack }) {
+  const premium = tier === "premium" || tier === "lifetime";
   const [dogs, setDogs] = useState([]);
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1774,7 +1792,7 @@ export default function Travel({ userId, onBack }) {
   if (selectedTrip) {
     const trip = trips.find(t => t.id === selectedTrip);
     if (trip) return (
-      <TripDetail trip={trip} userId={userId} dogs={dogs}
+      <TripDetail trip={trip} userId={userId} dogs={dogs} premium={premium} onUpgrade={onUpgrade}
         onBack={() => setSelectedTrip(null)}
         onUpdate={updated => { setTrips(prev => prev.map(t => t.id === updated.id ? updated : t)); }}
         onDelete={deletedId => { setTrips(prev => prev.filter(t => t.id !== deletedId)); setSelectedTrip(null); }}

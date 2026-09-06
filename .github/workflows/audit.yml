@@ -86,5 +86,8 @@ jobs:
       - name: Run accessibility and empty-state audit
         run: python3 scripts/accessibility_audit.py
 
+      - name: Run value-first paywall audit
+        run: python3 scripts/paywall_value_audit.py
+
       - name: Run Stripe webhook lifecycle audit
         run: python3 scripts/stripe_webhook_lifecycle_audit.py
