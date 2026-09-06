@@ -1,0 +1,30 @@
+name: Patch Unsubscribe Integration
+
+"on":
+  push:
+    branches: [fix/secure-unsubscribe]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/secure-unsubscribe
+
+      - name: Apply secure unsubscribe integration
+        run: python3 scripts/patch_unsubscribe_integration.py
+
+      - name: Commit generated integration changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add api/send-notifications.js api/e2e-login.js vercel.json scripts/live_smoke.mjs
+          git diff --cached --quiet && exit 0
+          git commit -m "Wire signed unsubscribe into reminders and smoke"
+          git push origin HEAD:fix/secure-unsubscribe
