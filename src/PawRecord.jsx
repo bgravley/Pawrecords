@@ -2680,7 +2680,7 @@ const Home=({state,dispatch,userId,tier,userEmail,onSignOut,isAdmin,onOpenAdmin,
     <div style={{background:"#2C4A38",padding:"16px 16px"}}>
       <div style={{maxWidth:680,margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
         <div>
-          <button onClick={()=>{setSelDog(null);window.scrollTo(0,0);}} style={{background:"none",border:"none",cursor:"pointer",textAlign:"left",padding:0}}>
+          <button type="button" aria-label="YourPetPass home" onClick={()=>{setSelDog(null);window.scrollTo(0,0);}} style={{background:"none",border:"none",cursor:"pointer",textAlign:"left",padding:0}}>
             <img src="/logo_horizontal_cream_transparent.png" alt="YourPetPass" style={{height:48,display:"block"}} />
           </button>
         </div>
