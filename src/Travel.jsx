@@ -1341,7 +1341,7 @@ footer{margin-top:48px;color:#aaa;font-size:12px;border-top:1px solid #eee;paddi
 <p>${tripPets.map(p => `${p.name} (${p.breed || 'Mixed'}${p.is_service_animal ? ', Service Animal' : ''}${p.is_esa ? ', ESA' : ''})`).join(', ') || '—'}</p>
 <h2>Requirements Checklist</h2>
 <table><tr><th>Requirement</th><th>Category</th><th>Status</th><th>Source</th></tr>
-${checklist.map(i => `<tr><td><b>${i.title}</b>${i.description ? '<br><small>' + i.description + '</small>' : ''}</td><td>${i.category || '—'}</td><td><span class="${i.is_completed ? 'done' : 'pending'}">${i.is_completed ? '✓ Complete' : 'Pending'}</span></td><td>${i.source_name ? `<a href="${i.source_url}">${i.source_name}</a>` : '—'}${i.researched_at ? '<br><small>Checked ' + new Date(i.researched_at).toLocaleDateString() + '</small>' : ''}</td></tr>`).join('')}
+${checklist.map(i => `<tr><td><b>${i.title}</b>${i.description ? '<br><small>' + i.description + '</small>' : ''}</td><td>${i.category || '—'}</td><td><span class="${i.is_completed ? 'done' : 'pending'}">${i.is_completed ? '✓ Complete' : 'Pending'}</span></td><td>${i.source_name ? `<a href="${i.source_url}">${i.source_name}</a>` : '—'}${i.researched_at ? '<br><small>Researched ' + new Date(i.researched_at).toLocaleDateString() + '</small>' : ''}</td></tr>`).join('')}
 </table>
 ${documents.length ? `<h2>Uploaded Documents</h2><table><tr><th>Document</th><th>Date</th><th>Type</th></tr>
 ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.is_entry_document ? 'Entry Document' : 'Travel Document'}</td></tr>`).join('')}</table>` : ''}
