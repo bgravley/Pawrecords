@@ -2303,9 +2303,9 @@ const BillingSection=({userId,tier,userEmail})=>{
   );
 };
 
-const BugReportModal=({userId,userEmail,onClose})=>{
+const BugReportModal=({userId,userEmail,onClose,initialType="bug",onSubmitted})=>{
   const[description,setDescription]=useState("");
-  const[reportType,setReportType]=useState("bug");
+  const[reportType,setReportType]=useState(initialType);
   const[screenshot,setScreenshot]=useState(null); // {dataUrl, file}
   const[sending,setSending]=useState(false);
   const[sent,setSent]=useState(false);
@@ -2347,6 +2347,7 @@ const BugReportModal=({userId,userEmail,onClose})=>{
       const data=await res.json();
       if(!res.ok||data.error)throw new Error(data.error||'Could not submit report');
       setSent(true);
+      onSubmitted?.(reportType);
     }catch(e){setErr(e.message);}
     setSending(false);
   };
@@ -2641,12 +2642,17 @@ const AlertsModal=({state,onClose,onSelectDog})=>{
   </Modal>);
 };
 
+const POST_SUCCESS_FEEDBACK_COOLDOWN_MS=90*24*60*60*1000;
+const POST_SUCCESS_FEEDBACK_TEST_EMAILS=new Set(["e2e-primary@yourpetpass.com","e2e-secondary@yourpetpass.com"]);
+
 const Home=({state,dispatch,userId,tier,userEmail,onSignOut,isAdmin,onOpenAdmin,onOpenTravel,isAffiliate,onOpenAffiliate,upgradeRequestKey})=>{
   const[addDog,setAddDog]=useState(false);
   const[selDog,setSelDog]=useState(null);
   const[showUpgrade,setShowUpgrade]=useState(false);
   const[showProfile,setShowProfile]=useState(false);
   const[showBugReport,setShowBugReport]=useState(false);
+  const[feedbackModalInitialType,setFeedbackModalInitialType]=useState("bug");
+  const[feedbackPromptVisible,setFeedbackPromptVisible]=useState(false);
   const[showAlerts,setShowAlerts]=useState(false);
   const[errorCount,setErrorCount]=useState(0);
   const[upcomingTrips,setUpcomingTrips]=useState([]);
@@ -2655,6 +2661,36 @@ const Home=({state,dispatch,userId,tier,userEmail,onSignOut,isAdmin,onOpenAdmin,
     if(upgradeRequestKey>0)setShowUpgrade(true);
   },[upgradeRequestKey]);
   const premium=isPremium(tier);
+  const healthRecordCount=state.vaccinations.length+state.medications.length+state.visits.length+state.allergies.length;
+  const successMilestones=(state.dogs.length>0?1:0)+(healthRecordCount>=2?1:0)+(upcomingTrips.length>0?1:0)+(state.documents.length>0?1:0);
+  const feedbackPromptStorageKey=`ypp_feedback_prompt_v1_${userId}`;
+
+  useEffect(()=>{
+    const synthetic=POST_SUCCESS_FEEDBACK_TEST_EMAILS.has((userEmail||"").toLowerCase());
+    if(synthetic||successMilestones<2){setFeedbackPromptVisible(false);return;}
+    try{
+      const raw=localStorage.getItem(feedbackPromptStorageKey);
+      if(!raw){setFeedbackPromptVisible(true);return;}
+      const saved=JSON.parse(raw);
+      if(saved?.status==="submitted"){setFeedbackPromptVisible(false);return;}
+      const at=Number(saved?.at)||0;
+      setFeedbackPromptVisible(!at||Date.now()-at>=POST_SUCCESS_FEEDBACK_COOLDOWN_MS);
+    }catch(e){
+      // If storage is unavailable, do not nag the user on every render/session.
+      setFeedbackPromptVisible(false);
+    }
+  },[feedbackPromptStorageKey,successMilestones,userEmail]);
+
+  const rememberFeedbackPrompt=(status)=>{
+    try{localStorage.setItem(feedbackPromptStorageKey,JSON.stringify({status,at:Date.now()}));}catch(e){/* non-critical */}
+    setFeedbackPromptVisible(false);
+  };
+  const openPostSuccessFeedback=()=>{
+    setFeedbackModalInitialType("feedback");
+    rememberFeedbackPrompt("opened");
+    setShowBugReport(true);
+  };
+  const dismissPostSuccessFeedback=()=>rememberFeedbackPrompt("dismissed");
 
   useEffect(()=>{
     if(!isAdmin)return;
@@ -2700,7 +2736,7 @@ const Home=({state,dispatch,userId,tier,userEmail,onSignOut,isAdmin,onOpenAdmin,
           {!premium&&<button onClick={()=>setShowUpgrade(true)} style={{background:"#C9A84C20",border:"1px solid #C9A84C44",borderRadius:10,padding:"7px 12px",color:"#C9A84C",fontWeight:600,fontSize:12,display:"flex",alignItems:"center",gap:5,cursor:"pointer"}}><Ic n="crown" s={13} c="#C9A84C"/>Premium</button>}
           {totalAlerts>0&&<button onClick={()=>setShowAlerts(true)} style={{background:"#C9A84C14",border:"1px solid #C9A84C44",borderRadius:10,padding:"7px 12px",display:"flex",alignItems:"center",gap:5,color:"#C9A84C",fontSize:13,cursor:"pointer"}}><Ic n="alert" s={14} c="#C9A84C"/>{totalAlerts}</button>}
           <button onClick={onOpenTravel} title="Travel" style={{background:"#FFFFFF",border:"1px solid #DCE8E0",borderRadius:10,padding:"7px 10px",color:"#385744",cursor:"pointer"}}><Ic n="map" s={16} c="#385744"/></button>
-          <button onClick={()=>setShowBugReport(true)} title="Share Feedback" aria-label="Share feedback" style={{background:"#FFFFFF",border:"1px solid #DCE8E0",borderRadius:10,padding:"7px 10px",color:"#385744",cursor:"pointer",fontSize:15}}>💬</button>
+          <button onClick={()=>{setFeedbackModalInitialType("bug");setShowBugReport(true);}} title="Share Feedback" aria-label="Share feedback" style={{background:"#FFFFFF",border:"1px solid #DCE8E0",borderRadius:10,padding:"7px 10px",color:"#385744",cursor:"pointer",fontSize:15}}>💬</button>
           <button onClick={()=>setShowProfile(true)} title="My Account" style={{background:"#FFFFFF",border:"1px solid #DCE8E0",borderRadius:10,padding:"7px 10px",color:"#385744",cursor:"pointer"}}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#385744" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
@@ -2755,6 +2791,21 @@ const Home=({state,dispatch,userId,tier,userEmail,onSignOut,isAdmin,onOpenAdmin,
           })}
         </div>
         {/* Upcoming Travel Section */}
+        {feedbackPromptVisible&&(
+          <Card style={{marginTop:24,background:"#EAF4EE",border:"1px solid #9DC4AA",boxShadow:"none"}}>
+            <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:16,flexWrap:"wrap"}}>
+              <div style={{flex:"1 1 280px"}}>
+                <div style={{fontFamily:"'Playfair Display',serif",fontWeight:700,fontSize:18,color:"#2C4A38",marginBottom:6}}>How’s YourPetPass working for you?</div>
+                <div style={{fontSize:13,color:"#385744",lineHeight:1.65}}>You’ve had a chance to put YourPetPass to work. What feels useful, and what would make it better?</div>
+              </div>
+              <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+                <Btn sm onClick={openPostSuccessFeedback}>Share feedback</Btn>
+                <button type="button" onClick={dismissPostSuccessFeedback} style={{background:"transparent",color:"#385744",fontSize:13,fontWeight:600,padding:"8px 10px",borderRadius:8}}>Not now</button>
+              </div>
+            </div>
+          </Card>
+        )}
+
         <div style={{marginTop:24}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
             <h2 style={{fontFamily:"'Lora',serif",fontSize:20}}>✈️ Upcoming Travel</h2>
@@ -2795,7 +2846,7 @@ const Home=({state,dispatch,userId,tier,userEmail,onSignOut,isAdmin,onOpenAdmin,
     {addDog&&<DogForm userId={userId} userEmail={userEmail} onSave={d=>{dispatch({t:"ADD_DOG",d});setAddDog(false);}} onClose={()=>setAddDog(false)}/>}
     {showUpgrade&&<UpgradeModal userId={userId} userEmail={userEmail} onClose={()=>setShowUpgrade(false)}/>}
     {showProfile&&<OwnerProfileModal userId={userId} tier={tier} userEmail={userEmail} isAffiliate={isAffiliate} onOpenAffiliate={onOpenAffiliate} onUpgrade={()=>{setShowProfile(false);setShowUpgrade(true);}} onClose={()=>setShowProfile(false)}/>}
-    {showBugReport&&<BugReportModal userId={userId} userEmail={userEmail} onClose={()=>setShowBugReport(false)}/>}
+    {showBugReport&&<BugReportModal userId={userId} userEmail={userEmail} initialType={feedbackModalInitialType} onSubmitted={()=>rememberFeedbackPrompt("submitted")} onClose={()=>setShowBugReport(false)}/>}
     {showAlerts&&<AlertsModal state={state} onClose={()=>setShowAlerts(false)} onSelectDog={(id)=>setSelDog(id)}/>}
     {/* Bottom nav */}
     <div style={{position:"fixed",bottom:0,left:0,right:0,background:"#FFFFFF",borderTop:"1px solid #DCE8E0",display:"flex",zIndex:200,paddingBottom:"env(safe-area-inset-bottom)"}}>
