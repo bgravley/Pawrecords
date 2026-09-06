@@ -47,6 +47,9 @@ jobs:
       - name: Run privacy consent audit
         run: python3 scripts/privacy_consent_audit.py
 
+      - name: Run client crash-reporting privacy audit
+        run: python3 scripts/client_error_reporting_audit.py
+
       - name: Run notification relay security audit
         run: python3 scripts/notification_security_audit.py
 
