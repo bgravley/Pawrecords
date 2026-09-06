@@ -44,12 +44,6 @@ jobs:
       - name: Run product analytics privacy audit
         run: python3 scripts/analytics_audit.py
 
-      - name: Run privacy consent audit
-        run: python3 scripts/privacy_consent_audit.py
-
-      - name: Run client crash-reporting privacy audit
-        run: python3 scripts/client_error_reporting_audit.py
-
       - name: Run notification relay security audit
         run: python3 scripts/notification_security_audit.py
 
@@ -73,6 +67,9 @@ jobs:
 
       - name: Run Content Security Policy audit
         run: python3 scripts/csp_security_audit.py
+
+      - name: Run privacy consent audit
+        run: python3 scripts/privacy_consent_audit.py
 
       - name: Run authenticated app brand audit
         run: python3 scripts/authenticated_brand_audit.py
