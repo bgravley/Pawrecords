@@ -79,6 +79,15 @@ require("event === 'SIGNED_OUT'" in supabase_client and "clearGatewaySession()" 
 storage_gateway = read("api/storage-file.js")
 require("path.startsWith(`${user.id}/`)" in storage_gateway, "Private file gateway enforces user-root ownership")
 require("SUPABASE_SERVICE_KEY" in storage_gateway, "Storage service credential remains server-side")
+require("function isMissingStorageObject(status, detail)" in storage_gateway and
+        "statusCode === 404" in storage_gateway and
+        "code === 'nosuchkey'" in storage_gateway and
+        "error === 'not_found'" in storage_gateway,
+        "Storage gateway recognizes Supabase semantic missing-object responses")
+require("const status = missingObject ? 404 : 502" in storage_gateway and
+        "if (!missingObject)" in storage_gateway and
+        "console.error('Private storage read failed:'" in storage_gateway,
+        "Missing Storage objects return 404 without being logged as server failures")
 
 migration = read("supabase/migrations/20260829143000_launch_security_hardening.sql")
 require("set public = false" in migration.lower(), "Launch migration makes documents bucket private")
