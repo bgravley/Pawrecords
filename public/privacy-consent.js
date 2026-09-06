@@ -19,9 +19,19 @@
   const hasGpc = () => typeof navigator !== 'undefined' && navigator.globalPrivacyControl === true;
   const getStatus = () => hasGpc() ? 'denied' : getStored();
 
+  const clearAnalyticsCookies = () => {
+    const names = document.cookie.split(';').map(part => part.split('=')[0].trim()).filter(Boolean);
+    const shouldClear = name => name === '_gid' || name === '_gat' || name.startsWith('_ga') || name === '_clck' || name === '_clsk';
+    for (const name of names.filter(shouldClear)) {
+      document.cookie = `${name}=; Max-Age=0; Path=/; SameSite=Lax`;
+      document.cookie = `${name}=; Max-Age=0; Path=/; Domain=.yourpetpass.com; SameSite=Lax`;
+    }
+  };
+
   const loadAnalytics = () => {
     if (analyticsLoaded || getStatus() !== 'granted') return;
     analyticsLoaded = true;
+    window[`ga-disable-${GA_ID}`] = false;
 
     window.dataLayer = window.dataLayer || [];
     window.gtag = window.gtag || function gtag(){ window.dataLayer.push(arguments); };
@@ -54,12 +64,23 @@
   };
 
   const save = (status) => {
+    const previous = getStatus();
     if (hasGpc()) status = 'denied';
     try { localStorage.setItem(STORAGE_KEY, status); } catch { /* session-only */ }
+
+    if (status === 'denied') {
+      window[`ga-disable-${GA_ID}`] = true;
+      clearAnalyticsCookies();
+    }
+
     removeBanner();
     renderChoicesButton();
     if (status === 'granted') loadAnalytics();
     dispatch(status);
+
+    // If analytics were already active, reload after withdrawal so optional
+    // vendor scripts are no longer present on the current page.
+    if (previous === 'granted' && status === 'denied') window.location.reload();
   };
 
   const buttonStyle = (primary = false) => [
@@ -123,6 +144,8 @@
       loadAnalytics();
       renderChoicesButton();
     } else if (status === 'denied') {
+      window[`ga-disable-${GA_ID}`] = true;
+      clearAnalyticsCookies();
       renderChoicesButton();
     } else {
       renderBanner();
