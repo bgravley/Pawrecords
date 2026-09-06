@@ -1,0 +1,30 @@
+name: Patch AI Export Label
+
+"on":
+  push:
+    branches: [trust/ai-source-claims]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v4
+        with:
+          ref: trust/ai-source-claims
+
+      - name: Fix exported source label
+        run: python3 scripts/patch_ai_export_label.py
+
+      - name: Commit generated update
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/Travel.jsx
+          git diff --cached --quiet && exit 0
+          git commit -m "Label exported AI source dates as researched"
+          git push origin HEAD:trust/ai-source-claims
