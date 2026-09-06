@@ -100,6 +100,17 @@ jobs:
           cat /tmp/bug-report-response.json || true
           test "$STATUS" = "401"
 
+      - name: Verify crash reporting rejects anonymous writes
+        shell: bash
+        run: |
+          set -euo pipefail
+          STATUS="$(curl -sS -o /tmp/client-error-response.json -w '%{http_code}' \
+            -X POST 'https://www.yourpetpass.com/api/client-error' \
+            -H 'Content-Type: application/json' \
+            --data '{"type":"window_error","message":"anonymous crash probe","route":"/"}')"
+          cat /tmp/client-error-response.json || true
+          test "$STATUS" = "401"
+
       - name: Verify affiliate welcome endpoint requires admin
         shell: bash
         run: |
