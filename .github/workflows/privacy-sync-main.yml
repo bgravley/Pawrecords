@@ -1,0 +1,27 @@
+name: Sync Privacy Branch With Main
+
+"on":
+  push:
+    branches: [fix/privacy-analytics-consent]
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out privacy branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/privacy-analytics-consent
+          fetch-depth: 0
+
+      - name: Merge current main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          git merge origin/main --no-edit
+          git push origin HEAD:fix/privacy-analytics-consent
