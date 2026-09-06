@@ -66,8 +66,10 @@ check("an airline or carrier source is used only for that carrier's own policy" 
       'public AI policy explains carrier-source boundary')
 check('Researched is not the same as verified' in policy,
       'public AI policy explains review-status distinction')
-check('do not rely solely on our AI-generated travel checklists for legal compliance' in terms,
-      'Terms already warn against sole reliance on AI travel output')
+check("don't rely solely on our AI-generated travel checklists for legal compliance" in terms and
+      'AI-generated travel checklists are provided as a planning aid only.' in terms and
+      'You are solely responsible for verifying all requirements with the relevant government agencies, airlines, and veterinary authorities before traveling.' in terms,
+      'Terms require independent verification and prohibit sole reliance on AI travel output')
 check('https://yourpetpass.com/ai-policy.html' in sitemap,
       'AI policy is included in sitemap')
 
