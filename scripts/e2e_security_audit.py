@@ -56,6 +56,14 @@ check("OIDC identity refreshes during long runs", "ACTIONS_ID_TOKEN_REQUEST_URL"
 check("Private-file auth verified through gateway", "Private-file gateway did not authenticate browser session" in SMOKE and "/api/storage-file?path=" in SMOKE)
 check("Gateway probes always identify the signed-in user", "waitForFileSessionCookie(context);" not in SMOKE and SMOKE.count("waitForFileSessionCookie(context,") >= 3)
 
+# The first-visit privacy dialog is a real product surface. Synthetic journeys
+# must explicitly choose Essential only rather than bypassing or force-clicking
+# through it, otherwise the smoke test can regress whenever consent UI changes.
+check("Smoke has explicit Essential-only privacy helper", "async function chooseEssentialAnalytics(page)" in SMOKE)
+check("Smoke verifies denied consent is persisted", "localStorage.getItem('ypp_analytics_consent_v1')" in SMOKE and "stored !== 'denied'" in SMOKE)
+check("Public, primary, and secondary journeys handle consent", SMOKE.count("chooseEssentialAnalytics(") >= 4 and "chooseEssentialAnalytics(publicPage)" in SMOKE)
+check("Smoke never bypasses consent with force-click", "force: true" not in SMOKE)
+
 # Emergency QR may be displayed on either legitimate YourPetPass hostname,
 # but the test must still require the exact high-entropy token-shaped path.
 check("Emergency QR hosts restricted to YourPetPass", "['yourpetpass.com', 'www.yourpetpass.com']" in SMOKE)
