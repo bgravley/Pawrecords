@@ -2,8 +2,8 @@ import { track as vercelTrack } from '@vercel/analytics'
 
 // Product funnel analytics must never contain customer identifiers, pet names,
 // medical values, document names/paths, route details, or other record content.
-// Keep events as coarse action names only. GA4 and Clarity are already loaded
-// in index.html; Vercel page analytics is mounted in src/main.jsx.
+// Keep events as coarse action names only. Optional analytics are loaded only
+// after the visitor grants analytics consent through privacy-consent.js.
 const SAFE_EVENT_NAME = /^[a-z][a-z0-9_]{1,39}$/
 
 export const PRODUCT_EVENTS = Object.freeze({
@@ -21,6 +21,7 @@ export const PRODUCT_EVENTS = Object.freeze({
 
 export function trackProductEvent(name) {
   if (typeof window === 'undefined' || !SAFE_EVENT_NAME.test(name || '')) return
+  if (window.YPPAnalyticsConsent?.isGranted?.() !== true) return
 
   // Synthetic production smoke journeys should validate product behavior
   // without polluting real acquisition/funnel reporting.
