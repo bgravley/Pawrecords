@@ -68,7 +68,7 @@ test('unsubscribe tokens are signed and reject tampering', () => {
 test('GET cannot change notification preferences', async () => {
   const state = installMock(true);
   const res = makeRes();
-  await handler({ method: 'GET', query: {}, body: {} }, res);
+  await handler({ method: 'GET', url: '/api/unsubscribe', body: {} }, res);
   assert.equal(res.statusCode, 405);
   assert.equal(state.calls.length, 0);
   assert.equal(state.enabled, true);
@@ -77,25 +77,38 @@ test('GET cannot change notification preferences', async () => {
 test('invalid signed token is rejected without Supabase access', async () => {
   const state = installMock(true);
   const res = makeRes();
-  await handler({ method: 'POST', query: { token: 'v1.Zm9yZ2Vk.invalid' }, body: {} }, res);
+  await handler({ method: 'POST', url: '/api/unsubscribe?token=v1.Zm9yZ2Vk.invalid', body: {} }, res);
   assert.equal(res.statusCode, 400);
   assert.equal(state.calls.length, 0);
   assert.equal(state.enabled, true);
 });
 
-test('valid token disables reminders exactly once and duplicate delivery is idempotent', async () => {
+test('valid query token disables reminders exactly once and duplicate delivery is idempotent', async () => {
   const state = installMock(true);
   const token = createUnsubscribeToken(USER_ID);
+  const url = `/api/unsubscribe?token=${encodeURIComponent(token)}`;
 
   let res = makeRes();
-  await handler({ method: 'POST', query: { token }, body: {} }, res);
+  await handler({ method: 'POST', url, body: {} }, res);
   assert.equal(res.statusCode, 200);
   assert.equal(res.body?.success, true);
   assert.equal(state.enabled, false);
   assert.equal(state.patchCount, 1);
 
   res = makeRes();
-  await handler({ method: 'POST', query: { token }, body: {} }, res);
+  await handler({ method: 'POST', url, body: {} }, res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body?.success, true);
+  assert.equal(state.enabled, false);
+  assert.equal(state.patchCount, 1);
+});
+
+test('valid body token supports the privacy-minimal unsubscribe page flow', async () => {
+  const state = installMock(true);
+  const token = createUnsubscribeToken(USER_ID);
+  const res = makeRes();
+
+  await handler({ method: 'POST', url: '/api/unsubscribe', body: { token } }, res);
   assert.equal(res.statusCode, 200);
   assert.equal(res.body?.success, true);
   assert.equal(state.enabled, false);
