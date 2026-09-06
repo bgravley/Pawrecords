@@ -4,7 +4,10 @@ import App from './App'
 import AppErrorBoundary from './components/AppErrorBoundary'
 import PurchaseAnalyticsBridge from './PurchaseAnalyticsBridge'
 import { installGlobalErrorReporting } from './lib/clientErrorReporter'
+import { isAnalyticsExcluded } from './lib/analytics'
 import { Analytics } from '@vercel/analytics/react'
+
+const analyticsExcluded = isAnalyticsExcluded()
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
@@ -12,7 +15,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <App />
     </AppErrorBoundary>
     <PurchaseAnalyticsBridge />
-    <Analytics />
+    {!analyticsExcluded && <Analytics />}
   </React.StrictMode>
 )
 
