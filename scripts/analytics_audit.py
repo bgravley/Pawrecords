@@ -5,6 +5,8 @@ SUPABASE = Path('src/lib/supabase.js').read_text()
 BRIDGE = Path('src/PurchaseAnalyticsBridge.jsx').read_text()
 CONFIRM = Path('api/confirm-purchase.js').read_text()
 CHECKOUT = Path('api/create-checkout.js').read_text()
+MAIN = Path('src/main.jsx').read_text()
+INDEX = Path('index.html').read_text()
 
 checks = []
 def check(name, ok):
@@ -13,7 +15,20 @@ def check(name, ok):
 check('GA4 receives product events', "window.gtag?.('event', name)" in ANALYTICS)
 check('Clarity receives product events', "window.clarity?.('event', name)" in ANALYTICS)
 check('Vercel receives product events', 'vercelTrack(name)' in ANALYTICS)
-check('Synthetic E2E traffic is excluded', 'YourPetPass-Authenticated-E2E' in ANALYTICS and 'YourPetPass-Isolation-E2E' in ANALYTICS)
+check('Synthetic E2E product events are excluded', 'YourPetPass-Authenticated-E2E' in ANALYTICS and 'YourPetPass-Isolation-E2E' in ANALYTICS and 'isAnalyticsExcluded()' in ANALYTICS)
+check('Synthetic E2E browsers do not load GA4 or Clarity',
+      'YourPetPass-Authenticated-E2E' in INDEX and
+      'YourPetPass-Isolation-E2E' in INDEX and
+      'if (syntheticE2E) return;' in INDEX and
+      'https://www.clarity.ms/tag/' in INDEX and
+      'https://www.googletagmanager.com/gtag/js?id=G-GLHNVC9XZV' in INDEX)
+check('Synthetic E2E browsers do not mount Vercel page analytics',
+      'isAnalyticsExcluded' in MAIN and
+      'const analyticsExcluded = isAnalyticsExcluded()' in MAIN and
+      '{!analyticsExcluded && <Analytics />}' in MAIN)
+check('Real visitors still initialize Clarity and GA4',
+      '"clarity", "script", "xd47rh2htp"' in INDEX and
+      'window.gtag("config", "G-GLHNVC9XZV")' in INDEX)
 check('Local development traffic is excluded', "window.location.hostname === 'localhost'" in ANALYTICS)
 check('Analytics event names are allowlisted constants', 'PRODUCT_EVENTS = Object.freeze' in ANALYTICS and 'SAFE_EVENT_NAME' in ANALYTICS)
 check('Successful inserts drive funnel events', 'INSERT_EVENT_BY_TABLE' in SUPABASE and "method !== 'POST'" in SUPABASE and '!response.ok' in SUPABASE)
