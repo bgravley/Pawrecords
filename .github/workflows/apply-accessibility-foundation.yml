@@ -20,16 +20,14 @@ jobs:
       - name: Apply accessibility and empty-state updates
         run: python3 scripts/apply_accessibility_foundation.py
 
-      - name: Parse changed app modules
-        run: |
-          node --check src/PawRecord.jsx || true
-          node --check src/Travel.jsx || true
+      - name: Add browser accessibility checks to production smoke
+        run: python3 scripts/patch_accessibility_smoke.py
 
-      - name: Commit generated app updates
+      - name: Commit generated updates
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/PawRecord.jsx src/Travel.jsx
+          git add src/PawRecord.jsx src/Travel.jsx scripts/live_smoke.mjs
           git diff --cached --quiet && exit 0
-          git commit -m "Improve keyboard access, labels, and empty states"
+          git commit -m "Improve keyboard access, labels, empty states, and smoke coverage"
           git push origin HEAD:fix/accessibility-empty-states
