@@ -2,8 +2,16 @@ import { chromium } from 'playwright';
 
 const BASE = (process.env.E2E_BASE_URL || 'https://www.yourpetpass.com').replace(/\/$/, '');
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-const ANALYTICS_URL = /googletagmanager\.com\/gtag\/js|www\.clarity\.ms\/tag\//i;
-const VERCEL_ANALYTICS_URL = /\/_vercel\/insights\//i;
+const OPTIONAL_ANALYTICS_URL = /googletagmanager\.com\/gtag\/js|www\.clarity\.ms\/tag\/|\/_vercel\/insights\/|vercel-scripts\.com/i;
+
+function collectAnalytics(page) {
+  const requests = [];
+  page.on('request', request => {
+    const url = request.url();
+    if (OPTIONAL_ANALYTICS_URL.test(url)) requests.push(url);
+  });
+  return requests;
+}
 
 async function testCurrentDeployment(browser) {
   const context = await browser.newContext({
@@ -11,11 +19,7 @@ async function testCurrentDeployment(browser) {
     userAgent: 'YourPetPass-Privacy-Consent-Smoke/1.0',
   });
   const page = await context.newPage();
-  const analyticsRequests = [];
-  page.on('request', request => {
-    const url = request.url();
-    if (ANALYTICS_URL.test(url) || VERCEL_ANALYTICS_URL.test(url)) analyticsRequests.push(url);
-  });
+  const analyticsRequests = collectAnalytics(page);
 
   try {
     const response = await page.goto(BASE, { waitUntil: 'domcontentloaded', timeout: 30000 });
@@ -65,20 +69,21 @@ async function testGpc(browser) {
     Object.defineProperty(Navigator.prototype, 'globalPrivacyControl', { configurable: true, get: () => true });
   });
   const page = await context.newPage();
-  const analyticsRequests = [];
-  page.on('request', request => {
-    const url = request.url();
-    if (ANALYTICS_URL.test(url) || VERCEL_ANALYTICS_URL.test(url)) analyticsRequests.push(url);
-  });
+  const analyticsRequests = collectAnalytics(page);
 
   try {
     await page.goto(BASE, { waitUntil: 'domcontentloaded', timeout: 30000 });
-    await page.getByText('Browser privacy signal detected.', { exact: false }).waitFor({ state: 'visible', timeout: 5000 });
+    const choices = page.getByRole('button', { name: 'Open privacy choices', exact: true });
+    await choices.waitFor({ state: 'visible', timeout: 5000 });
+    await sleep(500);
+    if (analyticsRequests.length) throw new Error(`Analytics loaded while GPC was active: ${analyticsRequests.join(', ')}`);
+
+    await choices.click();
+    await page.getByText('Browser privacy signal detected.', { exact: false }).waitFor({ state: 'visible', timeout: 3000 });
     if (await page.getByRole('button', { name: 'Allow analytics', exact: true }).count()) {
       throw new Error('Allow analytics is offered while Global Privacy Control is active');
     }
-    await sleep(800);
-    if (analyticsRequests.length) throw new Error(`Analytics loaded while GPC was active: ${analyticsRequests.join(', ')}`);
+    if (analyticsRequests.length) throw new Error(`Analytics loaded after opening GPC privacy choices: ${analyticsRequests.join(', ')}`);
   } finally {
     await context.close();
   }
