@@ -88,6 +88,7 @@ export default function App() {
   const [showAffiliatePortal, setShowAffiliatePortal] = useState(false);
   const [showAuthScreen, setShowAuthScreen] = useState(false);
   const [isAffiliate, setIsAffiliate] = useState(false);
+  const [upgradeRequestKey, setUpgradeRequestKey] = useState(0);
 
   // Detect Stripe payment redirect (?payment=success or ?payment=canceled)
   useEffect(() => {
@@ -220,7 +221,15 @@ export default function App() {
   }
 
   if (showTravel) {
-    return <Travel userId={session.user.id} onBack={() => setShowTravel(false)} />;
+    return <Travel
+      userId={session.user.id}
+      tier={profile?.subscription_tier || 'free'}
+      onUpgrade={() => {
+        setShowTravel(false);
+        setUpgradeRequestKey(key => key + 1);
+      }}
+      onBack={() => setShowTravel(false)}
+    />;
   }
 
   return (
@@ -251,6 +260,7 @@ export default function App() {
           onOpenAdmin={() => setShowAdmin(true)}
           onOpenTravel={() => setShowTravel(true)}
           onOpenAffiliate={() => setShowAffiliatePortal(true)}
+          upgradeRequestKey={upgradeRequestKey}
         />
       )}
     </>

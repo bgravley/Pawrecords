@@ -353,12 +353,12 @@ const Avatar=({dog,size=48})=>{
   </div>);
 };
 
-const PremiumLock=({onUpgrade,label="Premium Feature"})=>(
+const PremiumLock=({onUpgrade,label="Premium Feature",detail="Your core pet health record stays free. Premium adds this extra tool when you need it."})=>(
   <div style={{background:"#C9A84C10",border:"1px solid #C9A84C44",borderRadius:12,padding:16,textAlign:"center"}}>
     <Ic n="crown" s={24} c="#C9A84C"/>
     <div style={{fontWeight:600,marginTop:8,marginBottom:4}}>{label}</div>
-    <div style={{color:"#385744",fontSize:13,marginBottom:12}}>Upgrade to Premium to unlock this feature</div>
-    <Btn onClick={onUpgrade} style={{margin:"0 auto",background:"#C9A84C",color:"#FAFCFB"}}><Ic n="crown" s={14} c="#FAFCFB"/> Upgrade Now</Btn>
+    <div style={{color:"#385744",fontSize:13,lineHeight:1.55,marginBottom:12}}>{detail}</div>
+    <Btn onClick={onUpgrade} style={{margin:"0 auto",background:"#C9A84C",color:"#FAFCFB"}}><Ic n="crown" s={14} c="#FAFCFB"/> See Premium Options</Btn>
   </div>
 );
 
@@ -1737,7 +1737,7 @@ const VaccinesTab=({dog,state,dispatch,userId,tier,onUpgrade})=>{
         </>}
         {filter&&filtered.length===0&&<div style={{textAlign:"center",padding:"20px 0",color:"#6A8372",fontSize:14}}>No vaccines matching "{filter}"</div>}
       </>}
-    {premium?<SchedulePanel vaccines={vaccines} all={all} species={dog.species}/>:<PremiumLock onUpgrade={onUpgrade} label="Vaccine Schedule — Premium Feature"/>}
+    {premium?<SchedulePanel vaccines={vaccines} all={all} species={dog.species}/>:<PremiumLock onUpgrade={onUpgrade} label="Vaccine Schedule — Premium Feature" detail="Keep recording vaccines for free. Premium adds due-date schedule guidance and proactive tracking."/>}
     {modal?.type==="add"&&<VaccineForm dogId={dog.id} species={dog.species} userId={userId} onSave={v=>{dispatch({t:"ADD_VACC",v});setModal(null);}} onClose={()=>setModal(null)}/>}
     {modal?.type==="edit"&&<VaccineForm vacc={modal.v} dogId={dog.id} species={dog.species} userId={userId} onSave={v=>{dispatch({t:"UPD_VACC",v});setModal(null);}} onClose={()=>setModal(null)}/>}
   </div>);
@@ -2074,7 +2074,7 @@ const MoreTab=({dog,state,dispatch,userId,tier,onUpgrade,onScan})=>{
       {weights.length>=2&&(<Card><div style={{width:"100%",height:180}}><ResponsiveContainer width="100%" height={180}><LineChart data={weights.map(w=>({date:w.log_date.slice(5),weight:w.weight_lbs}))}><CartesianGrid strokeDasharray="3 3" stroke="#DCE8E0"/><XAxis dataKey="date" stroke="#385744" tick={{fontSize:11}}/><YAxis stroke="#385744" tick={{fontSize:11}} domain={["auto","auto"]}/><Tooltip contentStyle={{background:"#FFFFFF",border:"1px solid #DCE8E0",borderRadius:10,color:"#1A2E22",fontSize:13}} formatter={v=>[v+" lbs","Weight"]}/><Line type="monotone" dataKey="weight" stroke="#2C4A38" strokeWidth={2} dot={{r:3,fill:"#2C4A38"}}/></LineChart></ResponsiveContainer></div></Card>)}
       {weights.length===0?<Empty icon="weight" title="No weight records" sub="Log weight at each vet visit to track trends." action={<Btn onClick={()=>setModal("addWeight")}><Ic n="plus" s={14}/> Log Weight</Btn>}/>:weights.slice().reverse().map(w=>(<Card key={w.id}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><span style={{fontFamily:"'Lora',serif",fontSize:22,fontWeight:600}}>{w.weight_lbs}<span style={{fontSize:14,color:"#385744"}}> lbs</span></span><div style={{fontSize:12,color:"#385744",marginTop:2}}>{fmt(w.log_date)}{w.notes?` · ${w.notes}`:""}</div></div><button type="button" aria-label={`Delete weight record from ${fmt(w.log_date)}`} onClick={async()=>{try{await db.deleteWeight(w.id);dispatch({t:"DEL_WT",id:w.id});}catch(e){alert("Could not delete: "+e.message);}}} style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:8,padding:"5px 8px",color:"#C4714A"}}><Ic n="trash" s={13}/></button></div></Card>))}
       {modal==="addWeight"&&<WeightLogModal userId={userId} dog={dog} dispatch={dispatch} onClose={()=>setModal(null)}/>}
-    </>:<PremiumLock onUpgrade={onUpgrade} label="Weight Tracking — Premium Feature"/>}
+    </>:<PremiumLock onUpgrade={onUpgrade} label="Weight Tracking — Premium Feature" detail="Your core health history stays free. Premium adds weight logging and trend charts over time."/>}
   </div>);
 
   if(section==="vets")return(<div style={{display:"flex",flexDirection:"column",gap:12}}>
@@ -2098,7 +2098,7 @@ const MoreTab=({dog,state,dispatch,userId,tier,onUpgrade,onScan})=>{
       </div>
       <Btn sm onClick={onScan} style={{flexShrink:0}}><Ic n="camera" s={14}/> AI Scan</Btn>
     </div>)}
-    {!premium&&<PremiumLock onUpgrade={onUpgrade} label="Document Storage — Premium Feature"/>}
+    {!premium&&<PremiumLock onUpgrade={onUpgrade} label="Document Storage — Premium Feature" detail="Your manually entered health records stay free. Premium adds private document storage and AI document scanning."/>}
     {premium&&(<>
       {docs.length===0
         ?<Empty icon="doc" title="No documents yet" sub="Scan a vet record, vaccine certificate, or travel document. YourPetPass will keep it with this pet's health history." action={<Btn onClick={onScan}><Ic n="camera" s={14}/> Scan First Document</Btn>}/>
@@ -2124,7 +2124,7 @@ const MoreTab=({dog,state,dispatch,userId,tier,onUpgrade,onScan})=>{
 
 
   if(section==="qr"){
-    if(!premium)return(<div style={{display:"flex",flexDirection:"column",gap:12}}><div style={{display:"flex",alignItems:"center",gap:10}}>{backBtn}<h3 style={{fontFamily:"'Lora',serif",fontSize:20}}>QR Health Card</h3></div><PremiumLock onUpgrade={onUpgrade} label="QR Health Card — Premium Feature"/></div>);
+    if(!premium)return(<div style={{display:"flex",flexDirection:"column",gap:12}}><div style={{display:"flex",alignItems:"center",gap:10}}>{backBtn}<h3 style={{fontFamily:"'Lora',serif",fontSize:20}}>QR Health Card</h3></div><PremiumLock onUpgrade={onUpgrade} label="QR Health Card — Premium Feature" detail="Your pet's health history stays available in the app. Premium adds a shareable emergency QR health card."/></div>);
     return <QRSection dog={dog} state={state} backBtn={backBtn}/>;
   }
 
@@ -2641,7 +2641,7 @@ const AlertsModal=({state,onClose,onSelectDog})=>{
   </Modal>);
 };
 
-const Home=({state,dispatch,userId,tier,userEmail,onSignOut,isAdmin,onOpenAdmin,onOpenTravel,isAffiliate,onOpenAffiliate})=>{
+const Home=({state,dispatch,userId,tier,userEmail,onSignOut,isAdmin,onOpenAdmin,onOpenTravel,isAffiliate,onOpenAffiliate,upgradeRequestKey})=>{
   const[addDog,setAddDog]=useState(false);
   const[selDog,setSelDog]=useState(null);
   const[showUpgrade,setShowUpgrade]=useState(false);
@@ -2650,6 +2650,10 @@ const Home=({state,dispatch,userId,tier,userEmail,onSignOut,isAdmin,onOpenAdmin,
   const[showAlerts,setShowAlerts]=useState(false);
   const[errorCount,setErrorCount]=useState(0);
   const[upcomingTrips,setUpcomingTrips]=useState([]);
+
+  useEffect(()=>{
+    if(upgradeRequestKey>0)setShowUpgrade(true);
+  },[upgradeRequestKey]);
   const premium=isPremium(tier);
 
   useEffect(()=>{
@@ -2808,7 +2812,7 @@ const Home=({state,dispatch,userId,tier,userEmail,onSignOut,isAdmin,onOpenAdmin,
   </div>);
 };
 
-export default function YourPetPass({userId,profile,onSignOut,isAdmin,isAffiliate,onOpenAdmin,onOpenTravel,onOpenAffiliate}){
+export default function YourPetPass({userId,profile,onSignOut,isAdmin,isAffiliate,onOpenAdmin,onOpenTravel,onOpenAffiliate,upgradeRequestKey=0}){
   const[state,dispatch]=useReducer(reducer,null,initState);
   const[ready,setReady]=useState(false);
   const[tier,setTier]=useState("free");
@@ -2836,7 +2840,7 @@ export default function YourPetPass({userId,profile,onSignOut,isAdmin,isAffiliat
   return(
     <ErrorBoundary>
       <style>{GLOBAL}</style>
-      <Home state={state} dispatch={dispatch} userId={userId} tier={tier} userEmail={userEmail} onSignOut={onSignOut} isAdmin={isAdmin} isAffiliate={isAffiliate} onOpenAdmin={onOpenAdmin} onOpenTravel={onOpenTravel} onOpenAffiliate={onOpenAffiliate}/>
+      <Home state={state} dispatch={dispatch} userId={userId} tier={tier} userEmail={userEmail} onSignOut={onSignOut} isAdmin={isAdmin} isAffiliate={isAffiliate} onOpenAdmin={onOpenAdmin} onOpenTravel={onOpenTravel} onOpenAffiliate={onOpenAffiliate} upgradeRequestKey={upgradeRequestKey}/>
     </ErrorBoundary>
   );
 }
