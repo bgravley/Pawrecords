@@ -1,0 +1,30 @@
+name: Patch Unsubscribe Audit Contract
+
+"on":
+  push:
+    branches: [fix/secure-unsubscribe]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/secure-unsubscribe
+
+      - name: Update audit contract
+        run: python3 scripts/patch_unsubscribe_audit_contract.py
+
+      - name: Commit audit update
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/audit.py
+          git diff --cached --quiet && exit 0
+          git commit -m "Teach site audit about signed unsubscribe routes"
+          git push origin HEAD:fix/secure-unsubscribe
