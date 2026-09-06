@@ -163,6 +163,12 @@ jobs:
           grep -Fq "frame-ancestors 'self'" <<<"$CSP"
           grep -Fq "https://*.supabase.co" <<<"$CSP"
 
+      - name: Verify optional analytics require consent in production
+        shell: bash
+        env:
+          E2E_BASE_URL: https://www.yourpetpass.com
+        run: node scripts/privacy_consent_production_smoke.mjs
+
       - name: Run public and authenticated production smoke tests
         shell: bash
         env:
