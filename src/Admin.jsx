@@ -179,7 +179,7 @@ export default function Admin({ onBack }) {
           { id: "ai", label: `AI Usage (${aiLogs.length})` },
           { id: "activity", label: `Activity (${activityLogs.length})` },
           { id: "errors", label: `Errors (${errorLogs.filter(e=>!e.reviewed).length})`, alert: errorLogs.filter(e=>!e.reviewed).length > 0 },
-          { id: "bugs", label: `Bug Reports (${bugReports.filter(b=>b.status==='pending').length})`, alert: bugReports.filter(b=>b.status==='pending').length > 0 },
+          { id: "bugs", label: `Feedback (${bugReports.filter(b=>b.status==='pending').length})`, alert: bugReports.filter(b=>b.status==='pending').length > 0 },
           { id: "affiliates", label: `Affiliates (${affiliates.length})` },
           { id: "payouts", label: `Payouts (${payoutSummary.length})`, alert: payoutSummary.length > 0 },
         ].map(t => (
@@ -512,11 +512,11 @@ export default function Admin({ onBack }) {
         {tab === "bugs" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ fontWeight: 700, fontSize: 16 }}>Bug Reports</div>
+              <div style={{ fontWeight: 700, fontSize: 16 }}>Feedback & Reports</div>
               <div style={{ fontSize: 13, color: C.sub }}>{bugReports.filter(b=>b.status==='pending').length} pending review</div>
             </div>
             {bugReports.length === 0
-              ? <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 40, textAlign: "center", color: C.sub }}>No bug reports yet</div>
+              ? <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 40, textAlign: "center", color: C.sub }}>No feedback or reports yet</div>
               : bugReports.map(report => (
                 <div key={report.id} style={{ background: C.card, border: `1px solid ${report.status === 'pending' ? "#E8A83844" : C.border}`, borderRadius: 12, padding: 16 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
@@ -530,6 +530,7 @@ export default function Admin({ onBack }) {
                     </div>
                     <span style={{ fontSize: 12, color: C.sub }}>{fmtTime(report.created_at)}</span>
                   </div>
+                  <div style={{fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".05em",color:(report.report_type||"bug")==="bug"?C.danger:(report.report_type||"bug")==="feature"?C.warn:C.accent,marginBottom:7}}>{(report.report_type||"bug")==="bug"?"Bug Report":(report.report_type||"bug")==="feature"?"Feature Request":"General Feedback"}</div>
                   <div style={{ background: C.bg, borderRadius: 8, padding: 12, fontSize: 13, color: C.text, marginBottom: (report.status === 'pending' || report.screenshot_url) ? 12 : (report.reward_type ? 8 : 0), whiteSpace: "pre-wrap" }}>
                     {report.description}
                   </div>
@@ -549,13 +550,13 @@ export default function Admin({ onBack }) {
                         const res = await adminFetch('approve_bug_report', { reportId: report.id });
                         setBugReports(p => p.map(b => b.id === report.id ? { ...b, status: 'approved', reward_type: res?.data?.rewardType } : b));
                       }} style={{ flex: 1, background: "#2D7D6F", color: "#fff", border: "none", borderRadius: 8, padding: "9px 0", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
-                        ✓ Approve & Reward
+                        {(report.report_type||"bug")==="bug"?"✓ Approve & Reward":"✓ Mark Reviewed"}
                       </button>
                       <button onClick={async () => {
                         await adminFetch('reject_bug_report', { reportId: report.id });
                         setBugReports(p => p.map(b => b.id === report.id ? { ...b, status: 'rejected' } : b));
                       }} style={{ flex: 1, background: "transparent", color: C.sub, border: `1px solid ${C.border}`, borderRadius: 8, padding: "9px 0", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
-                        ✗ Reject
+                        {(report.report_type||"bug")==="bug"?"✗ Reject":"Archive"}
                       </button>
                     </div>
                   )}

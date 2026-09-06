@@ -2305,6 +2305,7 @@ const BillingSection=({userId,tier,userEmail})=>{
 
 const BugReportModal=({userId,userEmail,onClose})=>{
   const[description,setDescription]=useState("");
+  const[reportType,setReportType]=useState("bug");
   const[screenshot,setScreenshot]=useState(null); // {dataUrl, file}
   const[sending,setSending]=useState(false);
   const[sent,setSent]=useState(false);
@@ -2322,7 +2323,7 @@ const BugReportModal=({userId,userEmail,onClose})=>{
   };
 
   const submit=async()=>{
-    if(!description.trim())return setErr("Please describe the bug before submitting.");
+    if(!description.trim())return setErr(reportType==="bug"?"Please describe the bug before submitting.":"Please add a little detail before submitting.");
     setSending(true);setErr(null);
     try{
       let screenshotUrl=null;
@@ -2341,7 +2342,7 @@ const BugReportModal=({userId,userEmail,onClose})=>{
       }
       const res=await fetch('/api/report-bug',{
         method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({userId,userEmail,description:description.trim(),screenshotUrl})
+        body:JSON.stringify({userId,userEmail,reportType,description:description.trim(),screenshotUrl})
       });
       const data=await res.json();
       if(!res.ok||data.error)throw new Error(data.error||'Could not submit report');
@@ -2350,26 +2351,33 @@ const BugReportModal=({userId,userEmail,onClose})=>{
     setSending(false);
   };
 
-  return(<Modal title="🐛 Report a Bug" onClose={onClose}>
+  return(<Modal title="💬 Share Feedback" onClose={onClose}>
     {sent?(
       <div style={{textAlign:"center",padding:"20px 0"}}>
         <div style={{fontSize:40,marginBottom:12}}>✅</div>
-        <div style={{fontFamily:"'Lora',serif",fontSize:18,marginBottom:8}}>Thanks for the report!</div>
-        <div style={{fontSize:14,color:"#385744",lineHeight:1.6,marginBottom:8}}>We'll take a look. If it's a real bug, we'll add a free month to your account as a thank-you.</div>
+        <div style={{fontFamily:"'Lora',serif",fontSize:18,marginBottom:8}}>{reportType==="bug"?"Thanks for the report!":reportType==="feature"?"Thanks for the idea!":"Thanks for the feedback!"}</div>
+        <div style={{fontSize:14,color:"#385744",lineHeight:1.6,marginBottom:8}}>{reportType==="bug"?"We'll take a look. If it's a confirmed bug, we'll add a free month to an eligible active subscription as a thank-you.":"We've saved this for review. Feedback like this helps us decide what to improve next."}</div>
         <Btn onClick={onClose} style={{margin:"0 auto",justifyContent:"center"}}>Done</Btn>
       </div>
     ):(
       <div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <Field label="What would you like to share?">
+          <select value={reportType} onChange={e=>setReportType(e.target.value)}>
+            <option value="bug">Report a bug</option>
+            <option value="feature">Request a feature</option>
+            <option value="feedback">Share general feedback</option>
+          </select>
+        </Field>
         <div style={{fontSize:13,color:"#385744",lineHeight:1.6}}>
-          Found something broken? Tell us what happened and what you expected instead. Real bugs get a free month added to your account once we confirm it.
+          {reportType==="bug"?"Found something broken? Tell us what happened and what you expected instead. Confirmed bugs may qualify for our bug-report thank-you.":reportType==="feature"?"Have an idea that would make YourPetPass more useful? Tell us what you would like to be able to do.":"Tell us what is working well, what feels confusing, or anything else you think we should know."}
         </div>
-        <Field label="What went wrong?">
-          <textarea maxLength={2000} value={description} onChange={e=>setDescription(e.target.value)} placeholder="e.g. When I tap Export on Biscuit's page, nothing happens..." style={{minHeight:120}}/>
+        <Field label={reportType==="bug"?"What went wrong?":reportType==="feature"?"What would you like us to add?":"Your feedback"}>
+          <textarea maxLength={2000} value={description} onChange={e=>setDescription(e.target.value)} placeholder={reportType==="bug"?"e.g. When I tap Export on Biscuit's page, nothing happens...":reportType==="feature"?"e.g. I'd love a single printable packet with my pet's travel documents...":"Tell us what you think..."} style={{minHeight:120}}/>
         </Field>
         <Field label="Screenshot (optional, but really helpful)">
           {screenshot
             ?<div style={{position:"relative",width:"fit-content"}}>
-                <img src={screenshot.dataUrl} alt="Bug screenshot" style={{maxWidth:"100%",maxHeight:180,borderRadius:10,border:"1px solid #DCE8E0",display:"block"}}/>
+                <img src={screenshot.dataUrl} alt="Feedback screenshot" style={{maxWidth:"100%",maxHeight:180,borderRadius:10,border:"1px solid #DCE8E0",display:"block"}}/>
                 <button onClick={()=>setScreenshot(null)} style={{position:"absolute",top:6,right:6,background:"#1A2E22CC",border:"none",borderRadius:20,width:26,height:26,color:"#fff",cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
               </div>
             :<label style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,border:"1.5px dashed #DCE8E0",borderRadius:10,padding:"16px",color:"#6A8372",fontSize:13,cursor:"pointer",background:"#FAFCFB"}}>
@@ -2688,7 +2696,7 @@ const Home=({state,dispatch,userId,tier,userEmail,onSignOut,isAdmin,onOpenAdmin,
           {!premium&&<button onClick={()=>setShowUpgrade(true)} style={{background:"#C9A84C20",border:"1px solid #C9A84C44",borderRadius:10,padding:"7px 12px",color:"#C9A84C",fontWeight:600,fontSize:12,display:"flex",alignItems:"center",gap:5,cursor:"pointer"}}><Ic n="crown" s={13} c="#C9A84C"/>Premium</button>}
           {totalAlerts>0&&<button onClick={()=>setShowAlerts(true)} style={{background:"#C9A84C14",border:"1px solid #C9A84C44",borderRadius:10,padding:"7px 12px",display:"flex",alignItems:"center",gap:5,color:"#C9A84C",fontSize:13,cursor:"pointer"}}><Ic n="alert" s={14} c="#C9A84C"/>{totalAlerts}</button>}
           <button onClick={onOpenTravel} title="Travel" style={{background:"#FFFFFF",border:"1px solid #DCE8E0",borderRadius:10,padding:"7px 10px",color:"#385744",cursor:"pointer"}}><Ic n="map" s={16} c="#385744"/></button>
-          <button onClick={()=>setShowBugReport(true)} title="Report a Bug" style={{background:"#FFFFFF",border:"1px solid #DCE8E0",borderRadius:10,padding:"7px 10px",color:"#385744",cursor:"pointer",fontSize:15}}>🐛</button>
+          <button onClick={()=>setShowBugReport(true)} title="Share Feedback" aria-label="Share feedback" style={{background:"#FFFFFF",border:"1px solid #DCE8E0",borderRadius:10,padding:"7px 10px",color:"#385744",cursor:"pointer",fontSize:15}}>💬</button>
           <button onClick={()=>setShowProfile(true)} title="My Account" style={{background:"#FFFFFF",border:"1px solid #DCE8E0",borderRadius:10,padding:"7px 10px",color:"#385744",cursor:"pointer"}}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#385744" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
