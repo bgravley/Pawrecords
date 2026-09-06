@@ -2,6 +2,9 @@ from pathlib import Path
 import subprocess
 
 text = Path('api/report-bug.js').read_text()
+admin_api = Path('api/admin-data.js').read_text()
+app = Path('src/PawRecord.jsx').read_text()
+admin_ui = Path('src/Admin.jsx').read_text()
 migration = Path('supabase/migrations/20260906155500_feedback_report_types.sql').read_text()
 checks = {
     'requires verified signed-in user': "const auth = await verifyUser(req);" in text,
@@ -20,6 +23,12 @@ checks = {
     'response disables caching': "Cache-Control', 'private, no-store'" in text,
     'database constrains category values': "check (report_type in ('bug', 'feature', 'feedback'))" in migration,
     'existing reports retain bug default': "default 'bug'" in migration,
+    'customer UI exposes bug feature and feedback choices': all(v in app for v in ['Report a bug', 'Request a feature', 'Share general feedback']),
+    'customer UI sends selected report type': 'JSON.stringify({userId,userEmail,reportType,description:description.trim(),screenshotUrl})' in app,
+    'feedback launcher has an accessible name': 'title="Share Feedback" aria-label="Share feedback"' in app,
+    'admin queue identifies all feedback categories': all(v in admin_ui for v in ['Feedback & Reports', 'Feature Request', 'General Feedback']),
+    'non-bug reviews bypass bug reward billing path': "if (reportType !== 'bug')" in admin_api and 'not bug-bounty submissions and must never modify billing' in admin_api,
+    'non-bug admin action is review not reward': '"✓ Mark Reviewed"' in admin_ui,
 }
 
 behavior = subprocess.run(
