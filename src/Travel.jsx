@@ -116,11 +116,11 @@ const Btn = ({ children, onClick, v = "primary", sm, full, style: s, disabled })
     amber: { background: C.warn, color: "#2C2017" },
   };
   return (
-    <button onClick={disabled ? undefined : onClick}
+    <button type="button" disabled={!!disabled} aria-disabled={disabled ? true : undefined} onClick={onClick}
       style={{ ...V[v], borderRadius: 12, fontWeight: 700, display: "inline-flex", alignItems: "center",
         gap: 6, width: full ? "100%" : "auto", justifyContent: full ? "center" : "flex-start",
         padding: sm ? "7px 14px" : "10px 20px", fontSize: sm ? 13 : 14,
-        opacity: disabled ? 0.5 : 1, border: "none", cursor: "pointer",
+        opacity: disabled ? 0.5 : 1, border: "none", cursor: disabled ? "not-allowed" : "pointer",
         fontFamily: "'Nunito', sans-serif", ...s }}
       onMouseEnter={e => !disabled && (e.currentTarget.style.opacity = "0.85")}
       onMouseLeave={e => e.currentTarget.style.opacity = "1"}>
@@ -129,8 +129,9 @@ const Btn = ({ children, onClick, v = "primary", sm, full, style: s, disabled })
   );
 };
 
-const Card = ({ children, style: s, onClick }) => (
-  <div onClick={onClick} style={{
+const Card = ({ children, style: s, onClick, ariaLabel }) => (
+  <div onClick={onClick} role={onClick ? "button" : undefined} tabIndex={onClick ? 0 : undefined} aria-label={ariaLabel}
+    onKeyDown={e => { if (onClick && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onClick(e); } }} style={{
     background: C.card, border: `1px solid ${C.border}`, borderRadius: 16,
     padding: 18, boxShadow: C.shadow, ...s,
     cursor: onClick ? "pointer" : "default", transition: "box-shadow .2s"
@@ -149,10 +150,10 @@ const Badge = ({ label, color }) => (
 );
 
 const Field = ({ label, children, col }) => (
-  <div style={{ display: "flex", flexDirection: "column", gap: 5, gridColumn: col }}>
-    <label style={{ fontSize: 11, fontWeight: 800, color: C.sub, textTransform: "uppercase", letterSpacing: ".08em" }}>{label}</label>
+  <label style={{ display: "flex", flexDirection: "column", gap: 5, gridColumn: col }}>
+    <span style={{ fontSize: 11, fontWeight: 800, color: C.sub, textTransform: "uppercase", letterSpacing: ".08em" }}>{label}</span>
     {children}
-  </div>
+  </label>
 );
 
 const Modal = ({ title, onClose, children, wide }) => (
@@ -160,14 +161,14 @@ const Modal = ({ title, onClose, children, wide }) => (
     position: "fixed", inset: 0, background: "#00000088", zIndex: 500,
     display: "flex", alignItems: "center", justifyContent: "center", padding: 16
   }} onClick={e => e.target === e.currentTarget && onClose()}>
-    <div style={{
+    <div role="dialog" aria-modal="true" aria-label={title} style={{
       background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20,
       width: "100%", maxWidth: wide ? 620 : 500, maxHeight: "92vh",
       overflow: "auto", padding: 24, boxShadow: "0 8px 40px rgba(44,32,23,0.15)"
     }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
         <h3 style={{ fontFamily: "'Lora', serif", fontSize: 22, color: C.text }}>{title}</h3>
-        <button onClick={onClose} style={{
+        <button type="button" aria-label={`Close ${title}`} onClick={onClose} style={{
           background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8,
           padding: "6px 10px", color: C.sub, cursor: "pointer"
         }}>✕</button>
@@ -1841,18 +1842,18 @@ export default function Travel({ userId, onBack }) {
         {loading && <div style={{ textAlign: "center", padding: 40, color: C.muted }}>Loading trips...</div>}
 
         {!loading && displayed.length === 0 && (
-          <div style={{ textAlign: "center", padding: "52px 20px" }}>
-            <div style={{ fontSize: 48, marginBottom: 14 }}>✈️</div>
-            <div style={{ fontFamily: "'Lora', serif", fontSize: 22, marginBottom: 6, fontStyle: "italic" }}>
+          <section aria-label={filter === "upcoming" ? "No upcoming trips" : "No past trips"} style={{ textAlign: "center", padding: "52px 20px" }}>
+            <div aria-hidden="true" style={{ fontSize: 48, marginBottom: 14 }}>✈️</div>
+            <h3 style={{ fontFamily: "'Lora', serif", fontSize: 22, marginBottom: 6, fontStyle: "italic" }}>
               {filter === "upcoming" ? "No upcoming trips" : "No past trips"}
-            </div>
+            </h3>
             <div style={{ color: C.muted, fontSize: 14, marginBottom: 24 }}>
               {filter === "upcoming" ? "Plan your next adventure with your pet" : "Your completed trips will appear here"}
             </div>
             {filter === "upcoming" && (
               <Btn onClick={() => setShowNew(true)} style={{ margin: "0 auto", background: C.warn, color: "#2C2017" }}>+ Plan First Trip</Btn>
             )}
-          </div>
+          </section>
         )}
 
         {displayed.map(trip => {

@@ -46,6 +46,56 @@ async function expectVisibleText(page, text, timeout = 15000) {
   await page.getByText(text, { exact: false }).first().waitFor({ state: 'visible', timeout });
 }
 
+async function assertAccessibleControls(page, label) {
+  const problems = await page.evaluate(() => {
+    const visible = element => {
+      const style = window.getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return style.display !== 'none' && style.visibility !== 'hidden' && Number(style.opacity) !== 0 && rect.width > 0 && rect.height > 0;
+    };
+    const textForId = id => document.getElementById(id)?.textContent?.trim() || '';
+    const named = element => {
+      const aria = element.getAttribute('aria-label')?.trim();
+      if (aria) return true;
+      const labelledBy = element.getAttribute('aria-labelledby')?.trim();
+      if (labelledBy && labelledBy.split(/\s+/).some(id => textForId(id))) return true;
+      if (element.getAttribute('title')?.trim()) return true;
+      if (element.textContent?.trim()) return true;
+      if (element instanceof HTMLInputElement && ['submit', 'button', 'reset'].includes(element.type) && element.value?.trim()) return true;
+      return false;
+    };
+    const hasFormLabel = element => {
+      if (element.getAttribute('aria-label')?.trim()) return true;
+      const labelledBy = element.getAttribute('aria-labelledby')?.trim();
+      if (labelledBy && labelledBy.split(/\s+/).some(id => textForId(id))) return true;
+      if (element.closest('label')) return true;
+      if (element.id && document.querySelector(`label[for="${CSS.escape(element.id)}"]`)) return true;
+      return false;
+    };
+    const describe = element => {
+      const tag = element.tagName.toLowerCase();
+      const role = element.getAttribute('role');
+      const text = element.textContent?.trim().replace(/\s+/g, ' ').slice(0, 60) || '';
+      return `${tag}${role ? `[role=${role}]` : ''}${text ? ` "${text}"` : ''}`;
+    };
+
+    const issues = [];
+    document.querySelectorAll('button,[role="button"],a[href]').forEach(element => {
+      if (visible(element) && !named(element)) issues.push(`unnamed interactive control: ${describe(element)}`);
+    });
+    document.querySelectorAll('input:not([type="hidden"]),select,textarea').forEach(element => {
+      if (visible(element) && !hasFormLabel(element)) issues.push(`unlabeled form control: ${describe(element)}`);
+    });
+    document.querySelectorAll('[role="dialog"]').forEach(element => {
+      if (!visible(element)) return;
+      if (element.getAttribute('aria-modal') !== 'true') issues.push('visible dialog missing aria-modal=true');
+      if (!named(element)) issues.push('visible dialog missing accessible name');
+    });
+    return issues.slice(0, 20);
+  });
+  if (problems.length) throw new Error(`${label} accessibility problems: ${problems.join(' | ')}`);
+}
+
 async function chooseEssentialAnalytics(page) {
   const essential = page.getByRole('button', { name: 'Essential only', exact: true });
   try {
@@ -367,6 +417,7 @@ await check('Authenticated production customer flow works end to end', async () 
     await step('One-time magic link signs into production', async () => {
       await loginWithActionLink(page, primary.actionLink);
       await chooseEssentialAnalytics(page);
+      await assertAccessibleControls(page, 'My Pets first-run screen');
       primarySession = await readBrowserSession(page);
       if (primarySession.userId !== primary.userId) throw new Error('Browser session belongs to an unexpected user');
       await waitForFileSessionCookie(context, primarySession.userId);
@@ -376,6 +427,7 @@ await check('Authenticated production customer flow works end to end', async () 
       const add = page.getByRole('button', { name: /Add Your First Pet|Add Pet/ }).first();
       await add.click();
       const modal = await modalFor(page, 'Add Pet');
+      await assertAccessibleControls(page, 'Add Pet dialog');
       await (await fieldControl(modal, 'Name')).fill(PET_NAME);
       await (await fieldControl(modal, 'Breed')).fill('E2E Golden Mix');
       await (await fieldControl(modal, 'Date of Birth')).fill('2021-06-15');
@@ -417,6 +469,7 @@ await check('Authenticated production customer flow works end to end', async () 
       await modal.getByRole('button', { name: 'Save', exact: true }).click();
       const rabies = page.getByText('Rabies', { exact: true }).first();
       await rabies.waitFor({ state: 'visible', timeout: 15000 });
+      await assertAccessibleControls(page, 'Vaccination record controls');
 
       const card = rabies.locator('xpath=../..');
       const buttons = card.locator('button');
@@ -439,6 +492,7 @@ await check('Authenticated production customer flow works end to end', async () 
       await page.getByRole('button', { name: 'More', exact: true }).click();
       await page.getByText('Documents', { exact: true }).first().click();
       await page.getByText(DOC_NAME, { exact: true }).waitFor({ state: 'visible', timeout: 15000 });
+      await assertAccessibleControls(page, 'Document record controls');
 
       const docCard = page.getByText(DOC_NAME, { exact: true }).locator('xpath=ancestor::div[.//a][1]');
       const href = await docCard.locator('a').first().getAttribute('href');
@@ -500,6 +554,7 @@ await check('Authenticated production customer flow works end to end', async () 
       await page.getByText('Travel Planner', { exact: false }).first().waitFor({ state: 'visible', timeout: 15000 });
       await page.getByRole('button', { name: '+ New Trip', exact: true }).click();
       const modal = await modalFor(page, 'Plan New Trip');
+      await assertAccessibleControls(page, 'Plan New Trip dialog');
       await (await fieldControl(modal, 'Trip Name (optional)')).fill(TRIP_NAME);
       await (await fieldControl(modal, 'From City')).fill('Quito');
       await (await fieldControl(modal, 'From Country', 'select')).selectOption('Ecuador');
@@ -558,6 +613,7 @@ await check('RLS and private Storage isolate one signed-in customer from another
     await step('Second synthetic customer signs in independently', async () => {
       await loginWithActionLink(page, secondary.actionLink);
       await chooseEssentialAnalytics(page);
+      await assertAccessibleControls(page, 'Secondary customer first-run screen');
       await expectVisibleText(page, 'Welcome to YourPetPass');
       const body = await page.locator('body').innerText();
       if (body.includes(PET_NAME) || body.includes(TRIP_NAME) || body.includes(DOC_NAME)) throw new Error('Primary customer data appeared in the secondary customer UI');
