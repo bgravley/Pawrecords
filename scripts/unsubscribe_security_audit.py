@@ -38,6 +38,8 @@ check("rows[0].email_notifications !== false" in endpoint, 'Repeated unsubscribe
 check('return res.status(200).json' in endpoint and 'rows.length' in endpoint, 'Missing/deleted account does not become a public existence oracle')
 check("Referrer-Policy', 'no-referrer'" in endpoint and 'no-store' in endpoint, 'Endpoint is no-store and suppresses referrer leakage')
 check('req.body?.email' not in endpoint and 'req.query?.email' not in endpoint, 'Caller cannot choose an account by email')
+check("new URL(req.url || '/', 'https://www.yourpetpass.com')" in endpoint and "searchParams.get('token')" in endpoint, 'Endpoint parses one-click query tokens with the WHATWG URL API')
+check('req.query' not in endpoint, 'Endpoint does not invoke the legacy request query parser')
 check('console.log' not in endpoint and 'console.info' not in endpoint, 'Endpoint does not log unsubscribe tokens')
 
 notification_import = "import { unsubscribeApiUrlForUser, unsubscribePageUrlForUser } from './_unsubscribe.js';"
