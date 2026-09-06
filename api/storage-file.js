@@ -33,6 +33,26 @@ function safePath(value) {
   return decoded;
 }
 
+function isMissingStorageObject(status, detail) {
+  if (status === 404) return true;
+  if (!detail) return false;
+
+  try {
+    const parsed = JSON.parse(detail);
+    const statusCode = Number(parsed?.statusCode);
+    const code = String(parsed?.code || '').toLowerCase();
+    const error = String(parsed?.error || '').toLowerCase();
+    const message = String(parsed?.message || '').toLowerCase();
+
+    return statusCode === 404 ||
+      code === 'nosuchkey' ||
+      error === 'not_found' ||
+      message === 'object not found';
+  } catch {
+    return false;
+  }
+}
+
 async function getUser(token) {
   if (!token) return null;
   const response = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
@@ -101,8 +121,16 @@ export default async function handler(req, res) {
 
   if (!upstream.ok && upstream.status !== 206) {
     const detail = await upstream.text().catch(() => '');
-    console.error('Private storage read failed:', upstream.status, detail.slice(0, 250));
-    return res.status(upstream.status === 404 ? 404 : 502).json({ error: 'File unavailable' });
+    const missingObject = isMissingStorageObject(upstream.status, detail);
+    const status = missingObject ? 404 : 502;
+
+    if (!missingObject) {
+      console.error('Private storage read failed:', upstream.status, detail.slice(0, 250));
+    }
+
+    res.setHeader('Cache-Control', 'private, no-store');
+    if (req.method === 'HEAD') return res.status(status).end();
+    return res.status(status).json({ error: missingObject ? 'File not found' : 'File unavailable' });
   }
 
   for (const name of ['content-type', 'content-length', 'content-range', 'accept-ranges', 'etag', 'last-modified']) {
