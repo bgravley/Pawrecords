@@ -170,6 +170,10 @@ async function saveToCache(originCountry, destinationCountry, checklistItems, tr
 const SOURCE_INSTRUCTION = `You are conducting official regulatory research for pet travel compliance. A real pet owner will rely on this information to avoid their pet being denied boarding, quarantined, or fined — accuracy and source quality are critical.
 
 SOURCE REQUIREMENTS — read carefully before searching:
+- COUNTRY RULES: entry, export, transit, quarantine, health, vaccination, treatment, permit, and customs requirements MUST use the responsible government authority for that jurisdiction as the source. Do not use an airline, airport, IATA, blog, or aggregator as the authority for a country's legal requirement.
+- AIRLINE/CARRIER SOURCES: use an airline or carrier's official site ONLY for that carrier's own policy (for example cabin/cargo rules, booking, carrier dimensions, breed restrictions, or service-animal procedures).
+- AIRPORT SOURCES: use an airport's official site ONLY for airport-specific logistics such as pet relief areas.
+- IATA may be useful as supplementary industry context but must not replace the responsible government source for a country's entry/export/transit/quarantine/health rules.
 - ONLY use official sources: government agency websites (e.g. USDA APHIS, CDC, the destination country's official agriculture/customs ministry site), official airline websites, and IATA (International Air Transport Association).
 - DO NOT use pet travel blogs, forums (Reddit, Quora), "top tips" listicles, or any third-party aggregator site — even if they rank highly in search results and look informative. These are frequently outdated or simply wrong.
 - For each checklist item, the "source_url" field must be the actual official URL you found via search. If no official source exists for a specific requirement, say so explicitly in the "notes" field (e.g. "No official source found — verify directly with airline or embassy") rather than citing a non-official source.
@@ -255,9 +259,9 @@ Review each item in the JSON array below. For each item, check TWO things:
 
 1. ACCURACY: Are you confident the specific requirements, deadlines, form numbers, and agency names are correct and current? Pet travel regulations change frequently.
 
-2. SOURCE QUALITY: Look at the "source_url" field. Is it an official government website (.gov, official ministry/agency site), an official airline website, or IATA? Or does it look like a third-party blog, forum, "top tips" site, or other unofficial/aggregator source?
+2. SOURCE QUALITY AND SCOPE: Check both the domain and whether that source is authoritative for the type of requirement. Country entry/export/transit/quarantine/health/vaccination/treatment/permit/customs rules require the responsible government authority. Airline/carrier sources are acceptable only for airline_policy items. Airport sources are acceptable only for airport_logistics. IATA may be supplementary context but must not replace the government authority for a country's legal requirement. Reject blogs, forums, listicles, and aggregators.
 
-If an item fails EITHER check — you're not confident it's accurate, OR the source doesn't look official — append " (⚠️ Verify before travel)" to that item's "title" field.
+If an item fails EITHER check — you're not confident it's accurate, OR its source is unofficial or authoritative for the wrong scope — append " (⚠️ Verify before travel)" to that item's "title" field.
 
 Do not change any other fields. Do not add new items. Do not remove items.
 Return ONLY the complete JSON array. No markdown, no explanation, no backticks.

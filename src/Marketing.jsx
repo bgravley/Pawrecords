@@ -156,7 +156,7 @@ export default function Marketing({ onLogin, onSignup }) {
             <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 26, fontWeight: 700, color: C.tealDk, marginBottom: 18 }}>From vet visit to your pocket in seconds</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               <StepCard num="1" icon="📷" title="Snap a photo" desc="Photograph any vet record, vaccine card, or health document." />
-              <StepCard num="2" icon="🤖" title="AI organizes it" desc="Information is automatically extracted and saved to your pet's profile." />
+              <StepCard num="2" icon="🤖" title="AI helps organize it" desc="AI extracts details for you to review before you rely on them." />
               <StepCard num="3" icon="📱" title="Access it anywhere" desc="Pull it up at any vet, any country, any time — straight from your phone." />
             </div>
           </div>
@@ -172,8 +172,8 @@ export default function Marketing({ onLogin, onSignup }) {
         <p style={{ textAlign: 'center', color: C.muted, marginBottom: 32, fontSize: 15 }}>No more folders, no more texting your old vet for records.</p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
           <FeatureCard icon="📋" title="Health Records" desc="Vaccines, vet visits, allergies, and medications — all tied to your pet, not one clinic." />
-          <FeatureCard icon="📷" title="AI Document Scan" desc="Photo any vet record or vaccine card — AI extracts and saves it automatically." />
-          <FeatureCard icon="✈️" title="AI Travel Checklists" desc="Route-specific requirements for flying or driving with your pet, generated in seconds." />
+          <FeatureCard icon="📷" title="AI Document Scan" desc="Photo a vet record or vaccine card — AI extracts details for you to review." />
+          <FeatureCard icon="✈️" title="AI Travel Checklists" desc="Build a route-specific planning checklist with official-source links, then verify current rules before travel." />
           <FeatureCard icon="⚖️" title="Weight Tracking" desc="Log weight at every visit and see trends over time." />
           <FeatureCard icon="🚨" title="QR Emergency Card" desc="A scannable health card for sitters, boarding, or if your pet is ever lost." />
           <FeatureCard icon="📤" title="Export & Share" desc="Export a complete health summary and email it to a vet, hotel, or daycare in seconds." />
@@ -339,6 +339,7 @@ export default function Marketing({ onLogin, onSignup }) {
         <a href="/blog.html" style={{ color: C.muted }}>Pet Guides</a> &nbsp;·&nbsp;
         <a href="/privacy.html" style={{ color: C.muted }}>Privacy</a> &nbsp;·&nbsp;
         <a href="/terms.html" style={{ color: C.muted }}>Terms</a> &nbsp;·&nbsp;
+        <a href="/ai-policy.html" style={{ color: C.muted }}>AI & Sources</a> &nbsp;·&nbsp;
         <a href="/contact.html" style={{ color: C.muted }}>Contact</a>
       </footer>
     </div>
