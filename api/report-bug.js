@@ -1,5 +1,6 @@
-// Receives authenticated bug reports, saves them for manual admin review, and
-// notifies the administrator. Reporter identity is always derived server-side.
+// Receives authenticated bug reports, feature requests, and general feedback,
+// saves them for manual admin review, and notifies the administrator.
+// Reporter identity is always derived server-side.
 
 import { createClient } from '@supabase/supabase-js';
 import { verifyUser } from './_verifyUser.js';
@@ -10,6 +11,8 @@ const FROM_EMAIL = 'YourPetPass <notifications@yourpetpass.com>';
 const ADMIN_EMAIL = process.env.ADMIN_ALERT_EMAIL || 'bgravley@rdmarketingllc.com';
 const RATE_LIMIT = 10;
 const RATE_WINDOW_MS = 60 * 60 * 1000;
+const REPORT_TYPES = new Set(['bug', 'feature', 'feedback']);
+const REPORT_LABELS = Object.freeze({ bug: 'Bug Report', feature: 'Feature Request', feedback: 'General Feedback' });
 let adminClient = null;
 
 function esc(value) {
@@ -62,7 +65,7 @@ async function rateLimitStatus(ip) {
     if (!logRes.ok) throw new Error(`log failed ${logRes.status}`);
     return { unavailable: false, limited: count >= RATE_LIMIT };
   } catch (error) {
-    console.error('Bug report rate-limit backend unavailable:', error.message);
+    console.error('User feedback rate-limit backend unavailable:', error.message);
     return { unavailable: true, limited: false };
   }
 }
@@ -88,7 +91,7 @@ async function signScreenshot(path) {
     .from('documents')
     .createSignedUrl(path, 24 * 60 * 60);
   if (error || !data?.signedUrl) {
-    console.error('Bug screenshot signing failed:', error?.message || 'missing signed URL');
+    console.error('Feedback screenshot signing failed:', error?.message || 'missing signed URL');
     return null;
   }
   return data.signedUrl;
@@ -106,7 +109,7 @@ export default async function handler(req, res) {
   }
 
   if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
-    return res.status(503).json({ error: 'Bug reporting is temporarily unavailable.' });
+    return res.status(503).json({ error: 'Feedback is temporarily unavailable.' });
   }
 
   const auth = await verifyUser(req);
@@ -114,16 +117,20 @@ export default async function handler(req, res) {
 
   const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown';
   const rate = await rateLimitStatus(ip);
-  if (rate.unavailable) return res.status(503).json({ error: 'Bug reporting is temporarily unavailable.' });
+  if (rate.unavailable) return res.status(503).json({ error: 'Feedback is temporarily unavailable.' });
   if (rate.limited) {
-    return res.status(429).json({ error: 'Too many bug reports submitted. Please wait before submitting another.' });
+    return res.status(429).json({ error: 'Too many submissions. Please wait before sending another.' });
   }
 
   // userId/userEmail from older clients are deliberately ignored. Only the
-  // verified Supabase session determines who receives credit for a report.
-  const { description, screenshotUrl } = req.body || {};
+  // verified Supabase session determines who submitted the report.
+  const { description, screenshotUrl, reportType: rawReportType } = req.body || {};
+  const reportType = typeof rawReportType === 'string' ? rawReportType.trim().toLowerCase() : 'bug';
+  if (!REPORT_TYPES.has(reportType)) {
+    return res.status(400).json({ error: 'Invalid feedback type.' });
+  }
   if (!description || typeof description !== 'string' || !description.trim()) {
-    return res.status(400).json({ error: 'Please describe the bug.' });
+    return res.status(400).json({ error: reportType === 'bug' ? 'Please describe the bug.' : 'Please add a little detail before submitting.' });
   }
   if (description.length > 2000) {
     return res.status(400).json({ error: 'Description is too long (max 2000 characters).' });
@@ -134,6 +141,7 @@ export default async function handler(req, res) {
     ? `/api/storage-file?path=${encodeURIComponent(screenshotPath)}`
     : null;
   const emailScreenshotUrl = await signScreenshot(screenshotPath);
+  const reportLabel = REPORT_LABELS[reportType];
 
   try {
     const insertRes = await fetch(`${process.env.SUPABASE_URL}/rest/v1/bug_reports`, {
@@ -147,14 +155,15 @@ export default async function handler(req, res) {
         user_email: auth.email || null,
         description: description.trim(),
         screenshot_url: adminScreenshotUrl,
+        report_type: reportType,
         status: 'pending',
       }),
     });
 
     if (!insertRes.ok) {
       const detail = await insertRes.text().catch(() => '');
-      console.error('Bug report insert failed:', insertRes.status, detail.slice(0, 250));
-      return res.status(502).json({ error: 'Could not submit report. Please try again.' });
+      console.error('Feedback insert failed:', insertRes.status, detail.slice(0, 250));
+      return res.status(502).json({ error: 'Could not submit your feedback. Please try again.' });
     }
 
     if (RESEND_API_KEY && ADMIN_EMAIL) {
@@ -168,15 +177,15 @@ export default async function handler(req, res) {
           body: JSON.stringify({
             from: FROM_EMAIL,
             to: ADMIN_EMAIL,
-            subject: `Bug report from ${auth.email || 'a signed-in user'}`,
+            subject: `${reportLabel} from ${auth.email || 'a signed-in user'}`,
             html: `<div style="font-family:Georgia,'Times New Roman',serif;max-width:540px;margin:0 auto;background:#FAFCFB;color:#1A2E22;">
               <div style="background:#2C4A38;padding:18px 24px;border-radius:12px 12px 0 0;">
                 <img src="https://yourpetpass.com/logo_horizontal_cream_transparent.png" alt="YourPetPass" width="170" style="display:block;height:auto;" />
               </div>
               <div style="padding:22px 24px;background:#FFFFFF;border:1px solid #DCE8E0;border-top:0;">
-                <h2 style="color:#2C4A38;margin-top:0;">New Bug Report</h2>
+                <h2 style="color:#2C4A38;margin-top:0;">${esc(reportLabel)}</h2>
                 <p><strong>From:</strong> ${esc(auth.email || 'unknown')}</p>
-                <p><strong>Description:</strong></p>
+                <p><strong>Details:</strong></p>
                 <div style="background:#EAF4EE;padding:14px;border-radius:10px;white-space:pre-wrap;">${esc(description.trim())}</div>
                 ${emailScreenshotUrl ? `<p style="margin-top:18px;"><a href="${esc(emailScreenshotUrl)}" style="color:#2C4A38;font-weight:700;">View private screenshot</a> <span style="color:#7C9E87;font-size:12px;">(link expires in 24 hours)</span></p>` : ''}
                 <p><a href="https://yourpetpass.com/admin" style="color:#2C4A38;font-weight:700;">Review in Admin →</a></p>
@@ -185,14 +194,14 @@ export default async function handler(req, res) {
           }),
         });
         if (!emailRes.ok) {
-          console.error('Bug report admin notification failed (non-critical):', emailRes.status);
+          console.error('Feedback admin notification failed (non-critical):', emailRes.status);
         }
       } catch (emailError) {
-        console.error('Bug report admin notification failed (non-critical):', emailError.message);
+        console.error('Feedback admin notification failed (non-critical):', emailError.message);
       }
     }
 
-    return res.status(200).json({ submitted: true });
+    return res.status(200).json({ submitted: true, reportType });
   } catch (error) {
     console.error('report-bug error:', error.message);
     return res.status(500).json({ error: 'Something went wrong. Please try again.' });
