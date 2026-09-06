@@ -74,6 +74,9 @@ jobs:
       - name: Run privacy consent audit
         run: python3 scripts/privacy_consent_audit.py
 
+      - name: Run unsubscribe security audit
+        run: python3 scripts/unsubscribe_security_audit.py
+
       - name: Run authenticated app brand audit
         run: python3 scripts/authenticated_brand_audit.py
 
