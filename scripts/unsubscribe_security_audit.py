@@ -40,6 +40,10 @@ check("Referrer-Policy', 'no-referrer'" in endpoint and 'no-store' in endpoint, 
 check('req.body?.email' not in endpoint and 'req.query?.email' not in endpoint, 'Caller cannot choose an account by email')
 check('console.log' not in endpoint and 'console.info' not in endpoint, 'Endpoint does not log unsubscribe tokens')
 
+notification_import = "import { unsubscribeApiUrlForUser, unsubscribePageUrlForUser } from './_unsubscribe.js';"
+e2e_import = "import { createUnsubscribeToken } from './_unsubscribe.js';"
+check(notifications.count(notification_import) == 1, 'Reminder sender imports unsubscribe helpers exactly once')
+check(e2e.count(e2e_import) == 1, 'E2E bootstrap imports unsubscribe token helper exactly once')
 check('__YPP_UNSUBSCRIBE_URL__' in notifications, 'Reminder footer uses personalized signed unsubscribe URL')
 check("'List-Unsubscribe'" in notifications and "'List-Unsubscribe-Post'" in notifications, 'Reminder emails include one-click unsubscribe headers')
 check('unsubscribeApiUrlForUser(userId)' in notifications and 'unsubscribePageUrlForUser(userId)' in notifications, 'Email sender derives page and one-click links server-side')
