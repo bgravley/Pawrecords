@@ -4,6 +4,12 @@ import {
   readGitHubOidcBearer,
   verifyGitHubActionsOidc,
 } from './_github-actions-oidc.js';
+import { createUnsubscribeToken } from './_unsubscribe.js';
+import { createUnsubscribeToken } from './_unsubscribe.js';
+import { createUnsubscribeToken } from './_unsubscribe.js';
+import { createUnsubscribeToken } from './_unsubscribe.js';
+import { createUnsubscribeToken } from './_unsubscribe.js';
+import { createUnsubscribeToken } from './_unsubscribe.js';
 
 const TEST_ACCOUNTS = Object.freeze({
   primary: {
@@ -77,6 +83,7 @@ async function resetTestData(supabase, userId) {
     subscription_tier: 'premium',
     is_admin: false,
     travel_credits_balance: 0,
+    email_notifications: true,
   }).eq('id', userId);
   if (profileError) throw new Error('E2E profile reset failed');
 }
@@ -131,6 +138,7 @@ export default async function handler(req, res) {
       role,
       userId,
       actionLink,
+      unsubscribeToken: createUnsubscribeToken(userId),
       expiresSoon: true,
     });
   } catch (error) {
