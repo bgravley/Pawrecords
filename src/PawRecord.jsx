@@ -2033,7 +2033,7 @@ const MoreTab=({dog,state,dispatch,userId,tier,onUpgrade,onScan})=>{
   const vets=state.vets;
   const docs=state.documents.filter(d=>d.dog_id===dog.id);
   const back=()=>setSection(null);
-  const backBtn=<button onClick={back} style={{background:"#FFFFFF",border:"1px solid #DCE8E0",borderRadius:8,padding:"6px 8px",color:"#385744"}}><Ic n="chevL" s={16}/></button>;
+  const backBtn=<button type="button" aria-label="Back to More features" onClick={back} style={{background:"#FFFFFF",border:"1px solid #DCE8E0",borderRadius:8,padding:"6px 8px",color:"#385744"}}><Ic n="chevL" s={16}/></button>;
 
   if(section==="timeline"){
     const visits=state.visits.filter(v=>v.dog_id===dog.id);
