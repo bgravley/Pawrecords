@@ -434,6 +434,23 @@ await check('Authenticated production customer flow works end to end', async () 
       await waitForFileSessionCookie(context, primarySession.userId);
     });
 
+    await step('Feedback UI offers bug, feature, and general feedback paths', async () => {
+      const launcher = page.getByRole('button', { name: 'Share feedback', exact: true }).first();
+      await launcher.waitFor({ state: 'visible', timeout: 10000 });
+      await launcher.click();
+
+      const modal = await modalFor(page, '💬 Share Feedback');
+      await assertAccessibleControls(page, 'Share Feedback modal');
+      const typeSelect = await fieldControl(modal, 'What would you like to share?', 'select');
+      const options = await typeSelect.locator('option').allTextContents();
+      for (const expected of ['Report a bug', 'Request a feature', 'Share general feedback']) {
+        if (!options.includes(expected)) throw new Error(`Feedback type option missing: ${expected}`);
+      }
+      await typeSelect.selectOption('feature');
+      await modal.getByText('What would you like us to add?', { exact: true }).waitFor({ state: 'visible', timeout: 5000 });
+      await modal.getByRole('button', { name: /close/i }).first().click();
+    });
+
     await step('Pet can be created through the production UI', async () => {
       const add = page.getByRole('button', { name: /Add Your First Pet|Add Pet/ }).first();
       await add.click();
