@@ -216,7 +216,7 @@ export default function AffiliatePortal({ userId, userEmail, onClose }) {
         {/* Transaction Ledger */}
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 20, marginBottom: 20 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <div><div style={{ fontWeight: 700, fontSize: 16 }}>Transaction Ledger</div><div style={{ fontSize: 11, color: C.muted, marginTop: 3 }}>Customer Payment shows the gross charge or refund. Your commission is calculated from the eligible payment amount after Stripe processing fees.</div></div>
+            <div><div><div style={{ fontWeight: 700, fontSize: 16 }}>Transaction Ledger</div><div style={{ fontSize: 11, color: C.muted, marginTop: 3 }}>Customer Payment shows the gross charge or refund. Your commission is calculated from the eligible payment amount after Stripe processing fees.</div></div><div style={{ fontSize: 11, color: C.muted, marginTop: 3 }}>Customer Payment shows the gross charge or refund. Your commission is calculated from the eligible payment amount after Stripe processing fees.</div></div>
             <select value={monthFilter} onChange={e => setMonthFilter(e.target.value)}
               style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '6px 12px', fontSize: 13, color: C.text, cursor: 'pointer' }}>
               <option value="all">All time</option>
@@ -244,7 +244,7 @@ export default function AffiliatePortal({ userId, userEmail, onClose }) {
                         <td style={{ padding: '8px 12px', color: C.muted }}>{fmt(c.created_at?.slice(0,10))}</td>
                         <td style={{ padding: '8px 12px', color: C.muted }}>{c.period_month || '—'}</td>
                         <td style={{ padding: '8px 12px', color: isRefund ? C.red : C.text }}>
-                          {isRefund ? '-' : ''}{money(c.gross_amount_cents)}
+                          {isRefund ? '-' : ''}{money(c.gross_amount_cents ?? c.payment_amount_cents)}
                         </td>
                         <td style={{ padding: '8px 12px', color: C.muted }}>{c.commission_rate}%</td>
                         <td style={{ padding: '8px 12px', fontWeight: 700, color: rowColor }}>
