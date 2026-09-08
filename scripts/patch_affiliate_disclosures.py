@@ -44,6 +44,12 @@ changed |= replace_exact(
 )
 changed |= replace_exact(
     'src/AffiliatePortal.jsx',
+    "{isRefund ? '-' : ''}{money(c.gross_amount_cents)}",
+    "{isRefund ? '-' : ''}{money(c.gross_amount_cents ?? c.payment_amount_cents)}",
+    'ledger preserves older rows without stored gross amount',
+)
+changed |= replace_exact(
+    'src/AffiliatePortal.jsx',
     '<div style={{ fontWeight: 700, fontSize: 16 }}>Transaction Ledger</div>',
     '<div><div style={{ fontWeight: 700, fontSize: 16 }}>Transaction Ledger</div><div style={{ fontSize: 11, color: C.muted, marginTop: 3 }}>Customer Payment shows the gross charge or refund. Your commission is calculated from the eligible payment amount after Stripe processing fees.</div></div>',
     'ledger calculation disclosure',
