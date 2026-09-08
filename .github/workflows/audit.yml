@@ -86,6 +86,9 @@ jobs:
       - name: Run customer-facing brand consistency audit
         run: python3 scripts/customer_brand_consistency_audit.py
 
+      - name: Run public launch hygiene audit
+        run: python3 scripts/public_launch_hygiene_audit.py
+
       - name: Run accessibility and empty-state audit
         run: python3 scripts/accessibility_audit.py
 
