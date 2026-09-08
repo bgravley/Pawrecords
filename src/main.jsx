@@ -24,7 +24,13 @@ function ConsentAnalytics() {
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <AppErrorBoundary>
-      <App />
+      <React.Suspense fallback={
+        <div style={{ minHeight: '100vh', background: '#FAFCFB', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2C4A38', fontFamily: "'Lora', serif", fontWeight: 700 }}>
+          🐾 Loading YourPetPass...
+        </div>
+      }>
+        <App />
+      </React.Suspense>
     </AppErrorBoundary>
     <PurchaseAnalyticsBridge />
     <ConsentAnalytics />

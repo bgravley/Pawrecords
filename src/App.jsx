@@ -1,18 +1,21 @@
 // src/App.jsx
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy } from "react";
 import { supabase } from "./lib/supabase";
-import Auth from "./components/Auth.jsx";
 import Marketing from "./Marketing.jsx";
-import YourPetPass from "./PawRecord.jsx";
-import Admin from "./Admin.jsx";
-import Emergency from "./Emergency.jsx";
-import Travel from "./Travel.jsx";
-import AffiliatePortal from "./AffiliatePortal.jsx";
 import {
   clearPendingLegalAttestation,
   hasCurrentLegalAttestation,
   readPendingLegalAttestation,
 } from "./lib/legalAttestation.js";
+
+// Route-like surfaces are loaded only when a visitor actually opens them.
+// Marketing stays eager so the public homepage remains the fastest first paint.
+const Auth = lazy(() => import("./components/Auth.jsx"));
+const YourPetPass = lazy(() => import("./PawRecord.jsx"));
+const Admin = lazy(() => import("./Admin.jsx"));
+const Emergency = lazy(() => import("./Emergency.jsx"));
+const Travel = lazy(() => import("./Travel.jsx"));
+const AffiliatePortal = lazy(() => import("./AffiliatePortal.jsx"));
 
 // Your admin email — only this account sees the admin dashboard
 const ADMIN_EMAIL = "bgravley@rdmarketingllc.com";
