@@ -90,8 +90,8 @@ for name, text in [('Terms', TERMS), ('Privacy', PRIVACY), ('Contact', CONTACT),
     check("Playfair Display" in text and "Lora" in text, f'{name} uses Playfair headlines and Lora body')
     check('Nunito' not in text, f'{name} no longer uses legacy Nunito styling')
 
-check('https://yourpetpass.com/copyright.html' in SITEMAP,
-      'Copyright page is included in sitemap')
+check('https://www.yourpetpass.com/copyright.html' in SITEMAP,
+      'Copyright page is included in canonical sitemap')
 
 failed = [msg for ok, msg in checks if not ok]
 for ok, msg in checks:
