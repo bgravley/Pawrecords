@@ -3,6 +3,7 @@ from pathlib import Path
 import re
 
 marketing = Path('src/Marketing.jsx').read_text(encoding='utf-8')
+paw = Path('src/PawRecord.jsx').read_text(encoding='utf-8')
 travel = Path('src/Travel.jsx').read_text(encoding='utf-8')
 api = Path('api/ai-travel.js').read_text(encoding='utf-8')
 source_lib = Path('src/lib/sourceVerification.js').read_text(encoding='utf-8')
@@ -35,7 +36,7 @@ INDEXABLE = {
 checks=[]
 def check(ok,msg): checks.append((bool(ok),msg))
 
-# Human-facing marketing claims.
+# Human-facing marketing and signed-in product claims.
 check('AI extracts details for you to review' in marketing,
       'marketing describes AI document extraction as reviewable, not automatically authoritative')
 check('generated in seconds' not in marketing and 'extracts and saves it automatically' not in marketing,
@@ -44,6 +45,11 @@ check('official-source links, then verify current rules before travel' in market
       'marketing tells travelers to verify current rules')
 check('/ai-policy.html' in marketing and 'AI & Sources' in marketing,
       'homepage links to the public AI and source policy')
+check('AI extracts useful details for you to review before you save them.' in paw,
+      'signed-in document scan CTA tells users to review AI-extracted details before saving')
+check('AI extracts and saves everything automatically' not in paw and
+      'extracts and saves it automatically' not in paw,
+      'signed-in product copy does not overstate AI as an automatic-save authority')
 
 # Server-side source hierarchy and review boundaries.
 check('COUNTRY RULES: entry, export, transit, quarantine, health, vaccination, treatment, permit, and customs requirements MUST use the responsible government authority' in api,
