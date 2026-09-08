@@ -1,0 +1,30 @@
+name: Patch Legal Launch Hygiene
+
+"on":
+  push:
+    branches: [legal/launch-hygiene]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v4
+        with:
+          ref: legal/launch-hygiene
+
+      - name: Apply legal/admin launch patch
+        run: python3 scripts/patch_legal_launch_hygiene.py
+
+      - name: Commit generated updates
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/terms.html public/privacy.html public/contact.html
+          git diff --cached --quiet && exit 0
+          git commit -m "Align legal pages with current product behavior"
+          git push origin HEAD:legal/launch-hygiene
