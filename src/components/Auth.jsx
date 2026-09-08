@@ -2,7 +2,6 @@
 import { useState } from "react";
 import { supabase } from "../lib/supabase";
 import {
-  buildLegalAttestationMetadata,
   clearPendingLegalAttestation,
   markPendingLegalAttestation,
 } from "../lib/legalAttestation.js";
@@ -123,7 +122,7 @@ export default function Auth({ initialMode = "signin" }) {
     if (authMode === "signup" && !legalAccepted) {
       return setErr("Please confirm the age and legal terms before creating your account.");
     }
-    if (authMode === "signup") markPendingLegalAttestation();
+    if (authMode === "signup") markPendingLegalAttestation('google_signup');
     setLoading(true);
     clearAll();
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
@@ -154,17 +153,16 @@ export default function Auth({ initialMode = "signin" }) {
     if (password.length < 8) return setErr("Password must be at least 8 characters.");
     if (!legalAccepted) return setErr("Please confirm the age and legal terms before creating your account.");
 
+    markPendingLegalAttestation('email_signup');
     setLoading(true);
     clearAll();
-    const { data, error: signUpError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: buildLegalAttestationMetadata('email_signup') },
-    });
+    const { data, error: signUpError } = await supabase.auth.signUp({ email, password });
 
     if (signUpError) {
+      clearPendingLegalAttestation();
       setErr(signUpError);
     } else if (data?.user && data.user.identities?.length === 0) {
+      clearPendingLegalAttestation();
       setErr("An account with this email already exists. Try signing in instead.");
     } else {
       setSuccess("Account created. Check your email to confirm your address, then sign in.");

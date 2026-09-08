@@ -9,7 +9,6 @@ import Emergency from "./Emergency.jsx";
 import Travel from "./Travel.jsx";
 import AffiliatePortal from "./AffiliatePortal.jsx";
 import {
-  buildLegalAttestationMetadata,
   clearPendingLegalAttestation,
   hasCurrentLegalAttestation,
   readPendingLegalAttestation,
@@ -104,10 +103,9 @@ function LegalAttestationScreen({ onConfirm, onSignOut }) {
   return (
     <div style={{ minHeight: '100vh', background: '#2C4A38', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: "'Lora', serif" }}>
       <div style={{ width: '100%', maxWidth: 430, background: '#FAFCFB', borderRadius: 22, padding: 30, boxShadow: '0 14px 44px rgba(20,42,29,.28)' }}>
-        <img src="/logo_horizontal_cream_transparent.png" alt="YourPetPass" style={{ display: 'none' }} />
-        <div style={{ fontFamily: "'Playfair Display', serif", color: '#2C4A38', fontSize: 27, fontWeight: 700, lineHeight: 1.2, marginBottom: 10 }}>
+        <h1 style={{ fontFamily: "'Playfair Display', serif", color: '#2C4A38', fontSize: 27, fontWeight: 700, lineHeight: 1.2, margin: '0 0 10px' }}>
           One quick account confirmation
-        </div>
+        </h1>
         <p style={{ color: '#5C7464', fontSize: 13.5, lineHeight: 1.65, margin: '0 0 18px' }}>
           YourPetPass accounts are for adults. Confirm this once to continue to your pet's records.
         </p>
@@ -197,6 +195,28 @@ export default function App() {
     }
   };
 
+  const persistLegalAttestation = async (activeSession, method) => {
+    const token = activeSession?.access_token;
+    if (!token) throw new Error('Your session has expired — please sign in again.');
+    const response = await fetch('/api/confirm-legal-attestation', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ confirmed: true, method }),
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok || body?.confirmed !== true) {
+      throw new Error(body?.error || 'Could not save your confirmation — please try again.');
+    }
+
+    const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
+    if (refreshError || !refreshed?.session) throw new Error('Could not refresh your account confirmation — please sign in again.');
+    setSession(refreshed.session);
+    return refreshed.session;
+  };
+
   const resolveLegalAttestation = async (activeSession) => {
     setLegalAttestationChecking(true);
     if (!activeSession?.user) {
@@ -213,13 +233,14 @@ export default function App() {
 
     const pending = readPendingLegalAttestation();
     if (pending) {
-      const { data, error } = await supabase.auth.updateUser({ data: pending });
-      if (!error && data?.user) {
+      try {
+        await persistLegalAttestation(activeSession, pending.method);
         clearPendingLegalAttestation();
-        setSession(prev => prev ? { ...prev, user: data.user } : { ...activeSession, user: data.user });
         setLegalAttestationRequired(false);
         setLegalAttestationChecking(false);
         return;
+      } catch (error) {
+        console.error('Could not persist pending legal attestation:', error.message);
       }
     }
 
@@ -280,13 +301,9 @@ export default function App() {
   };
 
   const confirmLegalAttestation = async () => {
-    const { data, error } = await supabase.auth.updateUser({
-      data: buildLegalAttestationMetadata('post_auth_gate'),
-    });
-    if (error) throw error;
-    if (!data?.user) throw new Error('Could not save your confirmation. Please try again.');
+    const currentSession = session || (await supabase.auth.getSession()).data?.session;
+    await persistLegalAttestation(currentSession, 'post_auth_gate');
     clearPendingLegalAttestation();
-    setSession(prev => prev ? { ...prev, user: data.user } : prev);
     setLegalAttestationRequired(false);
   };
 

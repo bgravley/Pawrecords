@@ -125,8 +125,8 @@ export default async function handler(req, res) {
     if (!userId || !actionLink) throw new Error('Supabase did not return a usable E2E login link');
 
     const { error: legalMetadataError } = await supabase.auth.admin.updateUserById(userId, {
-      user_metadata: {
-        ...(data?.user?.user_metadata || {}),
+      app_metadata: {
+        ...(data?.user?.app_metadata || {}),
         ypp_legal_attestation_version: LEGAL_ATTESTATION_VERSION,
         ypp_adult_attested_at: new Date().toISOString(),
         ypp_legal_attestation_method: 'synthetic_e2e',

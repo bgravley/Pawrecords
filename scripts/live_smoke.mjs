@@ -348,6 +348,14 @@ await check('Authentication UI renders and uses the secured emergency-access exp
   await expectVisibleText(publicPage, "Your pet's records belong with you.");
   await publicPage.getByRole('button', { name: 'Create Account' }).click();
   await publicPage.getByPlaceholder(/Password \(min \d+ characters\)/).waitFor({ state: 'visible' });
+  const legalCheckbox = publicPage.getByRole('checkbox', { name: 'Confirm adult age and legal terms', exact: true });
+  await legalCheckbox.waitFor({ state: 'visible', timeout: 10000 });
+  const googleSignup = publicPage.getByRole('button', { name: 'Continue with Google', exact: true });
+  const emailSignup = publicPage.getByRole('button', { name: 'Create Account', exact: true }).last();
+  if (!(await googleSignup.isDisabled()) || !(await emailSignup.isDisabled())) throw new Error('Signup actions were enabled before adult/legal confirmation');
+  await legalCheckbox.check();
+  if (await googleSignup.isDisabled() || await emailSignup.isDisabled()) throw new Error('Signup actions stayed disabled after adult/legal confirmation');
+  await expectVisibleText(publicPage, 'at least 18 years old');
   await publicPage.getByRole('button', { name: 'Have an emergency QR code?' }).click();
   await expectVisibleText(publicPage, 'There is no public directory of pets or medical records.');
   const body = await publicPage.locator('body').innerText();
@@ -370,6 +378,13 @@ await check('Emergency API rejects an invalid token without data', async () => {
 
 await check('Private Storage gateway rejects anonymous access', async () => {
   const response = await publicContext.request.get(`${BASE}/api/storage-file?path=live-smoke/no-file.pdf`);
+  if (response.status() !== 401) throw new Error(`Expected 401, got ${response.status()}`);
+});
+
+await check('Adult attestation endpoint rejects anonymous writes', async () => {
+  const response = await publicContext.request.post(`${BASE}/api/confirm-legal-attestation`, {
+    data: { confirmed: true, method: 'post_auth_gate' },
+  });
   if (response.status() !== 401) throw new Error(`Expected 401, got ${response.status()}`);
 });
 
