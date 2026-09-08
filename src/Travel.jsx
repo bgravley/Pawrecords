@@ -77,12 +77,12 @@ const COUNTRIES = [
 ];
 
 const C = {
-  bg:"#FAF6F0",surface:"#FFFFFF",card:"#FFFFFF",border:"#E8DDD0",
-  accent:"#2D7D6F",accentDim:"#2D7D6F14",accentDark:"#1E5C52",
-  warn:"#E8A838",warnDim:"#E8A83814",
-  danger:"#C4714A",dangerDim:"#C4714A14",
-  text:"#2C2017",sub:"#5A4535",muted:"#8B7355",
-  shadow:"0 2px 12px rgba(44,32,23,0.08)",
+  bg:"#FAFCFB",surface:"#FFFFFF",card:"#FFFFFF",border:"#DCE8E0",
+  accent:"#2C4A38",accentDim:"#2C4A3814",accentDark:"#2C4A38",
+  warn:"#C9A84C",warnDim:"#C9A84C14",
+  danger:"#A8583E",dangerDim:"#A8583E14",
+  text:"#1A2E22",sub:"#5C7464",muted:"#7C9E87",
+  shadow:"0 2px 12px rgba(26,46,34,0.08)",
 };
 
 const uid = () => Math.random().toString(36).slice(2, 9);
@@ -113,7 +113,7 @@ const Btn = ({ children, onClick, v = "primary", sm, full, style: s, disabled })
     primary: { background: C.accent, color: "#fff" },
     secondary: { background: C.card, color: C.text, border: `1px solid ${C.border}` },
     danger: { background: C.dangerDim, color: C.danger, border: `1px solid ${C.danger}44` },
-    amber: { background: C.warn, color: "#2C2017" },
+    amber: { background: C.warn, color: "#1A2E22" },
   };
   return (
     <button type="button" disabled={!!disabled} aria-disabled={disabled ? true : undefined} onClick={onClick}
@@ -121,7 +121,7 @@ const Btn = ({ children, onClick, v = "primary", sm, full, style: s, disabled })
         gap: 6, width: full ? "100%" : "auto", justifyContent: full ? "center" : "flex-start",
         padding: sm ? "7px 14px" : "10px 20px", fontSize: sm ? 13 : 14,
         opacity: disabled ? 0.5 : 1, border: "none", cursor: disabled ? "not-allowed" : "pointer",
-        fontFamily: "'Nunito', sans-serif", ...s }}
+        fontFamily: "'Lora', serif", ...s }}
       onMouseEnter={e => !disabled && (e.currentTarget.style.opacity = "0.85")}
       onMouseLeave={e => e.currentTarget.style.opacity = "1"}>
       {children}
@@ -136,7 +136,7 @@ const Card = ({ children, style: s, onClick, ariaLabel }) => (
     padding: 18, boxShadow: C.shadow, ...s,
     cursor: onClick ? "pointer" : "default", transition: "box-shadow .2s"
   }}
-    onMouseEnter={e => onClick && (e.currentTarget.style.boxShadow = "0 4px 20px rgba(44,32,23,0.14)")}
+    onMouseEnter={e => onClick && (e.currentTarget.style.boxShadow = "0 4px 20px rgba(26,46,34,0.14)")}
     onMouseLeave={e => onClick && (e.currentTarget.style.boxShadow = C.shadow)}>
     {children}
   </div>
@@ -164,10 +164,10 @@ const Modal = ({ title, onClose, children, wide }) => (
     <div role="dialog" aria-modal="true" aria-label={title} style={{
       background: C.surface, border: `1px solid ${C.border}`, borderRadius: 20,
       width: "100%", maxWidth: wide ? 620 : 500, maxHeight: "92vh",
-      overflow: "auto", padding: 24, boxShadow: "0 8px 40px rgba(44,32,23,0.15)"
+      overflow: "auto", padding: 24, boxShadow: "0 8px 40px rgba(26,46,34,0.15)"
     }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-        <h3 style={{ fontFamily: "'Lora', serif", fontSize: 22, color: C.text }}>{title}</h3>
+        <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, color: C.text }}>{title}</h3>
         <button type="button" aria-label={`Close ${title}`} onClick={onClose} style={{
           background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8,
           padding: "6px 10px", color: C.sub, cursor: "pointer"
@@ -181,7 +181,7 @@ const Modal = ({ title, onClose, children, wide }) => (
 const inp = {
   background: C.bg, border: `1.5px solid ${C.border}`, borderRadius: 10,
   padding: "10px 14px", color: C.text, fontSize: 14, width: "100%", outline: "none",
-  fontFamily: "'Nunito', sans-serif",
+  fontFamily: "'Lora', serif",
 };
 
 // ── AI REQUIREMENTS ENGINE — calls OpenAI directly ───────
@@ -699,7 +699,7 @@ const TripForm = ({ trip, userId, dogs, onSave, onClose }) => {
         </Field>
 
         {saveError && (
-          <div style={{ background: "#C4714A14", border: "1px solid #C4714A44", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#C4714A" }}>
+          <div style={{ background: "#A8583E14", border: "1px solid #A8583E44", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#A8583E" }}>
             ⚠ {saveError}
           </div>
         )}
@@ -771,7 +771,7 @@ const ChecklistItem = ({ item, tripPets, onTogglePet, onToggleAll, onUpload, onD
 
   const categoryColors = {
     health_certificate: C.accent, vaccination: "#4CAF50", treatment: C.warn,
-    documentation: C.sub, airline: "#2D7D6F", government_form: C.danger,
+    documentation: C.sub, airline: "#2C4A38", government_form: C.danger,
     entry_document: C.warn, other: C.muted,
   };
   const categoryLabels = {
@@ -863,7 +863,7 @@ const ChecklistItem = ({ item, tripPets, onTogglePet, onToggleAll, onUpload, onD
               <button onClick={() => setExpanded(e => !e)} style={{
                 background: C.accentDim, border: `1px solid ${C.accent}44`, borderRadius: 8,
                 padding: "6px 12px", fontSize: 12, fontWeight: 700, color: C.accent,
-                cursor: "pointer", fontFamily: "'Nunito', sans-serif"
+                cursor: "pointer", fontFamily: "'Lora', serif"
               }}>
                 {expanded ? "▲ Hide Instructions" : "▼ View Instructions"}
               </button>
@@ -1363,20 +1363,20 @@ ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.i
             <div style={{ fontFamily: "'Lora', serif", fontSize: 20, color: "#fff", fontWeight: 600 }}>
               {legs.length > 1 ? legs.map(l => l.origin_city).concat(legs[legs.length-1]?.destination_city).join(" → ") : `${trip.origin_city} → ${trip.destination_city}`}
             </div>
-            <div style={{ color: "#F5C45E", fontSize: 13, marginTop: 2 }}>{fmt(trip.departure_date)}{trip.return_date ? ` · Return ${fmt(trip.return_date)}` : ""}{legs.length > 1 ? ` · ${legs.length} legs` : ""}</div>
+            <div style={{ color: "#C9A84C", fontSize: 13, marginTop: 2 }}>{fmt(trip.departure_date)}{trip.return_date ? ` · Return ${fmt(trip.return_date)}` : ""}{legs.length > 1 ? ` · ${legs.length} legs` : ""}</div>
           </div>
           <Badge label={st.label} color={st.color} />
           <button onClick={() => setShowMenu(s => !s)} title="Trip options" style={{ background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 10, padding: "8px 10px", color: "#fff", cursor: "pointer" }}>⋯</button>
           {showMenu && (
             <>
               <div onClick={() => setShowMenu(false)} style={{ position: "fixed", inset: 0, zIndex: 998 }} />
-              <div style={{ position: "absolute", top: 44, right: 0, background: "#FFFFFF", borderRadius: 14, boxShadow: "0 8px 24px rgba(44,32,23,0.2)", zIndex: 999, minWidth: 190, overflow: "hidden", border: "1px solid #E8DDD0" }}>
-                <button onClick={() => { setShowMenu(false); onEdit(trip); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", textAlign: "left", cursor: "pointer", fontSize: 14, color: "#2C2017" }}>✏️ Edit Trip</button>
-                <button onClick={() => { setShowMenu(false); onDuplicate(trip); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", textAlign: "left", cursor: "pointer", fontSize: 14, color: "#2C2017", borderTop: "1px solid #F0E8DC" }}>📋 Duplicate Trip</button>
+              <div style={{ position: "absolute", top: 44, right: 0, background: "#FFFFFF", borderRadius: 14, boxShadow: "0 8px 24px rgba(26,46,34,0.2)", zIndex: 999, minWidth: 190, overflow: "hidden", border: "1px solid #DCE8E0" }}>
+                <button onClick={() => { setShowMenu(false); onEdit(trip); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", textAlign: "left", cursor: "pointer", fontSize: 14, color: "#1A2E22" }}>✏️ Edit Trip</button>
+                <button onClick={() => { setShowMenu(false); onDuplicate(trip); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", textAlign: "left", cursor: "pointer", fontSize: 14, color: "#1A2E22", borderTop: "1px solid #EAF4EE" }}>📋 Duplicate Trip</button>
                 {trip.status === 'cancelled'
-                  ? <button onClick={reactivateTrip} disabled={cancelling} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", textAlign: "left", cursor: "pointer", fontSize: 14, color: "#2D7D6F", borderTop: "1px solid #F0E8DC" }}>↩️ Reactivate Trip</button>
-                  : <button onClick={cancelTrip} disabled={cancelling} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", textAlign: "left", cursor: "pointer", fontSize: 14, color: "#E8A838", borderTop: "1px solid #F0E8DC" }}>🚫 Cancel Trip</button>}
-                <button onClick={() => { setShowMenu(false); setShowDeleteConfirm(true); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", textAlign: "left", cursor: "pointer", fontSize: 14, color: "#C4714A", borderTop: "1px solid #F0E8DC" }}>🗑️ Delete Permanently</button>
+                  ? <button onClick={reactivateTrip} disabled={cancelling} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", textAlign: "left", cursor: "pointer", fontSize: 14, color: "#2C4A38", borderTop: "1px solid #EAF4EE" }}>↩️ Reactivate Trip</button>
+                  : <button onClick={cancelTrip} disabled={cancelling} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", textAlign: "left", cursor: "pointer", fontSize: 14, color: "#C9A84C", borderTop: "1px solid #EAF4EE" }}>🚫 Cancel Trip</button>}
+                <button onClick={() => { setShowMenu(false); setShowDeleteConfirm(true); }} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", textAlign: "left", cursor: "pointer", fontSize: 14, color: "#A8583E", borderTop: "1px solid #EAF4EE" }}>🗑️ Delete Permanently</button>
               </div>
             </>
           )}
@@ -1386,21 +1386,21 @@ ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.i
       {showDeleteConfirm && (
         <div onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText(""); }} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
           <div onClick={e => e.stopPropagation()} style={{ background: "#FFFFFF", borderRadius: 18, padding: 28, maxWidth: 400, width: "100%" }}>
-            <div style={{ fontFamily: "'Lora', serif", fontSize: 19, color: "#C4714A", marginBottom: 10 }}>Delete this trip?</div>
-            <div style={{ fontSize: 14, color: "#5A4535", lineHeight: 1.6, marginBottom: 16 }}>
+            <div style={{ fontFamily: "'Lora', serif", fontSize: 19, color: "#A8583E", marginBottom: 10 }}>Delete this trip?</div>
+            <div style={{ fontSize: 14, color: "#5C7464", lineHeight: 1.6, marginBottom: 16 }}>
               This will permanently delete the trip "<strong>{trip.origin_city} → {trip.destination_city}</strong>" along with its entire checklist and uploaded documents. This cannot be undone.
             </div>
-            <div style={{ fontSize: 13, color: "#5A4535", marginBottom: 8 }}>
+            <div style={{ fontSize: 13, color: "#5C7464", marginBottom: 8 }}>
               Type <strong>{trip.origin_city}</strong> to confirm:
             </div>
             <input maxLength={150}
               value={deleteConfirmText}
               onChange={e => setDeleteConfirmText(e.target.value)}
               placeholder={trip.origin_city}
-              style={{ width: "100%", padding: "11px 14px", borderRadius: 10, border: "1.5px solid #E8DDD0", background: "#FAF6F0", color: "#2C2017", fontSize: 15, marginBottom: 16, boxSizing: "border-box" }}
+              style={{ width: "100%", padding: "11px 14px", borderRadius: 10, border: "1.5px solid #DCE8E0", background: "#FAFCFB", color: "#1A2E22", fontSize: 15, marginBottom: 16, boxSizing: "border-box" }}
             />
             <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText(""); }} style={{ flex: 1, background: "transparent", border: "1px solid #E8DDD0", borderRadius: 10, padding: 12, color: "#5A4535", cursor: "pointer", fontWeight: 600 }}>Cancel</button>
+              <button onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText(""); }} style={{ flex: 1, background: "transparent", border: "1px solid #DCE8E0", borderRadius: 10, padding: 12, color: "#5C7464", cursor: "pointer", fontWeight: 600 }}>Cancel</button>
               <button
                 onClick={async () => {
                   setDeleting(true);
@@ -1417,7 +1417,7 @@ ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.i
                   onDelete(trip.id);
                 }}
                 disabled={deleteConfirmText !== trip.origin_city || deleting}
-                style={{ flex: 1, background: deleteConfirmText === trip.origin_city ? "#C4714A" : "#E8DDD0", border: "none", borderRadius: 10, padding: 12, color: "#fff", cursor: deleteConfirmText === trip.origin_city ? "pointer" : "not-allowed", fontWeight: 700 }}>
+                style={{ flex: 1, background: deleteConfirmText === trip.origin_city ? "#A8583E" : "#DCE8E0", border: "none", borderRadius: 10, padding: 12, color: "#fff", cursor: deleteConfirmText === trip.origin_city ? "pointer" : "not-allowed", fontWeight: 700 }}>
                 {deleting ? "Deleting..." : "Delete Trip"}
               </button>
             </div>
@@ -1482,9 +1482,9 @@ ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.i
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
               <div style={{ fontWeight: 700 }}>Checklist Progress</div>
               <div style={{ display: "flex", gap: 6 }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: "#5A4535", background: "#FAF6F0", borderRadius: 20, padding: "3px 10px" }}>{completed}/{checklist.length} done</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: "#5C7464", background: "#FAFCFB", borderRadius: 20, padding: "3px 10px" }}>{completed}/{checklist.length} done</span>
                 {overdueCount > 0 && <span style={{ fontSize: 12, fontWeight: 700, color: "#fff", background: C.danger, borderRadius: 20, padding: "3px 10px" }}>{overdueCount} overdue</span>}
-                {urgentCount > 0 && <span style={{ fontSize: 12, fontWeight: 700, color: "#2C2017", background: C.warn, borderRadius: 20, padding: "3px 10px" }}>{urgentCount} due soon</span>}
+                {urgentCount > 0 && <span style={{ fontSize: 12, fontWeight: 700, color: "#1A2E22", background: C.warn, borderRadius: 20, padding: "3px 10px" }}>{urgentCount} due soon</span>}
               </div>
             </div>
             {tripPets.length > 1 ? (
@@ -1540,14 +1540,14 @@ ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.i
         <div style={{ marginBottom: 16 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
             <div>
-              <h3 style={{ fontFamily: "'Lora', serif", fontSize: 20, color: C.text }}>Requirements Checklist</h3>
+              <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, color: C.text }}>Requirements Checklist</h3>
               <div style={{fontSize:11,color:C.muted,marginTop:3,maxWidth:420,lineHeight:1.45}}>AI-assisted planning only. Country rules should link to the responsible government authority. Confirm official requirements before travel.</div>
             </div>
             <div style={{ display: "flex", gap: 8 }}>
               <Btn sm v="secondary" onClick={() => setShowAddItem(true)}>+ Add</Btn>
               {checklist.length === 0 && (
                 premium
-                  ? <Btn sm onClick={generateRequirements} disabled={generating} style={{ background: C.warn, color: "#2C2017" }}>
+                  ? <Btn sm onClick={generateRequirements} disabled={generating} style={{ background: C.warn, color: "#1A2E22" }}>
                       {generating ? "Researching..." : "🤖 AI Generate"}
                     </Btn>
                   : <Btn sm onClick={onUpgrade} style={{ background: C.warnDim, color: C.text, border: `1px solid ${C.warn}66` }}>
@@ -1592,7 +1592,7 @@ ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.i
                     setBuyingCredits(false);
                   }}
                   disabled={buyingCredits}
-                  style={{ background: '#E8A838', color: '#1E1408', border: 'none', borderRadius: 10, padding: '10px 18px', fontWeight: 800, fontSize: 14, cursor: 'pointer', fontFamily: "'Nunito', sans-serif" }}>
+                  style={{ background: '#C9A84C', color: '#1E1408', border: 'none', borderRadius: 10, padding: '10px 18px', fontWeight: 800, fontSize: 14, cursor: 'pointer', fontFamily: "'Lora', serif" }}>
                   {buyingCredits ? 'Loading...' : '🎫 Buy 3 More Checklists — $2.99'}
                 </button>
               )}
@@ -1619,8 +1619,8 @@ ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.i
               <div style={{display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap"}}>
                 <Btn v="secondary" onClick={() => setShowAddItem(true)}>+ Add Requirement Manually</Btn>
                 {premium
-                  ? <Btn onClick={generateRequirements} style={{ background: C.warn, color: "#2C2017" }}>🤖 Generate with AI</Btn>
-                  : <Btn onClick={onUpgrade} style={{ background: C.warn, color: "#2C2017" }}>✨ See Premium AI Options</Btn>}
+                  ? <Btn onClick={generateRequirements} style={{ background: C.warn, color: "#1A2E22" }}>🤖 Generate with AI</Btn>
+                  : <Btn onClick={onUpgrade} style={{ background: C.warn, color: "#1A2E22" }}>✨ See Premium AI Options</Btn>}
               </div>
             </Card>
           )}
@@ -1648,7 +1648,7 @@ ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.i
 
         <div style={{ marginBottom: 16 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-            <h3 style={{ fontFamily: "'Lora', serif", fontSize: 20, color: C.text }}>Documents</h3>
+            <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, color: C.text }}>Documents</h3>
             <Btn sm v="secondary" onClick={() => setShowUploadEntry(true)}>📎 Upload Entry Doc</Btn>
           </div>
           {documents.length === 0
@@ -1822,14 +1822,14 @@ export default function Travel({ userId, tier = "free", onUpgrade, onBack }) {
         <div style={{ maxWidth: 680, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <button onClick={onBack} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, textAlign: "left" }}>
             <div style={{ fontFamily: "'Lora', serif", fontSize: 20, color: "#FFFFFF", fontWeight: 900, lineHeight: 1 }}>
-              🐾 <span>Your</span><span style={{ color: "#F5C45E" }}>Pet</span><span>Pass</span>
+              🐾 <span>Your</span><span style={{ color: "#C9A84C" }}>Pet</span><span>Pass</span>
             </div>
             <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 11, marginTop: 2, fontStyle: "italic" }}>← My Pets</div>
           </button>
           <div style={{ textAlign: "right" }}>
-            <div style={{ fontFamily: "'Lora', serif", fontSize: 22, color: "#fff", fontWeight: 600 }}>🛂 Travel Planner</div>
+            <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, color: "#fff", fontWeight: 700 }}>🛂 Travel Planner</div>
           </div>
-          <Btn onClick={() => setShowNew(true)} style={{ background: C.warn, color: "#2C2017" }}>+ New Trip</Btn>
+          <Btn onClick={() => setShowNew(true)} style={{ background: C.warn, color: "#1A2E22" }}>+ New Trip</Btn>
         </div>
       </div>
 
@@ -1853,7 +1853,7 @@ export default function Travel({ userId, tier = "free", onUpgrade, onBack }) {
             <button key={f} onClick={() => setFilter(f)} style={{
               background: filter === f ? C.accent : C.card, color: filter === f ? "#fff" : C.sub,
               border: `1px solid ${filter === f ? C.accent : C.border}`, borderRadius: 20,
-              padding: "7px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Nunito', sans-serif"
+              padding: "7px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Lora', serif"
             }}>
               {f === "upcoming" ? `Upcoming (${upcoming.length})` : `Past (${past.length})`}
             </button>
@@ -1865,14 +1865,14 @@ export default function Travel({ userId, tier = "free", onUpgrade, onBack }) {
         {!loading && displayed.length === 0 && (
           <section aria-label={filter === "upcoming" ? "No upcoming trips" : "No past trips"} style={{ textAlign: "center", padding: "52px 20px" }}>
             <div aria-hidden="true" style={{ fontSize: 48, marginBottom: 14 }}>✈️</div>
-            <h3 style={{ fontFamily: "'Lora', serif", fontSize: 22, marginBottom: 6, fontStyle: "italic" }}>
+            <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, marginBottom: 6, fontStyle: "italic" }}>
               {filter === "upcoming" ? "No upcoming trips" : "No past trips"}
             </h3>
             <div style={{ color: C.muted, fontSize: 14, marginBottom: 24 }}>
               {filter === "upcoming" ? "Plan your next adventure with your pet" : "Your completed trips will appear here"}
             </div>
             {filter === "upcoming" && (
-              <Btn onClick={() => setShowNew(true)} style={{ margin: "0 auto", background: C.warn, color: "#2C2017" }}>+ Plan First Trip</Btn>
+              <Btn onClick={() => setShowNew(true)} style={{ margin: "0 auto", background: C.warn, color: "#1A2E22" }}>+ Plan First Trip</Btn>
             )}
           </section>
         )}
@@ -1894,7 +1894,7 @@ export default function Travel({ userId, tier = "free", onUpgrade, onBack }) {
                 <Badge label={st.label} color={st.color} />
               </div>
               {/* Trip details grid */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, background: "#FAF6F0", borderRadius: 10, padding: "10px 12px", fontSize: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, background: "#FAFCFB", borderRadius: 10, padding: "10px 12px", fontSize: 12 }}>
                 <div><span style={{ color: C.muted, fontWeight: 600 }}>Depart </span>{fmt(trip.departure_date)}</div>
                 {trip.return_date && <div><span style={{ color: C.muted, fontWeight: 600 }}>Return </span>{fmt(trip.return_date)}</div>}
                 <div><span style={{ color: C.muted, fontWeight: 600 }}>Traveling </span>{{air:"✈️ Flying",sea:"🚢 By Sea",land:"🚗 Driving",bus:"🚌 Bus"}[trip.transportation_type]||"✈️ Flying"}</div>
@@ -1922,13 +1922,13 @@ export default function Travel({ userId, tier = "free", onUpgrade, onBack }) {
           onClose={() => setEditTrip(null)} />
       )}
       {/* Bottom nav — matches home screen */}
-      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "#FFFFFF", borderTop: "1px solid #E8DDD0", display: "flex", zIndex: 200, paddingBottom: "env(safe-area-inset-bottom)" }}>
-        <button onClick={onBack} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "10px 0", background: "none", border: "none", cursor: "pointer", color: "#8B7355" }}>
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8B7355" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "#FFFFFF", borderTop: "1px solid #DCE8E0", display: "flex", zIndex: 200, paddingBottom: "env(safe-area-inset-bottom)" }}>
+        <button onClick={onBack} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "10px 0", background: "none", border: "none", cursor: "pointer", color: "#7C9E87" }}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#7C9E87" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
           <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: ".04em" }}>MY PETS</span>
         </button>
-        <button style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "10px 0", background: "none", border: "none", cursor: "pointer", color: "#2D7D6F" }}>
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2D7D6F" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20"/></svg>
+        <button style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3, padding: "10px 0", background: "none", border: "none", cursor: "pointer", color: "#2C4A38" }}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2C4A38" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20"/></svg>
           <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: ".04em" }}>TRAVEL</span>
         </button>
       </div>
