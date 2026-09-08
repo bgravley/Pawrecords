@@ -1,10 +1,11 @@
 // src/PawRecord.jsx — YourPetPass
-import { useReducer, useState, useEffect, useRef, Component } from "react";
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import { useReducer, useState, useEffect, useRef, Component, lazy, Suspense } from "react";
 import { supabase } from "./lib/supabase";
 import * as db from "./lib/db";
 import { resizeImageFile } from "./lib/imageResize";
 import { createScanImagePayload, MAX_SCAN_REQUEST_BYTES, readScanResponse, SCAN_RETRY_MESSAGE, scanRequestSize } from "./lib/aiScanPayload";
+
+const WeightHistoryChart = lazy(() => import("./WeightHistoryChart.jsx"));
 
 const PRICES = {
   monthly: "price_1TknmwB5s5OlwZVJsgXTq1JA",
@@ -2071,7 +2072,11 @@ const MoreTab=({dog,state,dispatch,userId,tier,onUpgrade,onScan})=>{
   if(section==="weight")return(<div style={{display:"flex",flexDirection:"column",gap:12}}>
     <div style={{display:"flex",alignItems:"center",gap:10}}>{backBtn}<h3 style={{fontFamily:"'Lora',serif",fontSize:20,flex:1}}>Weight History</h3>{premium&&<Btn sm onClick={()=>setModal("addWeight")}><Ic n="plus" s={14}/> Log</Btn>}</div>
     {premium?<>
-      {weights.length>=2&&(<Card><div style={{width:"100%",height:180}}><ResponsiveContainer width="100%" height={180}><LineChart data={weights.map(w=>({date:w.log_date.slice(5),weight:w.weight_lbs}))}><CartesianGrid strokeDasharray="3 3" stroke="#DCE8E0"/><XAxis dataKey="date" stroke="#385744" tick={{fontSize:11}}/><YAxis stroke="#385744" tick={{fontSize:11}} domain={["auto","auto"]}/><Tooltip contentStyle={{background:"#FFFFFF",border:"1px solid #DCE8E0",borderRadius:10,color:"#1A2E22",fontSize:13}} formatter={v=>[v+" lbs","Weight"]}/><Line type="monotone" dataKey="weight" stroke="#2C4A38" strokeWidth={2} dot={{r:3,fill:"#2C4A38"}}/></LineChart></ResponsiveContainer></div></Card>)}
+      {weights.length>=2&&(<Card>
+      <Suspense fallback={<div role="status" style={{height:180,display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,color:"#6A8372"}}>Loading weight history...</div>}>
+        <WeightHistoryChart weights={weights}/>
+      </Suspense>
+    </Card>)}
       {weights.length===0?<Empty icon="weight" title="No weight records" sub="Log weight at each vet visit to track trends." action={<Btn onClick={()=>setModal("addWeight")}><Ic n="plus" s={14}/> Log Weight</Btn>}/>:weights.slice().reverse().map(w=>(<Card key={w.id}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><span style={{fontFamily:"'Lora',serif",fontSize:22,fontWeight:600}}>{w.weight_lbs}<span style={{fontSize:14,color:"#385744"}}> lbs</span></span><div style={{fontSize:12,color:"#385744",marginTop:2}}>{fmt(w.log_date)}{w.notes?` · ${w.notes}`:""}</div></div><button type="button" aria-label={`Delete weight record from ${fmt(w.log_date)}`} onClick={async()=>{try{await db.deleteWeight(w.id);dispatch({t:"DEL_WT",id:w.id});}catch(e){alert("Could not delete: "+e.message);}}} style={{background:"#C4714A14",border:"1px solid #C4714A44",borderRadius:8,padding:"5px 8px",color:"#C4714A"}}><Ic n="trash" s={13}/></button></div></Card>))}
       {modal==="addWeight"&&<WeightLogModal userId={userId} dog={dog} dispatch={dispatch} onClose={()=>setModal(null)}/>}
     </>:<PremiumLock onUpgrade={onUpgrade} label="Weight Tracking — Premium Feature" detail="Your core health history stays free. Premium adds weight logging and trend charts over time."/>}
