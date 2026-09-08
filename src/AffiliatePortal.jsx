@@ -216,7 +216,7 @@ export default function AffiliatePortal({ userId, userEmail, onClose }) {
         {/* Transaction Ledger */}
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 20, marginBottom: 20 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <div><div><div style={{ fontWeight: 700, fontSize: 16 }}>Transaction Ledger</div><div style={{ fontSize: 11, color: C.muted, marginTop: 3 }}>Customer Payment shows the gross charge or refund. Your commission is calculated from the eligible payment amount after Stripe processing fees.</div></div><div style={{ fontSize: 11, color: C.muted, marginTop: 3 }}>Customer Payment shows the gross charge or refund. Your commission is calculated from the eligible payment amount after Stripe processing fees.</div></div>
+            <div><div style={{ fontWeight: 700, fontSize: 16 }}>Transaction Ledger</div><div style={{ fontSize: 11, color: C.muted, marginTop: 3 }}>Customer Payment shows the gross charge or refund. Your commission is calculated from the eligible payment amount after Stripe processing fees.</div></div>
             <select value={monthFilter} onChange={e => setMonthFilter(e.target.value)}
               style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '6px 12px', fontSize: 13, color: C.text, cursor: 'pointer' }}>
               <option value="all">All time</option>
