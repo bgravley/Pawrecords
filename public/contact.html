@@ -10,28 +10,28 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Lora:wght@400;600&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --teal: #2D7D6F; --teal-dk: #1E5C52; --cream: #FAF6F0;
-      --brown: #5A4535; --muted: #8B7355; --border: #E8DDD0; --text: #2C2017; --gold: #E8A838; --red: #C4714A;
+      --teal: #2C4A38; --teal-dk: #1A2E22; --cream: #FAFCFB;
+      --brown: #1A2E22; --muted: #5C7464; --border: #DCE8E0; --text: #1A2E22; --gold: #C9A84C; --red: #C4714A;
     }
-    body { background: var(--cream); color: var(--text); font-family: 'Nunito', sans-serif; font-size: 16px; line-height: 1.7; }
+    body { background: var(--cream); color: var(--text); font-family: 'Lora', serif; font-size: 16px; line-height: 1.7; }
     header { background: var(--teal-dk); padding: 18px 24px; display: flex; align-items: center; gap: 12px; }
-    header a { font-family: 'Lora', serif; font-size: 22px; color: #fff; text-decoration: none; font-weight: 600; }
-    header a span { color: #A8D5CE; }
+    header a { font-family: 'Playfair Display', serif; font-size: 22px; color: #fff; text-decoration: none; font-weight: 600; }
+    header a span { color: #C9A84C; }
     .wrap { max-width: 640px; margin: 0 auto; padding: 56px 24px 80px; }
     .hero { text-align: center; margin-bottom: 40px; }
-    .hero h1 { font-family: 'Lora', serif; font-size: clamp(28px, 5vw, 40px); font-weight: 600; color: var(--teal-dk); margin-bottom: 10px; }
+    .hero h1 { font-family: 'Playfair Display', serif; font-size: clamp(28px, 5vw, 40px); font-weight: 600; color: var(--teal-dk); margin-bottom: 10px; }
     .hero p { color: var(--muted); font-size: 16px; }
     .card { background: #fff; border: 1px solid var(--border); border-radius: 16px; padding: 28px; margin-bottom: 20px; }
-    .card h2 { font-family: 'Lora', serif; font-size: 19px; color: var(--teal-dk); margin-bottom: 14px; display: flex; align-items: center; gap: 10px; }
+    .card h2 { font-family: 'Playfair Display', serif; font-size: 19px; color: var(--teal-dk); margin-bottom: 14px; display: flex; align-items: center; gap: 10px; }
 
     label { display: block; font-size: 12px; font-weight: 700; color: var(--brown); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; }
     input, textarea {
       width: 100%; padding: 12px 14px; border-radius: 10px; border: 1.5px solid var(--border);
-      background: var(--cream); color: var(--text); font-family: 'Nunito', sans-serif; font-size: 15px;
+      background: var(--cream); color: var(--text); font-family: 'Lora', serif; font-size: 15px;
       outline: none; margin-bottom: 16px; box-sizing: border-box;
     }
     textarea { resize: vertical; min-height: 110px; }
@@ -39,12 +39,12 @@
 
     button.submit {
       width: 100%; background: var(--teal); color: #fff; border: none; border-radius: 10px;
-      padding: 14px; font-weight: 700; font-size: 15px; cursor: pointer; font-family: 'Nunito', sans-serif;
+      padding: 14px; font-weight: 700; font-size: 15px; cursor: pointer; font-family: 'Lora', serif;
     }
     button.submit:disabled { opacity: 0.6; cursor: not-allowed; }
 
     .status { border-radius: 10px; padding: 12px 16px; font-size: 14px; margin-bottom: 16px; display: none; }
-    .status.success { background: #2D7D6F14; border: 1px solid #2D7D6F44; color: var(--teal); display: block; }
+    .status.success { background: #2C4A3814; border: 1px solid #2C4A3844; color: var(--teal); display: block; }
     .status.error { background: #C4714A14; border: 1px solid #C4714A44; color: var(--red); display: block; }
 
     .faq-item { border-bottom: 1px solid var(--border); padding: 16px 0; }
@@ -82,7 +82,7 @@
         <input type="email" id="email" required placeholder="jane@example.com" />
 
         <label for="subject">Subject (optional)</label>
-        <input type="text" id="subject" placeholder="Billing question, bug report, etc." />
+        <input type="text" id="subject" placeholder="Billing question, bug report, copyright complaint, etc." />
 
         <label for="message">Message</label>
         <textarea id="message" required placeholder="How can we help?"></textarea>
@@ -104,14 +104,14 @@
 
     <div class="card">
       <h2><span class="icon">💳</span> Billing & Subscriptions</h2>
-      <p style="color:var(--brown); font-size:15px;">To update your payment method, change plans, or cancel a subscription, sign in and go to <strong>My Account → Billing → Manage Subscription</strong>. This takes you to a secure Stripe-hosted page where you have full control over your plan.</p>
+      <p style="color:var(--brown); font-size:15px;">To update your payment method, view invoices, or cancel a subscription, sign in and go to <strong>My Account → Billing → Manage Subscription</strong>. This opens Stripe's secure customer portal for the billing actions currently available on your account.</p>
     </div>
 
     <div class="card">
       <h2><span class="icon">📋</span> Quick Answers</h2>
       <div class="faq-item">
         <h3>How do I cancel my subscription?</h3>
-        <p>Sign in → tap your profile icon → Billing → "Manage Subscription / Cancel." You'll be taken to Stripe's secure portal where you can cancel anytime — no charge for the remainder of your current billing period.</p>
+        <p>Sign in → tap your profile icon → Billing → "Manage Subscription / Cancel." Stripe's secure portal lets you cancel renewal. You keep access through the end of the billing period you've already paid for, and the subscription will not renew after cancellation takes effect.</p>
       </div>
       <div class="faq-item">
         <h3>Is my pet's data private?</h3>
@@ -123,7 +123,11 @@
       </div>
       <div class="faq-item">
         <h3>I found a lost pet — how do I see their info?</h3>
-        <p>Scan the QR code on their tag, or visit the sign-in page and tap "Emergency Pet Lookup" — no account required.</p>
+        <p>If the pet has a YourPetPass Emergency QR, scan that code to open the tokenized emergency page — no account is required. YourPetPass does not provide a public pet directory or name-based emergency lookup.</p>
+      </div>
+      <div class="faq-item">
+        <h3>How do I send a copyright or legal notice?</h3>
+        <p>Use the form above and clearly identify the subject. For copyright complaints and counter-notices, see our <a class="link" href="/copyright.html">Copyright Complaints page</a> for the information to include.</p>
       </div>
     </div>
 
@@ -136,6 +140,10 @@
     <a href="/privacy.html" style="color:var(--muted);">Privacy</a>
     &nbsp;·&nbsp;
     <a href="/terms.html" style="color:var(--muted);">Terms</a>
+    &nbsp;·&nbsp;
+    <a href="/ai-policy.html" style="color:var(--muted);">AI &amp; Sources</a>
+    &nbsp;·&nbsp;
+    <a href="/copyright.html" style="color:var(--muted);">Copyright</a>
   </footer>
 
   <script>
