@@ -38,6 +38,9 @@ jobs:
       - name: Run repository artifact hygiene audit
         run: python3 scripts/repository_artifact_hygiene_audit.py
 
+      - name: Run canonical runtime host audit
+        run: python3 scripts/runtime_host_audit.py
+
       - name: Parse every serverless JavaScript module
         run: python3 scripts/serverless_syntax_audit.py
 
