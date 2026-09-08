@@ -98,5 +98,8 @@ jobs:
       - name: Run legal and admin hygiene audit
         run: python3 scripts/legal_admin_hygiene_audit.py
 
+      - name: Run adult account attestation audit
+        run: python3 scripts/legal_attestation_audit.py
+
       - name: Run Stripe webhook lifecycle audit
         run: python3 scripts/stripe_webhook_lifecycle_audit.py
