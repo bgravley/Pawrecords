@@ -87,7 +87,7 @@ export default function SignupFunnel({ onSignup, onLogin }) {
             <div style={{ color: '#5C7464', fontSize: 14, lineHeight: 1.65 }}>Start organizing your pet's health records now. Upgrade only if you want premium features later.</div>
           </div>
 
-          <button onClick={onSignup} style={{ width: '100%', border: 'none', borderRadius: 14, background: C.gold, color: C.text, fontFamily: "'Lora', serif", fontWeight: 700, fontSize: 16, padding: '15px 18px', cursor: 'pointer', boxShadow: '0 5px 16px rgba(201,168,76,.24)' }}>Create Free Account</button>
+          <button aria-label="Create a free YourPetPass account" onClick={onSignup} style={{ width: '100%', border: 'none', borderRadius: 14, background: C.gold, color: C.text, fontFamily: "'Lora', serif", fontWeight: 700, fontSize: 16, padding: '15px 18px', cursor: 'pointer', boxShadow: '0 5px 16px rgba(201,168,76,.24)' }}>Create Free Account</button>
           <div style={{ textAlign: 'center', color: C.sage, fontSize: 12.5, margin: '13px 0 18px' }}>Google or email signup available</div>
 
           <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 18 }}>
@@ -101,7 +101,7 @@ export default function SignupFunnel({ onSignup, onLogin }) {
 
           <div style={{ textAlign: 'center', marginTop: 22, color: C.sage, fontSize: 12.5 }}>
             Already have an account?{' '}
-            <button onClick={onLogin} style={{ background: 'none', border: 'none', padding: 0, color: C.forest, font: 'inherit', fontWeight: 700, cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 }}>Sign in</button>
+            <button aria-label="Sign in to YourPetPass" onClick={onLogin} style={{ background: 'none', border: 'none', padding: 0, color: C.forest, font: 'inherit', fontWeight: 700, cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3 }}>Sign in</button>
           </div>
         </aside>
       </main>
