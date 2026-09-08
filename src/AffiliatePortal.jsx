@@ -7,11 +7,11 @@ import { useState, useEffect } from 'react';
 import { supabase } from './lib/supabase';
 
 const C = {
-  bg: '#FAF6F0', card: '#FFFFFF', border: '#E8DDD0',
-  teal: '#2D7D6F', tealDk: '#1E5C52', tealLt: '#4A9E90',
-  brown: '#5A4535', muted: '#8B7355', text: '#2C2017',
-  amber: '#E8A838', red: '#C4714A', green: '#2D7D6F',
-  light: '#F4EFE8',
+  bg: '#FAFCFB', card: '#FFFFFF', border: '#DCE8E0',
+  teal: '#2C4A38', tealDk: '#2C4A38', tealLt: '#9DC4AA',
+  brown: '#5C7464', muted: '#7C9E87', text: '#1A2E22',
+  amber: '#C9A84C', red: '#A8583E', green: '#2C4A38',
+  light: '#EAF4EE',
 };
 
 const fmt = (d) => d ? new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
@@ -71,7 +71,7 @@ export default function AffiliatePortal({ userId, userEmail, onClose }) {
 
   if (loading) return (
     <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ fontFamily: "'Nunito', sans-serif", fontSize: 20, color: C.teal }}>Loading your dashboard...</div>
+      <div style={{ fontFamily: "'Lora', serif", fontSize: 20, color: C.teal }}>Loading your dashboard...</div>
     </div>
   );
 
@@ -114,16 +114,16 @@ export default function AffiliatePortal({ userId, userEmail, onClose }) {
   const inp = {
     width: '100%', padding: '10px 14px', borderRadius: 10, fontSize: 14,
     border: `1.5px solid ${C.border}`, background: C.bg, color: C.text,
-    outline: 'none', fontFamily: "'Nunito', sans-serif", boxSizing: 'border-box',
+    outline: 'none', fontFamily: "'Lora', serif", boxSizing: 'border-box',
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: C.bg, fontFamily: "'Nunito', sans-serif" }}>
+    <div style={{ minHeight: '100vh', background: C.bg, fontFamily: "'Lora', serif" }}>
       {/* Header */}
       <div style={{ background: C.tealDk, padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <img src="/logo_horizontal_cream_transparent.png" alt="YourPetPass" style={{ height: 34, display: "block" }} />
-          <div style={{ fontSize: 13, color: '#A8D5CE', marginTop: 4 }}>Affiliate Partner Dashboard</div>
+          <div style={{ fontSize: 13, color: '#9DC4AA', marginTop: 4 }}>Affiliate Partner Dashboard</div>
         </div>
         <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: 10, padding: '8px 16px', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
           ← Back to App
@@ -160,7 +160,7 @@ export default function AffiliatePortal({ userId, userEmail, onClose }) {
             <div style={{ flex: 1, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, padding: '10px 14px', fontSize: 13, color: C.teal, fontFamily: 'monospace', wordBreak: 'break-all' }}>
               {referralUrl}
             </div>
-            <button onClick={copyLink} style={{ background: copied ? C.tealDk : C.teal, color: '#fff', border: 'none', borderRadius: 10, padding: '10px 18px', fontWeight: 700, fontSize: 14, cursor: 'pointer', flexShrink: 0, fontFamily: "'Nunito', sans-serif" }}>
+            <button onClick={copyLink} style={{ background: copied ? C.tealDk : C.teal, color: '#fff', border: 'none', borderRadius: 10, padding: '10px 18px', fontWeight: 700, fontSize: 14, cursor: 'pointer', flexShrink: 0, fontFamily: "'Lora', serif" }}>
               {copied ? '✓ Copied!' : 'Copy Link'}
             </button>
           </div>

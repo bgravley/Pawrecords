@@ -81,28 +81,28 @@ function isWeeklyDigestDay() {
 function emailWrapper(content) {
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
-  body { font-family: 'Georgia', serif; background: #FAF6F0; margin: 0; padding: 20px; }
-  .container { max-width: 600px; margin: 0 auto; background: #FFFFFF; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(44,32,23,0.08); }
-  .header { background: #1E5C52; padding: 28px 32px; }
+  body { font-family: 'Lora', Georgia, serif; background: #FAFCFB; margin: 0; padding: 20px; }
+  .container { max-width: 600px; margin: 0 auto; background: #FFFFFF; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(26,46,34,0.08); }
+  .header { background: #2C4A38; padding: 28px 32px; }
   .logo { font-size: 24px; color: #FFFFFF; font-weight: 900; }
-  .logo span { color: #F5C45E; }
+  .logo span { color: #C9A84C; }
   .tagline { color: rgba(255,255,255,0.7); font-size: 13px; margin-top: 4px; font-style: italic; }
   .body { padding: 28px 32px; }
-  .footer { background: #FAF6F0; padding: 20px 32px; text-align: center; font-size: 12px; color: #8B7355; border-top: 1px solid #E8DDD0; }
-  .btn { display: inline-block; background: #2D7D6F; color: #FFFFFF; text-decoration: none; padding: 12px 24px; border-radius: 10px; font-weight: 700; font-size: 14px; margin-top: 16px; }
+  .footer { background: #FAFCFB; padding: 20px 32px; text-align: center; font-size: 12px; color: #7C9E87; border-top: 1px solid #DCE8E0; }
+  .btn { display: inline-block; background: #2C4A38; color: #FFFFFF; text-decoration: none; padding: 12px 24px; border-radius: 10px; font-weight: 700; font-size: 14px; margin-top: 16px; }
   .alert-card { border-radius: 12px; padding: 16px; margin: 10px 0; border-left: 4px solid; }
-  .alert-urgent { background: #C4714A14; border-color: #C4714A; }
-  .alert-warning { background: #E8A83814; border-color: #E8A838; }
-  .alert-ok { background: #2D7D6F14; border-color: #2D7D6F; }
+  .alert-urgent { background: #A8583E14; border-color: #A8583E; }
+  .alert-warning { background: #C9A84C14; border-color: #C9A84C; }
+  .alert-ok { background: #2C4A3814; border-color: #2C4A38; }
   .pet-section { margin: 20px 0; }
-  .pet-name { font-size: 18px; font-weight: 700; color: #2C2017; margin-bottom: 12px; border-bottom: 1px solid #E8DDD0; padding-bottom: 8px; }
-  .item-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #F0E8DC; font-size: 14px; }
+  .pet-name { font-size: 18px; font-weight: 700; color: #1A2E22; margin-bottom: 12px; border-bottom: 1px solid #DCE8E0; padding-bottom: 8px; }
+  .item-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #EAF4EE; font-size: 14px; }
   .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 700; }
-  .badge-red { background: #C4714A20; color: #C4714A; }
-  .badge-amber { background: #E8A83820; color: #E8A838; }
-  .badge-green { background: #2D7D6F20; color: #2D7D6F; }
-  h2 { color: #1E5C52; font-size: 20px; margin-top: 0; }
-  p { color: #5A4535; line-height: 1.7; font-size: 15px; }
+  .badge-red { background: #A8583E20; color: #A8583E; }
+  .badge-amber { background: #C9A84C20; color: #C9A84C; }
+  .badge-green { background: #2C4A3820; color: #2C4A38; }
+  h2 { font-family: 'Playfair Display', Georgia, serif; color: #2C4A38; font-size: 20px; margin-top: 0; }
+  p { color: #5C7464; line-height: 1.7; font-size: 15px; }
 </style></head><body>
 <div class="container">
   <div class="header">
@@ -110,7 +110,7 @@ function emailWrapper(content) {
   </div>
   <div class="body">${content}</div>
   <div class="footer">
-    <p style="margin:0 0 8px;">© 2026 YourPetPass · <a href="${APP_URL}" style="color:#2D7D6F;">Open App</a> · <a href="__YPP_UNSUBSCRIBE_URL__" style="color:#8B7355;">Unsubscribe</a></p>
+    <p style="margin:0 0 8px;">© 2026 YourPetPass · <a href="${APP_URL}" style="color:#2C4A38;">Open App</a> · <a href="__YPP_UNSUBSCRIBE_URL__" style="color:#7C9E87;">Unsubscribe</a></p>
     <p style="margin:0;font-size:11px;">You're receiving this because YourPetPass reminder emails are enabled for your account.</p>
   </div>
 </div>
@@ -126,9 +126,9 @@ function vaccineReminderEmail({ petName, vaccineName, dueDate, days, ownerName }
     <p>${esc(petName)}'s <strong>${esc(vaccineName)}</strong> vaccination is due in <strong>${days} day${days !== 1 ? 's' : ''}</strong> on <strong>${fmt(dueDate)}</strong>.</p>
     <div class="alert-card alert-${urgency}">
       <strong>${esc(petName)}</strong> · ${esc(vaccineName)}<br>
-      <span style="font-size:13px;color:#5A4535;">Due: ${fmt(dueDate)} · ${days} days away</span>
+      <span style="font-size:13px;color:#5C7464;">Due: ${fmt(dueDate)} · ${days} days away</span>
     </div>
-    ${days <= 7 ? '<p style="color:#C4714A;font-weight:600;">⚠️ Schedule your vet appointment now to avoid your pet being overdue.</p>' : ''}
+    ${days <= 7 ? '<p style="color:#A8583E;font-weight:600;">⚠️ Schedule your vet appointment now to avoid your pet being overdue.</p>' : ''}
     <a href="${APP_URL}" class="btn">View ${esc(petName)}'s Records →</a>
   `);
 }
@@ -142,11 +142,11 @@ function travelReminderEmail({ ownerName, tripName, items }) {
         <div style="display:flex;justify-content:space-between;align-items:flex-start;">
           <div>
             <strong>${esc(item.title)}</strong><br>
-            <span style="font-size:12px;color:#5A4535;">Due: ${fmt(item.deadline_date)}</span>
+            <span style="font-size:12px;color:#5C7464;">Due: ${fmt(item.deadline_date)}</span>
           </div>
           <span class="badge ${badge}">${item.days}d left</span>
         </div>
-        ${item.notes ? `<div style="font-size:12px;color:#C4714A;margin-top:6px;">⚠ ${esc(item.notes)}</div>` : ''}
+        ${item.notes ? `<div style="font-size:12px;color:#A8583E;margin-top:6px;">⚠ ${esc(item.notes)}</div>` : ''}
       </div>`;
   }).join('');
 
@@ -156,7 +156,7 @@ function travelReminderEmail({ ownerName, tripName, items }) {
     <p>You have upcoming deadlines for your trip <strong>${esc(tripName)}</strong>. Some items need to be completed well before your departure date.</p>
     ${itemsHtml}
     <a href="${APP_URL}" class="btn">View Trip Checklist →</a>
-    <p style="font-size:13px;color:#8B7355;margin-top:16px;">Remember: USDA endorsement takes 1–3 business days by mail. Don't wait until the last minute.</p>
+    <p style="font-size:13px;color:#7C9E87;margin-top:16px;">Remember: USDA endorsement takes 1–3 business days by mail. Don't wait until the last minute.</p>
   `);
 }
 
@@ -165,7 +165,7 @@ function weeklyDigestEmail({ ownerName, overdueVaccines, upcomingVaccines, trave
 
   const overdueHtml = overdueVaccines.length ? `
     <div style="margin-bottom:20px;">
-      <div style="font-size:11px;font-weight:700;color:#C4714A;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">⚠ Overdue Vaccines</div>
+      <div style="font-size:11px;font-weight:700;color:#A8583E;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">⚠ Overdue Vaccines</div>
       ${overdueVaccines.map(v => `
         <div class="item-row">
           <span><strong>${esc(v.petName)}</strong> · ${esc(v.name)}</span>
@@ -175,7 +175,7 @@ function weeklyDigestEmail({ ownerName, overdueVaccines, upcomingVaccines, trave
 
   const upcomingHtml = upcomingVaccines.length ? `
     <div style="margin-bottom:20px;">
-      <div style="font-size:11px;font-weight:700;color:#E8A838;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">📅 Upcoming Vaccines</div>
+      <div style="font-size:11px;font-weight:700;color:#C9A84C;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">📅 Upcoming Vaccines</div>
       ${upcomingVaccines.map(v => `
         <div class="item-row">
           <span><strong>${esc(v.petName)}</strong> · ${esc(v.name)}</span>
@@ -185,7 +185,7 @@ function weeklyDigestEmail({ ownerName, overdueVaccines, upcomingVaccines, trave
 
   const travelHtml = travelItems.length ? `
     <div style="margin-bottom:20px;">
-      <div style="font-size:11px;font-weight:700;color:#2D7D6F;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">✈️ Travel Documents Due Soon</div>
+      <div style="font-size:11px;font-weight:700;color:#2C4A38;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">✈️ Travel Documents Due Soon</div>
       ${travelItems.map(t => `
         <div class="item-row">
           <span><strong>${esc(t.tripName)}</strong> · ${esc(t.title)}</span>
@@ -194,10 +194,10 @@ function weeklyDigestEmail({ ownerName, overdueVaccines, upcomingVaccines, trave
     </div>` : '';
 
   const noNewsHtml = !hasAnything ? `
-    <div style="text-align:center;padding:24px 0;color:#2D7D6F;">
+    <div style="text-align:center;padding:24px 0;color:#2C4A38;">
       <div style="font-size:32px;margin-bottom:8px;">✅</div>
       <div style="font-weight:700;font-size:16px;">All clear this week!</div>
-      <div style="font-size:13px;color:#8B7355;margin-top:4px;">No upcoming vaccines or travel deadlines.</div>
+      <div style="font-size:13px;color:#7C9E87;margin-top:4px;">No upcoming vaccines or travel deadlines.</div>
     </div>` : '';
 
   return emailWrapper(`

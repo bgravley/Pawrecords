@@ -26,8 +26,8 @@ function ResetPasswordScreen({ onDone }) {
 
   const inp = {
     width: '100%', padding: '13px 16px', borderRadius: 12, fontSize: 15,
-    border: '1.5px solid #E8DDD0', background: '#FAF6F0', color: '#2C2017',
-    outline: 'none', fontFamily: "'Nunito', sans-serif", boxSizing: 'border-box',
+    border: '1.5px solid #DCE8E0', background: '#FAFCFB', color: '#1A2E22',
+    outline: 'none', fontFamily: "'Lora', serif", boxSizing: 'border-box',
   };
 
   const handleReset = async () => {
@@ -46,33 +46,33 @@ function ResetPasswordScreen({ onDone }) {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: '#FAF6F0', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-      <div style={{ background: '#FFFFFF', borderRadius: 20, padding: 32, width: '100%', maxWidth: 400, boxShadow: '0 4px 24px #0000000D', border: '1px solid #E8DDD0' }}>
-        <div style={{ fontFamily: "'Lora', serif", fontSize: 26, fontWeight: 600, color: '#1E5C52', marginBottom: 6, textAlign: 'center' }}>
+    <div style={{ minHeight: '100vh', background: '#FAFCFB', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <div style={{ background: '#FFFFFF', borderRadius: 20, padding: 32, width: '100%', maxWidth: 400, boxShadow: '0 4px 24px #0000000D', border: '1px solid #DCE8E0' }}>
+        <div style={{ fontFamily: "'Lora', serif", fontSize: 26, fontWeight: 600, color: '#2C4A38', marginBottom: 6, textAlign: 'center' }}>
           🐾 YourPetPass
         </div>
-        <div style={{ fontFamily: "'Lora', serif", fontSize: 20, color: '#2C2017', marginBottom: 20, textAlign: 'center' }}>
+        <div style={{ fontFamily: "'Lora', serif", fontSize: 20, color: '#1A2E22', marginBottom: 20, textAlign: 'center' }}>
           Set New Password
         </div>
         {success ? (
-          <div style={{ background: '#2D7D6F14', border: '1px solid #2D7D6F44', borderRadius: 12, padding: 16, color: '#2D7D6F', fontWeight: 600, textAlign: 'center' }}>
+          <div style={{ background: '#2C4A3814', border: '1px solid #2C4A3844', borderRadius: 12, padding: 16, color: '#2C4A38', fontWeight: 600, textAlign: 'center' }}>
             ✓ Password updated! Redirecting...
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div>
-              <label style={{ fontSize: 12, fontWeight: 700, color: '#5A4535', textTransform: 'uppercase', letterSpacing: '.05em', display: 'block', marginBottom: 6 }}>New Password</label>
+              <label style={{ fontSize: 12, fontWeight: 700, color: '#5C7464', textTransform: 'uppercase', letterSpacing: '.05em', display: 'block', marginBottom: 6 }}>New Password</label>
               <input type="password" value={password} onChange={e => setPassword(e.target.value)}
                 style={inp} placeholder="At least 8 characters" autoComplete="new-password" />
             </div>
             <div>
-              <label style={{ fontSize: 12, fontWeight: 700, color: '#5A4535', textTransform: 'uppercase', letterSpacing: '.05em', display: 'block', marginBottom: 6 }}>Confirm Password</label>
+              <label style={{ fontSize: 12, fontWeight: 700, color: '#5C7464', textTransform: 'uppercase', letterSpacing: '.05em', display: 'block', marginBottom: 6 }}>Confirm Password</label>
               <input type="password" value={confirm} onChange={e => setConfirm(e.target.value)}
                 style={inp} placeholder="Type it again" autoComplete="new-password" />
             </div>
-            {error && <div style={{ background: '#C4714A14', border: '1px solid #C4714A44', borderRadius: 10, padding: '10px 14px', color: '#C4714A', fontSize: 14 }}>{error}</div>}
+            {error && <div style={{ background: '#A8583E14', border: '1px solid #A8583E44', borderRadius: 10, padding: '10px 14px', color: '#A8583E', fontSize: 14 }}>{error}</div>}
             <button onClick={handleReset} disabled={loading}
-              style={{ width: '100%', padding: 14, borderRadius: 12, fontSize: 15, fontWeight: 700, background: '#2D7D6F', color: '#fff', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1, fontFamily: "'Nunito', sans-serif" }}>
+              style={{ width: '100%', padding: 14, borderRadius: 12, fontSize: 15, fontWeight: 700, background: '#2C4A38', color: '#fff', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1, fontFamily: "'Lora', serif" }}>
               {loading ? 'Saving...' : 'Save New Password'}
             </button>
           </div>
@@ -327,8 +327,8 @@ export default function App() {
   }
 
   if (loading || legalAttestationChecking) return (
-    <div style={{ minHeight: "100vh", background: "#FAF6F0", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div style={{ fontFamily: "'Nunito', sans-serif", fontSize: 28, fontWeight: 900, color: "#2D7D6F" }}>
+    <div style={{ minHeight: "100vh", background: "#FAFCFB", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ fontFamily: "'Lora', serif", fontSize: 28, fontWeight: 900, color: "#2C4A38" }}>
         🐾 Loading...
       </div>
     </div>
@@ -373,12 +373,12 @@ export default function App() {
   return (
     <>
       {paymentToast==='success'&&(
-        <div style={{position:'fixed',top:16,left:'50%',transform:'translateX(-50%)',background:'#2D7D6F',color:'#fff',borderRadius:12,padding:'12px 24px',fontSize:15,fontWeight:700,zIndex:9999,boxShadow:'0 4px 20px #00000033',display:'flex',alignItems:'center',gap:10}}>
+        <div style={{position:'fixed',top:16,left:'50%',transform:'translateX(-50%)',background:'#2C4A38',color:'#fff',borderRadius:12,padding:'12px 24px',fontSize:15,fontWeight:700,zIndex:9999,boxShadow:'0 4px 20px #00000033',display:'flex',alignItems:'center',gap:10}}>
           🎉 Payment successful! Your account is being upgraded — this may take a moment.
         </div>
       )}
       {paymentToast==='canceled'&&(
-        <div style={{position:'fixed',top:16,left:'50%',transform:'translateX(-50%)',background:'#5A4535',color:'#fff',borderRadius:12,padding:'12px 24px',fontSize:15,fontWeight:600,zIndex:9999,boxShadow:'0 4px 20px #00000033'}}>
+        <div style={{position:'fixed',top:16,left:'50%',transform:'translateX(-50%)',background:'#5C7464',color:'#fff',borderRadius:12,padding:'12px 24px',fontSize:15,fontWeight:600,zIndex:9999,boxShadow:'0 4px 20px #00000033'}}>
           Checkout canceled — no charge was made.
         </div>
       )}
