@@ -88,7 +88,7 @@ export default async function handler(req, res) {
       subheader: localized([pet.species, pet.breed].filter(Boolean).join(' · ') || 'Pet'),
       header: localized(pet.name),
       logo: {
-        sourceUri: { uri: 'https://yourpetpass.com/icon-512.png' },
+        sourceUri: { uri: 'https://www.yourpetpass.com/icon-512.png' },
         contentDescription: localized('YourPetPass'),
       },
       barcode: {
@@ -104,7 +104,7 @@ export default async function handler(req, res) {
       aud: 'google',
       typ: 'savetowallet',
       iat: Math.floor(Date.now() / 1000),
-      origins: ['https://yourpetpass.com'],
+      origins: ['https://www.yourpetpass.com'],
       payload: { genericObjects: [genericObject] },
     };
 

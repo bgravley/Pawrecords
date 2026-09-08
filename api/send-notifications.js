@@ -7,7 +7,7 @@ import { unsubscribeApiUrlForUser, unsubscribePageUrlForUser } from './_unsubscr
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const FROM_EMAIL = 'YourPetPass <notifications@yourpetpass.com>';
-const APP_URL = 'https://yourpetpass.com';
+const APP_URL = 'https://www.yourpetpass.com';
 
 function esc(str) {
   if (!str) return str;
@@ -106,7 +106,7 @@ function emailWrapper(content) {
 </style></head><body>
 <div class="container">
   <div class="header">
-    <img src="https://yourpetpass.com/logo_horizontal_cream_transparent.png" alt="YourPetPass" width="200" style="display:block;height:auto;" />
+    <img src="https://www.yourpetpass.com/logo_horizontal_cream_transparent.png" alt="YourPetPass" width="200" style="display:block;height:auto;" />
   </div>
   <div class="body">${content}</div>
   <div class="footer">

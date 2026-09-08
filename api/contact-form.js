@@ -110,7 +110,7 @@ export default async function handler(req, res) {
 <body>
   <div class="card">
     <div class="header">
-      <img src="https://yourpetpass.com/logo_horizontal_cream_transparent.png" alt="YourPetPass" width="180" style="display:block;height:auto;margin-bottom:12px;" />
+      <img src="https://www.yourpetpass.com/logo_horizontal_cream_transparent.png" alt="YourPetPass" width="180" style="display:block;height:auto;margin-bottom:12px;" />
       <h1>📨 New Contact Form Submission</h1>
     </div>
     <div class="body">

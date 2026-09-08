@@ -178,7 +178,7 @@ function wrap(displayName, senderEmail, recordHtml, note, pdfUrl) {
 <body style="margin:0;padding:20px;background:#FAFCFB;font-family:Georgia,'Times New Roman',serif;color:#1A2E22;">
   <div style="max-width:720px;margin:0 auto;background:#FFFFFF;border:1px solid #DCE8E0;border-radius:16px;overflow:hidden;">
     <div style="background:#2C4A38;padding:20px 24px;">
-      <img src="https://yourpetpass.com/logo_horizontal_cream_transparent.png" alt="YourPetPass" width="180" style="display:block;height:auto;margin-bottom:10px;" />
+      <img src="https://www.yourpetpass.com/logo_horizontal_cream_transparent.png" alt="YourPetPass" width="180" style="display:block;height:auto;margin-bottom:10px;" />
       <div style="color:#FFFFFF;font-size:19px;font-weight:700;">${esc(displayName)}'s Health Record</div>
       <div style="color:#9DC4AA;font-size:13px;margin-top:4px;">Shared via YourPetPass${senderEmail ? ` by ${esc(senderEmail)}` : ''}</div>
     </div>

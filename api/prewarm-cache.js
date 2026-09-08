@@ -33,7 +33,7 @@ async function loadActiveRoutes() {
 }
 
 const CRON_SECRET = process.env.CRON_SECRET;
-const APP_URL = process.env.VITE_APP_URL || 'https://yourpetpass.com';
+const APP_URL = process.env.VITE_APP_URL || 'https://www.yourpetpass.com';
 
 async function warmOneRoute(originCountry, destinationCountry, transportationType) {
   // Calls ai-travel.js the exact same way a real user's browser would —

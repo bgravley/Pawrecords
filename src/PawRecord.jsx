@@ -909,7 +909,7 @@ const ShareModal=({dog,onClose})=>{
   const msgs=[`🐾 ${dog.name} is up to date on all vaccinations! Keeping pet records organized with YourPetPass 📋`,`💉 Just logged ${dog.name}'s latest vet visit! Healthy pup = happy life. #YourPetPass #DogMom #DogDad`,`✅ ${dog.name}'s medical records are travel-ready. Best investment for any dog parent! 🐶`];
   const[sel,setSel]=useState(0);
   const[copied,setCopied]=useState(false);
-  const shareUrl="https://yourpetpass.com";
+  const shareUrl="https://www.yourpetpass.com";
   const copyAndOpen=(platform)=>{
     navigator.clipboard.writeText(msgs[sel]).catch(()=>{});
     setCopied(true);
@@ -1458,7 +1458,7 @@ const QRSection=({dog,state,backBtn})=>{
 
   useEffect(()=>{loadWalletConfig();},[dog.id]);
 
-  const emergencyUrl=token?`https://yourpetpass.com/emergency/${token}`:"";
+  const emergencyUrl=token?`https://www.yourpetpass.com/emergency/${token}`:"";
   const qrUrl=token?`https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(emergencyUrl)}`:"";
 
   const copyLink=()=>{

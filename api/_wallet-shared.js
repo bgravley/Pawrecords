@@ -212,7 +212,7 @@ export async function rabiesStatus(dogId) {
 }
 
 export function emergencyUrl(token) {
-  return `https://yourpetpass.com/emergency/${token}`;
+  return `https://www.yourpetpass.com/emergency/${token}`;
 }
 
 export function appleWalletConfigured() {

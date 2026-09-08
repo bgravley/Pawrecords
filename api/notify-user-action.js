@@ -57,7 +57,7 @@ function wrap(bodyHtml) {
   .footer { background: #EAF4EE; padding: 14px 26px; font-size: 11px; color: #7C9E87; text-align: center; }
 </style></head>
 <body><div class="card">
-  <div class="header"><img src="https://yourpetpass.com/logo_horizontal_cream_transparent.png" alt="YourPetPass" width="200" style="display:block;height:auto;" /></div>
+  <div class="header"><img src="https://www.yourpetpass.com/logo_horizontal_cream_transparent.png" alt="YourPetPass" width="200" style="display:block;height:auto;" /></div>
   <div class="body">${bodyHtml}</div>
   <div class="footer">YourPetPass · Health Records &amp; Travel, Simplified.</div>
 </div></body></html>`;

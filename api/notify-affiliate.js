@@ -95,14 +95,14 @@ export default async function handler(req, res) {
     const firstName = affiliate.fullName.trim().split(/\s+/)[0] || '';
     const rate = Number(affiliate.commission_rate);
     const rateLabel = Number.isFinite(rate) ? `${rate}%` : 'your agreed rate';
-    const referralUrl = `https://yourpetpass.com?ref=${encodeURIComponent(affiliate.referral_code)}`;
+    const referralUrl = `https://www.yourpetpass.com?ref=${encodeURIComponent(affiliate.referral_code)}`;
     const safeNotes = affiliate.notes ? esc(affiliate.notes) : '';
 
     const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:20px;background:#FAFCFB;font-family:Georgia,'Times New Roman',serif;color:#1A2E22;">
   <div style="background:#FFFFFF;border:1px solid #DCE8E0;border-radius:16px;max-width:560px;margin:0 auto;overflow:hidden;">
     <div style="background:#2C4A38;padding:26px 28px;text-align:center;">
-      <img src="https://yourpetpass.com/logo_horizontal_cream_transparent.png" alt="YourPetPass" width="200" style="display:block;height:auto;margin:0 auto;" />
+      <img src="https://www.yourpetpass.com/logo_horizontal_cream_transparent.png" alt="YourPetPass" width="200" style="display:block;height:auto;margin:0 auto;" />
     </div>
     <div style="padding:28px;">
       <h2 style="font-size:22px;color:#2C4A38;margin:0 0 10px;">Welcome to the affiliate program${firstName ? `, ${esc(firstName)}` : ''}</h2>
@@ -114,7 +114,7 @@ export default async function handler(req, res) {
       <p><strong>Your unique referral link:</strong></p>
       <div style="background:#EAF4EE;border:1px solid #9DC4AA;border-radius:10px;padding:12px 14px;font-family:monospace;font-size:13px;color:#2C4A38;word-break:break-all;">${esc(referralUrl)}</div>
       <p style="line-height:1.7;margin-top:18px;">Share this link with your audience. Log in with this email to view your affiliate dashboard and referral activity.</p>
-      <a href="https://yourpetpass.com" style="display:block;background:#C9A84C;color:#1A2E22;text-decoration:none;border-radius:10px;padding:13px 20px;text-align:center;font-weight:700;margin:22px 0;">Open YourPetPass</a>
+      <a href="https://www.yourpetpass.com" style="display:block;background:#C9A84C;color:#1A2E22;text-decoration:none;border-radius:10px;padding:13px 20px;text-align:center;font-weight:700;margin:22px 0;">Open YourPetPass</a>
       ${safeNotes ? `<p style="color:#7C9E87;font-size:13px;font-style:italic;">Note from YourPetPass: ${safeNotes}</p>` : ''}
       <p style="line-height:1.7;">Questions? Reply to this email and we'll help.</p>
     </div>

@@ -724,7 +724,7 @@ export default function Admin({ onBack }) {
                   const referred = users.filter(u => u.referral_code_used === aff.referral_code).length;
                   const owed = affiliateCommissions.filter(c => c.affiliate_id === aff.id && c.status === 'pending').reduce((s, c) => s + (c.commission_amount_cents || 0), 0);
                   const paid = affiliateCommissions.filter(c => c.affiliate_id === aff.id && c.status === 'paid').reduce((s, c) => s + (c.commission_amount_cents || 0), 0);
-                  const referralUrl = `https://yourpetpass.com?ref=${aff.referral_code}`;
+                  const referralUrl = `https://www.yourpetpass.com?ref=${aff.referral_code}`;
                   return (
                     <div key={aff.id} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: 18 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>

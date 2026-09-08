@@ -79,7 +79,7 @@ export default async function handler(req, res) {
 <body style="margin:0;padding:20px;background:#FAFCFB;font-family:Georgia,'Times New Roman',serif;color:#1A2E22;">
   <div style="background:#FFFFFF;border:1px solid #DCE8E0;border-radius:16px;max-width:540px;margin:0 auto;overflow:hidden;">
     <div style="background:#2C4A38;padding:24px 28px;">
-      <img src="https://yourpetpass.com/logo_horizontal_cream_transparent.png" alt="YourPetPass" width="180" style="display:block;height:auto;margin-bottom:12px;" />
+      <img src="https://www.yourpetpass.com/logo_horizontal_cream_transparent.png" alt="YourPetPass" width="180" style="display:block;height:auto;margin-bottom:12px;" />
       <div style="color:#FFFFFF;font-size:20px;font-weight:700;">New User Signed Up</div>
       <div style="color:#9DC4AA;font-size:13px;margin-top:4px;">yourpetpass.com</div>
     </div>
@@ -90,7 +90,7 @@ export default async function handler(req, res) {
       <p><strong>Total users now:</strong> ${esc(totalUsers)}</p>
       ${referralCode ? `<p><strong>Referral code used:</strong> ${esc(referralCode)}</p>` : ''}
       <p style="font-size:12px;color:#7C9E87;"><strong>User ID:</strong> ${esc(userId)}</p>
-      <a href="https://yourpetpass.com/admin" style="display:block;background:#C9A84C;color:#1A2E22;text-decoration:none;border-radius:10px;padding:12px 20px;text-align:center;font-weight:700;margin-top:20px;">View Admin Dashboard</a>
+      <a href="https://www.yourpetpass.com/admin" style="display:block;background:#C9A84C;color:#1A2E22;text-decoration:none;border-radius:10px;padding:12px 20px;text-align:center;font-weight:700;margin-top:20px;">View Admin Dashboard</a>
     </div>
     <div style="background:#EAF4EE;padding:15px 28px;color:#7C9E87;font-size:11px;text-align:center;">YourPetPass · Health Records &amp; Travel, Simplified.</div>
   </div>

@@ -3,7 +3,7 @@
 
 import { verifyCronRequest } from './_cronAuth.js';
 
-const APP_URL = process.env.VITE_APP_URL || 'https://yourpetpass.com';
+const APP_URL = process.env.VITE_APP_URL || 'https://www.yourpetpass.com';
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'private, no-store');
