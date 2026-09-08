@@ -155,6 +155,39 @@
       </main>
     </div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script>
+      // /signup is a dedicated conversion entry point. The app's existing signup
+      // button remains the single source of truth for auth/legal behavior; this
+      // route simply opens it automatically after the marketing UI mounts.
+      if (window.location.pathname.replace(/\/+$/, '') === '/signup') {
+        var robots = document.createElement('meta');
+        robots.name = 'robots';
+        robots.content = 'noindex,follow';
+        document.head.appendChild(robots);
+        document.title = 'Create Your Free Account | YourPetPass';
+
+        var openedSignup = false;
+        var openSignup = function () {
+          if (openedSignup) return true;
+          var buttons = Array.from(document.querySelectorAll('button'));
+          var signupButton = buttons.find(function (button) {
+            return button.textContent.trim().toLowerCase() === 'sign up free';
+          });
+          if (!signupButton) return false;
+          openedSignup = true;
+          signupButton.click();
+          return true;
+        };
+
+        if (!openSignup()) {
+          var observer = new MutationObserver(function () {
+            if (openSignup()) observer.disconnect();
+          });
+          observer.observe(document.documentElement, { childList: true, subtree: true });
+          window.setTimeout(function () { observer.disconnect(); }, 10000);
+        }
+      }
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
