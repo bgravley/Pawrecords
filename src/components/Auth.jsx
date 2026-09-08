@@ -1,6 +1,10 @@
 // src/components/Auth.jsx
 import { useState } from "react";
 import { supabase } from "../lib/supabase";
+import {
+  clearPendingLegalAttestation,
+  markPendingLegalAttestation,
+} from "../lib/legalAttestation.js";
 
 const C = {
   forest: "#2C4A38",
@@ -64,16 +68,17 @@ const EmergencyAccessHelp = ({ onBack }) => (
   </div>
 );
 
-export default function Auth() {
+export default function Auth({ initialMode = "signin" }) {
   // mode: "main" | "forgot" | "emergency"
   const [mode, setMode] = useState("main");
-  const [authMode, setAuthMode] = useState("signin");
+  const [authMode, setAuthMode] = useState(initialMode === "signup" ? "signup" : "signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [legalAccepted, setLegalAccepted] = useState(false);
 
   const setErr = (value) => {
     if (!value) return setError(null);
@@ -114,6 +119,10 @@ export default function Auth() {
   };
 
   const signInWithGoogle = async () => {
+    if (authMode === "signup" && !legalAccepted) {
+      return setErr("Please confirm the age and legal terms before creating your account.");
+    }
+    if (authMode === "signup") markPendingLegalAttestation('google_signup');
     setLoading(true);
     clearAll();
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
@@ -124,6 +133,7 @@ export default function Auth() {
       },
     });
     if (oauthError) {
+      if (authMode === "signup") clearPendingLegalAttestation();
       setErr(oauthError);
       setLoading(false);
     }
@@ -141,14 +151,18 @@ export default function Auth() {
   const signUpWithEmail = async () => {
     if (!email || !password) return setErr("Please enter your email and password.");
     if (password.length < 8) return setErr("Password must be at least 8 characters.");
+    if (!legalAccepted) return setErr("Please confirm the age and legal terms before creating your account.");
 
+    markPendingLegalAttestation('email_signup');
     setLoading(true);
     clearAll();
     const { data, error: signUpError } = await supabase.auth.signUp({ email, password });
 
     if (signUpError) {
+      clearPendingLegalAttestation();
       setErr(signUpError);
     } else if (data?.user && data.user.identities?.length === 0) {
+      clearPendingLegalAttestation();
       setErr("An account with this email already exists. Try signing in instead.");
     } else {
       setSuccess("Account created. Check your email to confirm your address, then sign in.");
@@ -252,7 +266,7 @@ export default function Auth() {
               {["signin", "signup"].map((m) => (
                 <button
                   key={m}
-                  onClick={() => { setAuthMode(m); clearAll(); }}
+                  onClick={() => { setAuthMode(m); setLegalAccepted(false); clearAll(); }}
                   style={{
                     flex: 1, padding: "9px 0", borderRadius: 10, border: "none",
                     fontWeight: 600, fontSize: 14, cursor: "pointer", fontFamily: "'Lora', serif",
@@ -266,13 +280,38 @@ export default function Auth() {
               ))}
             </div>
 
+            {authMode === "signup" && (
+              <div style={{
+                display: "flex", alignItems: "flex-start", gap: 10, background: C.mint,
+                border: `1px solid ${C.border}`, borderRadius: 12, padding: "11px 12px",
+              }}>
+                <input
+                  id="adult-legal-attestation"
+                  type="checkbox"
+                  checked={legalAccepted}
+                  onChange={(e) => { setLegalAccepted(e.target.checked); clearAll(); }}
+                  aria-label="Confirm adult age and legal terms"
+                  style={{ marginTop: 3, width: 17, height: 17, accentColor: C.forest, flexShrink: 0 }}
+                />
+                <div style={{ fontSize: 11.5, color: C.text, lineHeight: 1.55 }}>
+                  <label htmlFor="adult-legal-attestation" style={{ cursor: "pointer" }}>
+                    I confirm I am at least 18 years old (or the age of majority where I live), and I agree to the
+                  </label>{" "}
+                  <a href="/terms.html" target="_blank" rel="noopener noreferrer" style={{ color: C.forest, fontWeight: 600 }}>Terms of Service</a>{" "}
+                  and acknowledge the{" "}
+                  <a href="/privacy.html" target="_blank" rel="noopener noreferrer" style={{ color: C.forest, fontWeight: 600 }}>Privacy Policy</a>.
+                </div>
+              </div>
+            )}
+
             <button
               onClick={signInWithGoogle}
-              disabled={loading}
+              disabled={loading || (authMode === "signup" && !legalAccepted)}
               style={{
                 width: "100%", padding: 13, borderRadius: 12, fontSize: 14.5, fontWeight: 600,
                 background: "#fff", color: C.text, border: `1.5px solid ${C.border}`,
-                cursor: loading ? "not-allowed" : "pointer", fontFamily: "'Lora', serif",
+                cursor: loading || (authMode === "signup" && !legalAccepted) ? "not-allowed" : "pointer", fontFamily: "'Lora', serif",
+                opacity: loading || (authMode === "signup" && !legalAccepted) ? 0.58 : 1,
                 display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
               }}
             >
@@ -329,8 +368,8 @@ export default function Auth() {
             {!success && (
               <button
                 onClick={authMode === "signin" ? signInWithEmail : signUpWithEmail}
-                disabled={loading}
-                style={primaryBtn}
+                disabled={loading || (authMode === "signup" && !legalAccepted)}
+                style={{ ...primaryBtn, opacity: loading || (authMode === "signup" && !legalAccepted) ? 0.58 : 1, cursor: loading || (authMode === "signup" && !legalAccepted) ? "not-allowed" : "pointer" }}
               >
                 {loading
                   ? (authMode === "signin" ? "Signing in..." : "Creating account...")
