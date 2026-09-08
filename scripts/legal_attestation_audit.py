@@ -20,8 +20,8 @@ check('30 * 60 * 1000' in helper,
       'pre-auth attestation handoff expires after 30 minutes')
 check('window.sessionStorage' in helper and 'localStorage' not in helper,
       'pre-auth confirmation uses tab-scoped sessionStorage, not persistent localStorage')
-check('email' not in helper.lower() and 'birthday' not in helper.lower() and 'birth_date' not in helper.lower() and 'date_of_birth' not in helper.lower(),
-      'pre-auth handoff stores no email or birth-date data')
+check('email:' not in helper.lower() and 'email_address' not in helper.lower() and 'birthday' not in helper.lower() and 'birth_date' not in helper.lower() and 'date_of_birth' not in helper.lower(),
+      'pre-auth handoff stores no email address or birth-date data')
 check('user?.app_metadata' in helper and 'user?.user_metadata' not in helper,
       'durable gate trusts protected app metadata rather than browser-editable user metadata')
 check("['email_signup', 'google_signup', 'post_auth_gate']" in helper,
@@ -80,7 +80,7 @@ check("new Set(['email_signup', 'google_signup', 'post_auth_gate'])" in endpoint
       'server allowlists attestation methods independently of the browser')
 check('supabase.auth.admin.getUserById(auth.userId)' in endpoint,
       'server loads existing protected metadata for the verified user')
-check('...(existing.user.app_metadata || {})' in endpoint,
+check('const current = existing.user.app_metadata || {}' in endpoint and '...current' in endpoint,
       'server preserves unrelated protected app metadata')
 check('supabase.auth.admin.updateUserById(auth.userId' in endpoint and 'app_metadata:' in endpoint,
       'durable attestation is written to protected app metadata')
