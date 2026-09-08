@@ -131,6 +131,14 @@ check(f'<link rel="canonical" href="{CANONICAL_HOST}/" />' in index and
       f'<meta property="og:url" content="{CANONICAL_HOST}/" />' in index and
       f'<meta name="twitter:url" content="{CANONICAL_HOST}/" />' in index,
       'root canonical, Open Graph, and Twitter URLs agree on www')
+check('AI-generated travel checklists' not in index and
+      'AI-assisted travel planning checklists with official-source links' in index,
+      'social metadata uses the bounded AI-assisted planning claim')
+check('creates AI-assisted, route-specific travel planning checklists with official-source links' in index and
+      'current requirements should be confirmed before travel' in index,
+      'crawler FAQ carries the same AI travel limitation')
+check('<a href="/ai-policy.html">AI & Source Policy</a>' in index,
+      'crawler fallback links directly to the public AI/source policy')
 check('"operatingSystem": "Web"' in index and '"operatingSystem": "Web, iOS, Android"' not in index,
       'structured data does not imply native iOS/Android availability before launch')
 check('uses AI to help extract information from uploaded vet documents for review' in index,
