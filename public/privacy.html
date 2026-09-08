@@ -10,24 +10,24 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Lora:wght@400;600&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --teal:    #2D7D6F;
-      --teal-dk: #1E5C52;
-      --cream:   #FAF6F0;
-      --brown:   #5A4535;
-      --muted:   #8B7355;
-      --border:  #E8DDD0;
-      --text:    #2C2017;
+      --teal:    #2C4A38;
+      --teal-dk: #2C4A38;
+      --cream:   #FAFCFB;
+      --brown:   #1A2E22;
+      --muted:   #5C7464;
+      --border:  #DCE8E0;
+      --text:    #1A2E22;
     }
 
     body {
       background: var(--cream);
       color: var(--text);
-      font-family: 'Nunito', sans-serif;
+      font-family: 'Lora', serif;
       font-size: 16px;
       line-height: 1.75;
     }
@@ -41,13 +41,13 @@
       gap: 12px;
     }
     header a {
-      font-family: 'Lora', serif;
+      font-family: 'Playfair Display', serif;
       font-size: 22px;
       color: #fff;
       text-decoration: none;
-      font-weight: 600;
+      font-weight: 700;
     }
-    header a span { color: #A8D5CE; }
+    header a span { color: #C9A84C; }
 
     /* ── Layout ── */
     .wrap {
@@ -63,9 +63,9 @@
       margin-bottom: 40px;
     }
     .hero h1 {
-      font-family: 'Lora', serif;
+      font-family: 'Playfair Display', serif;
       font-size: clamp(26px, 5vw, 38px);
-      font-weight: 600;
+      font-weight: 700;
       color: var(--teal-dk);
       margin-bottom: 10px;
     }
@@ -78,9 +78,9 @@
     section { margin-bottom: 40px; }
 
     h2 {
-      font-family: 'Lora', serif;
+      font-family: 'Playfair Display', serif;
       font-size: 20px;
-      font-weight: 600;
+      font-weight: 700;
       color: var(--teal-dk);
       margin-bottom: 12px;
       padding-top: 8px;
@@ -117,8 +117,8 @@
       padding: 28px 24px;
       margin-top: 40px;
     }
-    .contact-box h2 { color: #A8D5CE; margin-bottom: 8px; }
-    .contact-box p { color: #C8E8E4; margin-bottom: 6px; }
+    .contact-box h2 { color: #C9A84C; margin-bottom: 8px; }
+    .contact-box p { color: #EAF4EE; margin-bottom: 6px; }
     .contact-box a { color: #fff; font-weight: 700; }
 
     /* ── Divider ── */
@@ -148,11 +148,11 @@
 
     <div class="hero">
       <h1>Privacy Policy</h1>
-      <p class="meta">Effective Date: June 7, 2026 &nbsp;·&nbsp; Last Updated: September 6, 2026</p>
+      <p class="meta">Effective Date: June 7, 2026 &nbsp;·&nbsp; Last Updated: September 7, 2026</p>
     </div>
 
     <div class="callout">
-      <strong>The short version:</strong> Your personal data and your pet's health records belong to you. We use your information to run the app, improve our services, and occasionally communicate with you about things we think you'll find useful. We protect your data with industry-standard security and do not sell your name, email, or pet records to third parties.
+      <strong>The short version:</strong> Your personal data and your pet's health records belong to you. We use your information to run the app, improve our services, and occasionally communicate with you about things we think you'll find useful. We use security safeguards described below and do not sell your name, email, or pet records to third parties.
     </div>
 
     <!-- 1 -->
@@ -225,7 +225,8 @@
         <li><strong>Supabase</strong> — database and authentication</li>
         <li><strong>Vercel</strong> — application hosting</li>
         <li><strong>Stripe</strong> — payment processing</li>
-        <li><strong>OpenAI</strong> — AI document scanning and travel checklist generation</li>
+        <li><strong>OpenAI</strong> — AI document scanning and travel checklist research/generation</li>
+        <li><strong>Anthropic</strong> — secondary AI review of generated travel checklist output</li>
         <li><strong>Resend</strong> — transactional email delivery</li>
         <li><strong>Google Analytics</strong> — optional website and product analytics</li>
         <li><strong>Microsoft Clarity</strong> — optional usability and session analytics</li>
@@ -233,7 +234,7 @@
       </ul>
       <p>These providers are used only as described in this policy. Optional analytics providers are not loaded until you choose to allow analytics, and YourPetPass product analytics are limited to coarse feature events rather than pet names, medical record contents, document contents, or travel details.</p>
       <p><strong>Aggregated and anonymized data:</strong> We may use aggregated, de-identified information — such as general trends in pet vaccination patterns, popular travel routes, or breed health data — for analytics, research, product development, and with marketing or analytics partners. This information cannot be used to identify you or your pet.</p>
-      <p><strong>Public emergency profile:</strong> If you generate a QR Health Card for a pet, that pet's basic health information (allergies, emergency contact, vaccination status) will be accessible to anyone who scans the QR code or visits the associated link, without requiring a login. You control whether this feature is active.</p>
+      <p><strong>Emergency QR page:</strong> If you enable an Emergency QR for a pet, YourPetPass creates a high-entropy, tokenized link that does not require login. It is not a public pet directory. Only the supported emergency fields you choose to share are returned; the full medical record and private uploaded documents are not exposed through the Emergency QR. Anyone who has the QR code or associated link may be able to view the fields you enabled.</p>
       <p><strong>Legal requirements:</strong> We may disclose your information if required to do so by law, court order, or governmental authority, or if we believe disclosure is necessary to protect the safety of any person or prevent fraud.</p>
       <p><strong>Business transfers:</strong> If YourPetPass is acquired, merged, or its assets are transferred, your information may be part of that transaction. We will notify you before your data becomes subject to a different privacy policy.</p>
     </section>
@@ -255,7 +256,7 @@
       <ul>
         <li><strong>Export your records</strong> at any time using the Export feature in the app</li>
         <li><strong>Delete a pet's records</strong> from within the app at any time</li>
-        <li><strong>Delete your account</strong> by contacting us at <a href="/contact.html" style="color:var(--teal);">our contact page</a> — we will permanently delete your account and associated data within 30 days</li>
+        <li><strong>Request account deletion</strong> through <a href="/contact.html" style="color:var(--teal);">our contact page</a>. We remove account-linked pet records and other user-owned content as described in the Data Retention section below.</li>
         <li><strong>Correct inaccurate information</strong> by editing your profile or pet records directly in the app</li>
       </ul>
     </section>
@@ -273,8 +274,8 @@
     <!-- 7 -->
     <section>
       <h2>8. Data Retention</h2>
-      <p>We retain your account and pet health data for as long as your account is active. If you delete your account, we will permanently remove your data within 30 days, except where we are required by law to retain certain records for a longer period.</p>
-      <p>Anonymized, aggregated usage data may be retained indefinitely for analytics and product improvement purposes.</p>
+      <p>We retain your account and pet health data for as long as your account is active. After an account-deletion request is completed, account-linked pet records and other user-owned content are removed, subject to limited backups, fraud/security needs, payment or legal recordkeeping, and other retention required by law.</p>
+      <p>Operational records such as activity, error, abuse-prevention, or AI-usage logs may be retained in de-identified or account-disassociated form where reasonably needed for security, reliability, accounting, analytics, or legal compliance. Aggregated or de-identified information may be retained for product improvement and research.</p>
     </section>
 
     <!-- 8 -->
@@ -287,7 +288,7 @@
     <!-- 9 -->
     <section>
       <h2>10. Children's Privacy</h2>
-      <p>YourPetPass is not directed to children under 13. We do not knowingly collect personal information from children under 13. If you believe a child has provided us with personal information, please contact us and we will delete it promptly.</p>
+      <p>Accounts are intended for adults who are at least 18 years old, or the age of majority in their jurisdiction, consistent with our Terms of Service. The Service is not directed to children. We do not knowingly collect personal information from children under 13. If you believe a child has provided us with personal information, please contact us so we can address it.</p>
     </section>
 
     <!-- 10 -->
@@ -307,7 +308,8 @@
       <h2>Contact Us</h2>
       <p>If you have questions, requests, or concerns about this Privacy Policy or your data, please reach out:</p>
       <p><a href="/contact.html" style="color:#fff;">yourpetpass.com/contact.html</a></p>
-      <p style="margin-top:8px; font-size:14px; color:#A8D5CE;">RD Marketing LLC · YourPetPass</p>
+      <p style="margin-top:6px;font-size:14px;"><a href="/ai-policy.html" style="color:#fff;">AI &amp; Source Policy</a> · <a href="/copyright.html" style="color:#fff;">Copyright Complaints</a></p>
+      <p style="margin-top:8px; font-size:14px; color:#C9A84C;">RD Marketing LLC · YourPetPass</p>
     </div>
 
   </div>
@@ -317,6 +319,10 @@
     <a href="https://yourpetpass.com" style="color:var(--muted);">yourpetpass.com</a>
     &nbsp;·&nbsp;
     <a href="/terms.html" style="color:var(--muted);">Terms</a>
+    &nbsp;·&nbsp;
+    <a href="/ai-policy.html" style="color:var(--muted);">AI &amp; Sources</a>
+    &nbsp;·&nbsp;
+    <a href="/copyright.html" style="color:var(--muted);">Copyright</a>
     &nbsp;·&nbsp;
     <a href="/contact.html" style="color:var(--muted);">Contact</a>
   </footer>
