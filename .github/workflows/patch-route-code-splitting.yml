@@ -1,0 +1,30 @@
+name: Patch Route Code Splitting
+
+"on":
+  push:
+    branches: [perf/route-code-splitting]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v4
+        with:
+          ref: perf/route-code-splitting
+
+      - name: Apply route code-splitting patch
+        run: python3 scripts/patch_route_code_splitting.py
+
+      - name: Commit generated source updates
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/App.jsx src/main.jsx
+          git diff --cached --quiet && exit 0
+          git commit -m "Lazy-load non-public application routes"
+          git push origin HEAD:perf/route-code-splitting
