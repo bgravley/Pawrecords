@@ -228,7 +228,7 @@ print("[ 9/28] Checking sitemap completeness...")
 sitemap = open("public/sitemap.xml", errors='ignore').read() \
     if os.path.isfile("public/sitemap.xml") else ""
 sitemap_urls = set(re.findall(
-    r'<loc>(https://yourpetpass\.com[^<]*)</loc>', sitemap
+    r'<loc>(https://www\.yourpetpass\.com[^<]*)</loc>', sitemap
 ))
 missing_from_sitemap = []
 for root, dirs, files in os.walk("public"):
@@ -242,7 +242,7 @@ for root, dirs, files in os.walk("public"):
             if re.search(r'<meta[^>]+name=["\']robots["\'][^>]+content=["\'][^"\']*noindex', content, re.IGNORECASE):
                 continue
             url_path = path.replace("public/", "/").replace("public", "")
-            full_url = f"https://yourpetpass.com{url_path}"
+            full_url = f"https://www.yourpetpass.com{url_path}"
             if full_url not in sitemap_urls:
                 missing_from_sitemap.append(path)
 for path in missing_from_sitemap:
