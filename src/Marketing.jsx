@@ -103,7 +103,6 @@ export default function Marketing({ onLogin, onSignup }) {
           <a href="#use-cases" style={{ ...navBtn, color: '#EAF4EE', textDecoration: 'none' }}>Use Cases</a>
           <a href="#pricing" style={{ ...navBtn, color: '#EAF4EE', textDecoration: 'none' }}>Pricing</a>
           <a href="/blog.html" style={{ ...navBtn, color: '#EAF4EE', textDecoration: 'none' }}>Pet Guides</a>
-          <a href="#store" style={{ ...navBtn, color: '#EAF4EE', textDecoration: 'none' }}>Store</a>
           <button onClick={onLogin} style={{ background: 'rgba(255,255,255,0.12)', color: '#FFFFFF', border: '1.5px solid rgba(255,255,255,0.5)', borderRadius: 10, padding: '8px 18px', fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: "'Lora', serif" }}>Login</button>
           <button onClick={onSignup} style={{ background: C.amber, color: C.text, border: 'none', borderRadius: 10, padding: '9px 18px', fontWeight: 800, fontSize: 14, cursor: 'pointer', fontFamily: "'Lora', serif" }}>Sign Up Free</button>
         </div>
@@ -153,7 +152,7 @@ export default function Marketing({ onLogin, onSignup }) {
       <section style={{ padding: '52px 20px 36px', maxWidth: 1000, margin: '0 auto' }}>
         <div style={{ display: 'flex', gap: 40, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
           <div style={{ flex: '1 1 320px', minWidth: 280 }}>
-            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 26, fontWeight: 700, color: C.tealDk, marginBottom: 18 }}>From vet visit to your pocket in seconds</h2>
+            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 26, fontWeight: 700, color: C.tealDk, marginBottom: 18 }}>From vet visit to your pocket, without the paper chase</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               <StepCard num="1" icon="📷" title="Snap a photo" desc="Photograph any vet record, vaccine card, or health document." />
               <StepCard num="2" icon="🤖" title="AI helps organize it" desc="AI extracts details for you to review before you rely on them." />
@@ -175,8 +174,8 @@ export default function Marketing({ onLogin, onSignup }) {
           <FeatureCard icon="📷" title="AI Document Scan" desc="Photo a vet record or vaccine card — AI extracts details for you to review." />
           <FeatureCard icon="✈️" title="AI Travel Checklists" desc="Build a route-specific planning checklist with official-source links, then verify current rules before travel." />
           <FeatureCard icon="⚖️" title="Weight Tracking" desc="Log weight at every visit and see trends over time." />
-          <FeatureCard icon="🚨" title="QR Emergency Card" desc="A scannable health card for sitters, boarding, or if your pet is ever lost." />
-          <FeatureCard icon="📤" title="Export & Share" desc="Export a complete health summary and email it to a vet, hotel, or daycare in seconds." />
+          <FeatureCard icon="🚨" title="QR Emergency Card" desc="If you enable it, share a tokenized emergency page with the supported details you choose — without exposing full medical records or private uploads." />
+          <FeatureCard icon="📤" title="Export & Share" desc="Export a health summary and email it to a vet, hotel, or daycare when you need to share records." />
         </div>
       </section>
 
@@ -263,24 +262,13 @@ export default function Marketing({ onLogin, onSignup }) {
         </div>
       </section>
 
-      {/* STORE — coming soon stub */}
-      <section id="store" style={{ padding: '40px 20px', maxWidth: 680, margin: '0 auto', textAlign: 'center' }}>
-        <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 18, padding: 32 }}>
-          <div style={{ fontSize: 32, marginBottom: 10 }}>🛍️</div>
-          <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, fontWeight: 700, color: C.tealDk, marginBottom: 8 }}>YourPetPass Store — Coming Soon</div>
-          <div style={{ fontSize: 14, color: C.muted, lineHeight: 1.6 }}>
-            Travel gear, ID tags, and pet essentials picked to pair with your YourPetPass profile.
-          </div>
-        </div>
-      </section>
-
       {/* FAQ */}
       <section style={{ padding: '40px 20px', maxWidth: 680, margin: '0 auto' }}>
         <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 700, textAlign: 'center', color: C.tealDk, marginBottom: 24 }}>Common Questions</h2>
-        <FAQItem q="What is YourPetPass?" a="An app that keeps your pet's health records — vaccines, vet visits, allergies, medications — in one place, accessible no matter which vet you see, plus AI-generated travel checklists for flying or driving with your pet." />
+        <FAQItem q="What is YourPetPass?" a="An app that keeps your pet's health records — vaccines, vet visits, allergies, medications — in one place, accessible no matter which vet you see, plus AI-assisted travel planning checklists with official-source links." />
         <FAQItem q="Does it work if I see different vets in different cities?" a="Yes — that's exactly the problem it's built to solve. Records stay attached to your pet's profile, not to any single clinic." />
-        <FAQItem q="Can it help with airline or international travel requirements?" a="Yes. Generate a route-specific checklist covering health certificates, vaccination requirements, and airline pet policies." />
-        <FAQItem q="Is YourPetPass free?" a="Yes, the free plan covers core health record storage. Premium adds AI scanning, AI travel checklists, weight tracking, document storage, and the QR emergency card, starting at $4.99/month." />
+        <FAQItem q="Can it help with airline or international travel requirements?" a="Yes. YourPetPass can create a route-specific AI-assisted planning checklist with official-source links. Confirm country requirements with the responsible government authority and carrier-specific policies with the carrier before travel." />
+        <FAQItem q="Is YourPetPass free?" a="Yes, the free plan covers core health record storage. Premium adds AI document scanning, AI-assisted travel planning, weight tracking, document storage, and the owner-controlled QR emergency card, starting at $4.99/month." />
       </section>
 
       {/* NEWSLETTER SIGNUP */}
