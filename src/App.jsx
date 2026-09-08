@@ -8,6 +8,12 @@ import Admin from "./Admin.jsx";
 import Emergency from "./Emergency.jsx";
 import Travel from "./Travel.jsx";
 import AffiliatePortal from "./AffiliatePortal.jsx";
+import {
+  buildLegalAttestationMetadata,
+  clearPendingLegalAttestation,
+  hasCurrentLegalAttestation,
+  readPendingLegalAttestation,
+} from "./lib/legalAttestation.js";
 
 // Your admin email — only this account sees the admin dashboard
 const ADMIN_EMAIL = "bgravley@rdmarketingllc.com";
@@ -77,6 +83,56 @@ function ResetPasswordScreen({ onDone }) {
   );
 }
 
+
+function LegalAttestationScreen({ onConfirm, onSignOut }) {
+  const [accepted, setAccepted] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+
+  const confirm = async () => {
+    if (!accepted || saving) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await onConfirm();
+    } catch (e) {
+      setError(e?.message || 'Could not save your confirmation. Please try again.');
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div style={{ minHeight: '100vh', background: '#2C4A38', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: "'Lora', serif" }}>
+      <div style={{ width: '100%', maxWidth: 430, background: '#FAFCFB', borderRadius: 22, padding: 30, boxShadow: '0 14px 44px rgba(20,42,29,.28)' }}>
+        <img src="/logo_horizontal_cream_transparent.png" alt="YourPetPass" style={{ display: 'none' }} />
+        <div style={{ fontFamily: "'Playfair Display', serif", color: '#2C4A38', fontSize: 27, fontWeight: 700, lineHeight: 1.2, marginBottom: 10 }}>
+          One quick account confirmation
+        </div>
+        <p style={{ color: '#5C7464', fontSize: 13.5, lineHeight: 1.65, margin: '0 0 18px' }}>
+          YourPetPass accounts are for adults. Confirm this once to continue to your pet's records.
+        </p>
+        <div style={{ background: '#EAF4EE', border: '1px solid #DCE8E0', borderRadius: 12, padding: 14, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+          <input id="post-auth-adult-attestation" type="checkbox" checked={accepted} onChange={e => setAccepted(e.target.checked)} aria-label="Confirm adult age and legal terms" style={{ marginTop: 3, width: 18, height: 18, accentColor: '#2C4A38', flexShrink: 0 }} />
+          <div style={{ color: '#1A2E22', fontSize: 12.5, lineHeight: 1.6 }}>
+            <label htmlFor="post-auth-adult-attestation" style={{ cursor: 'pointer' }}>
+              I confirm I am at least 18 years old (or the age of majority where I live), and I agree to the
+            </label>{' '}
+            <a href="/terms.html" target="_blank" rel="noopener noreferrer" style={{ color: '#2C4A38', fontWeight: 600 }}>Terms of Service</a>{' '}
+            and acknowledge the{' '}
+            <a href="/privacy.html" target="_blank" rel="noopener noreferrer" style={{ color: '#2C4A38', fontWeight: 600 }}>Privacy Policy</a>.
+          </div>
+        </div>
+        {error && <div role="alert" style={{ marginTop: 12, color: '#A8583E', fontSize: 13 }}>{error}</div>}
+        <button type="button" onClick={confirm} disabled={!accepted || saving} style={{ width: '100%', marginTop: 16, padding: 13, border: 'none', borderRadius: 12, background: '#2C4A38', color: '#fff', fontFamily: "'Lora', serif", fontSize: 14, fontWeight: 600, opacity: !accepted || saving ? .55 : 1, cursor: !accepted || saving ? 'not-allowed' : 'pointer' }}>
+          {saving ? 'Saving...' : 'Confirm & Continue'}
+        </button>
+        <button type="button" onClick={onSignOut} disabled={saving} style={{ width: '100%', marginTop: 10, padding: 9, border: 'none', background: 'transparent', color: '#5C7464', fontFamily: "'Lora', serif", fontSize: 12.5, cursor: saving ? 'not-allowed' : 'pointer' }}>
+          Sign out instead
+        </button>
+      </div>
+    </div>
+  );
+}
 export default function App() {
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
@@ -89,6 +145,9 @@ export default function App() {
   const [showAuthScreen, setShowAuthScreen] = useState(false);
   const [isAffiliate, setIsAffiliate] = useState(false);
   const [upgradeRequestKey, setUpgradeRequestKey] = useState(0);
+  const [authEntryMode, setAuthEntryMode] = useState("signin");
+  const [legalAttestationChecking, setLegalAttestationChecking] = useState(true);
+  const [legalAttestationRequired, setLegalAttestationRequired] = useState(false);
 
   // Detect Stripe payment redirect (?payment=success or ?payment=canceled)
   useEffect(() => {
@@ -138,20 +197,55 @@ export default function App() {
     }
   };
 
+  const resolveLegalAttestation = async (activeSession) => {
+    setLegalAttestationChecking(true);
+    if (!activeSession?.user) {
+      setLegalAttestationRequired(false);
+      setLegalAttestationChecking(false);
+      return;
+    }
+    if (hasCurrentLegalAttestation(activeSession.user)) {
+      clearPendingLegalAttestation();
+      setLegalAttestationRequired(false);
+      setLegalAttestationChecking(false);
+      return;
+    }
+
+    const pending = readPendingLegalAttestation();
+    if (pending) {
+      const { data, error } = await supabase.auth.updateUser({ data: pending });
+      if (!error && data?.user) {
+        clearPendingLegalAttestation();
+        setSession(prev => prev ? { ...prev, user: data.user } : { ...activeSession, user: data.user });
+        setLegalAttestationRequired(false);
+        setLegalAttestationChecking(false);
+        return;
+      }
+    }
+
+    setLegalAttestationRequired(true);
+    setLegalAttestationChecking(false);
+  };
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       if (session) {
         applyReferral(session.user.id);
         loadProfile(session.user.id);
-      } else setLoading(false);
+        resolveLegalAttestation(session);
+      } else {
+        setLegalAttestationChecking(false);
+        setLoading(false);
+      }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      // When user clicks the reset link in their email, show the reset form
+      // When user clicks the reset link in their email, show the reset form first.
       if (_event === 'PASSWORD_RECOVERY') {
         setShowPasswordReset(true);
         setSession(session);
+        setLegalAttestationChecking(false);
         setLoading(false);
         return;
       }
@@ -159,7 +253,13 @@ export default function App() {
       if (session) {
         applyReferral(session.user.id);
         loadProfile(session.user.id);
-      } else { setProfile(null); setLoading(false); }
+        resolveLegalAttestation(session);
+      } else {
+        setProfile(null);
+        setLegalAttestationRequired(false);
+        setLegalAttestationChecking(false);
+        setLoading(false);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -179,6 +279,17 @@ export default function App() {
     setIsAffiliate(!!affData);
   };
 
+  const confirmLegalAttestation = async () => {
+    const { data, error } = await supabase.auth.updateUser({
+      data: buildLegalAttestationMetadata('post_auth_gate'),
+    });
+    if (error) throw error;
+    if (!data?.user) throw new Error('Could not save your confirmation. Please try again.');
+    clearPendingLegalAttestation();
+    setSession(prev => prev ? { ...prev, user: data.user } : prev);
+    setLegalAttestationRequired(false);
+  };
+
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     setSession(null);
@@ -186,6 +297,9 @@ export default function App() {
     setShowAdmin(false);
     setShowTravel(false);
     setShowAuthScreen(false);
+    setAuthEntryMode("signin");
+    setLegalAttestationRequired(false);
+    setLegalAttestationChecking(false);
   };
 
   // Check for emergency route - no login needed
@@ -195,7 +309,7 @@ export default function App() {
     return <Emergency token={emergencyMatch[1]} />;
   }
 
-  if (loading) return (
+  if (loading || legalAttestationChecking) return (
     <div style={{ minHeight: "100vh", background: "#FAF6F0", display: "flex", alignItems: "center", justifyContent: "center" }}>
       <div style={{ fontFamily: "'Nunito', sans-serif", fontSize: 28, fontWeight: 900, color: "#2D7D6F" }}>
         🐾 Loading...
@@ -209,8 +323,15 @@ export default function App() {
   }
 
   if (!session) {
-    if (showAuthScreen) return <Auth />;
-    return <Marketing onLogin={() => setShowAuthScreen(true)} onSignup={() => setShowAuthScreen(true)} />;
+    if (showAuthScreen) return <Auth initialMode={authEntryMode} />;
+    return <Marketing
+      onLogin={() => { setAuthEntryMode('signin'); setShowAuthScreen(true); }}
+      onSignup={() => { setAuthEntryMode('signup'); setShowAuthScreen(true); }}
+    />;
+  }
+
+  if (legalAttestationRequired) {
+    return <LegalAttestationScreen onConfirm={confirmLegalAttestation} onSignOut={handleSignOut} />;
   }
 
   // Admin route - only for admin email

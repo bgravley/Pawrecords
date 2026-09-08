@@ -6,6 +6,8 @@ import {
 } from './_github-actions-oidc.js';
 import { createUnsubscribeToken } from './_unsubscribe.js';
 
+const LEGAL_ATTESTATION_VERSION = '2026-09-07';
+
 const TEST_ACCOUNTS = Object.freeze({
   primary: {
     email: 'e2e-primary@yourpetpass.com',
@@ -121,6 +123,16 @@ export default async function handler(req, res) {
     const userId = data?.user?.id || data?.properties?.user?.id;
     const actionLink = actionLinkFrom(data);
     if (!userId || !actionLink) throw new Error('Supabase did not return a usable E2E login link');
+
+    const { error: legalMetadataError } = await supabase.auth.admin.updateUserById(userId, {
+      user_metadata: {
+        ...(data?.user?.user_metadata || {}),
+        ypp_legal_attestation_version: LEGAL_ATTESTATION_VERSION,
+        ypp_adult_attested_at: new Date().toISOString(),
+        ypp_legal_attestation_method: 'synthetic_e2e',
+      },
+    });
+    if (legalMetadataError) throw new Error('Could not prepare E2E legal metadata');
 
     if (req.body?.reset === true) await resetTestData(supabase, userId);
 
