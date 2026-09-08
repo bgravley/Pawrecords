@@ -11,6 +11,7 @@ import {
 // Route-like surfaces are loaded only when a visitor actually opens them.
 // Marketing stays eager so the public homepage remains the fastest first paint.
 const Auth = lazy(() => import("./components/Auth.jsx"));
+const SignupFunnel = lazy(() => import("./SignupFunnel.jsx"));
 const YourPetPass = lazy(() => import("./PawRecord.jsx"));
 const Admin = lazy(() => import("./Admin.jsx"));
 const Emergency = lazy(() => import("./Emergency.jsx"));
@@ -85,7 +86,6 @@ function ResetPasswordScreen({ onDone }) {
   );
 }
 
-
 function LegalAttestationScreen({ onConfirm, onSignOut }) {
   const [accepted, setAccepted] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -134,6 +134,7 @@ function LegalAttestationScreen({ onConfirm, onSignOut }) {
     </div>
   );
 }
+
 export default function App() {
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
@@ -141,7 +142,7 @@ export default function App() {
   const [showAdmin, setShowAdmin] = useState(false);
   const [showTravel, setShowTravel] = useState(false);
   const [showPasswordReset, setShowPasswordReset] = useState(false);
-  const [paymentToast, setPaymentToast] = useState(null); // 'success' | 'canceled' | null
+  const [paymentToast, setPaymentToast] = useState(null);
   const [showAffiliatePortal, setShowAffiliatePortal] = useState(false);
   const [showAuthScreen, setShowAuthScreen] = useState(false);
   const [isAffiliate, setIsAffiliate] = useState(false);
@@ -150,16 +151,13 @@ export default function App() {
   const [legalAttestationChecking, setLegalAttestationChecking] = useState(true);
   const [legalAttestationRequired, setLegalAttestationRequired] = useState(false);
 
-  // Detect Stripe payment redirect (?payment=success or ?payment=canceled)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const payment = params.get('payment');
     if (payment === 'success') {
       setPaymentToast('success');
       setTimeout(() => setPaymentToast(null), 6000);
-      // Clean the URL
       window.history.replaceState({}, '', window.location.pathname);
-      // Reload profile after a short delay so webhook has time to update the tier
       setTimeout(() => {
         if (session?.user?.id) loadProfile(session.user.id);
       }, 3000);
@@ -170,24 +168,20 @@ export default function App() {
     }
   }, [session]);
 
-  // Capture referral code from URL (?ref=CODE) and store it
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const ref = params.get('ref');
     if (ref) {
       localStorage.setItem('ypref', ref.toUpperCase().trim());
-      // Clean the URL so the code isn't visible after capture
       const clean = window.location.pathname;
       window.history.replaceState({}, '', clean);
     }
   }, []);
 
-  // Apply a stored referral code to a user's profile (first login only)
   const applyReferral = async (userId) => {
     const code = localStorage.getItem('ypref');
     if (!code) return;
     try {
-      // Only apply if the profile doesn't already have a referral recorded
       const { data: prof } = await supabase.from('profiles').select('referral_code_used').eq('id', userId).single();
       if (prof && !prof.referral_code_used) {
         await supabase.from('profiles').update({ referral_code_used: code }).eq('id', userId);
@@ -265,7 +259,6 @@ export default function App() {
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      // When user clicks the reset link in their email, show the reset form first.
       if (_event === 'PASSWORD_RECOVERY') {
         setShowPasswordReset(true);
         setSession(session);
@@ -294,11 +287,6 @@ export default function App() {
     if (error) console.error("Failed to load profile:", error);
     setProfile(data);
     setLoading(false);
-    // Check if this user is an affiliate (uses RLS — only returns their own record if exists).
-    // .maybeSingle() (not .single()) so this can't silently become "not an
-    // affiliate" if a duplicate row ever exists again for any reason — a DB
-    // unique constraint now prevents that at the source, but this stays
-    // resilient either way rather than trusting a single layer of defense.
     const { data: affData } = await supabase.from("affiliates").select("id").eq("user_id", userId).limit(1).maybeSingle();
     setIsAffiliate(!!affData);
   };
@@ -322,7 +310,6 @@ export default function App() {
     setLegalAttestationChecking(false);
   };
 
-  // Check for emergency route - no login needed
   const path = window.location.pathname;
   const emergencyMatch = path.match(/^\/emergency\/([a-z0-9]+)$/i);
   if (emergencyMatch) {
@@ -337,13 +324,18 @@ export default function App() {
     </div>
   );
 
-  // Password recovery — user clicked the reset link in their email
   if (showPasswordReset) {
     return <ResetPasswordScreen onDone={() => setShowPasswordReset(false)} />;
   }
 
   if (!session) {
     if (showAuthScreen) return <Auth initialMode={authEntryMode} />;
+    if (path === '/signup') {
+      return <SignupFunnel
+        onSignup={() => { setAuthEntryMode('signup'); setShowAuthScreen(true); }}
+        onLogin={() => { setAuthEntryMode('signin'); setShowAuthScreen(true); }}
+      />;
+    }
     return <Marketing
       onLogin={() => { setAuthEntryMode('signin'); setShowAuthScreen(true); }}
       onSignup={() => { setAuthEntryMode('signup'); setShowAuthScreen(true); }}
@@ -354,7 +346,6 @@ export default function App() {
     return <LegalAttestationScreen onConfirm={confirmLegalAttestation} onSignOut={handleSignOut} />;
   }
 
-  // Admin route - only for admin email
   const isAdmin = session.user.email === ADMIN_EMAIL || profile?.is_admin === true;
 
   if (showAdmin && isAdmin) {

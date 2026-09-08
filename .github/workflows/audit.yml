@@ -41,6 +41,9 @@ jobs:
       - name: Run canonical runtime host audit
         run: python3 scripts/runtime_host_audit.py
 
+      - name: Run signup funnel regression audit
+        run: python3 scripts/signup_funnel_audit.py
+
       - name: Parse every serverless JavaScript module
         run: python3 scripts/serverless_syntax_audit.py
 

@@ -62,7 +62,7 @@ check('<h1' in app and 'One quick account confirmation' in app,
       'one-time gate has a semantic heading')
 check('Sign out instead' in app,
       'user can decline the gate by signing out')
-check(app.index('if (legalAttestationRequired)') < app.index('// Admin route - only for admin email'),
+check(app.index('if (legalAttestationRequired)') < app.index('const isAdmin ='),
       'attestation gate runs before Admin, Travel, affiliate, or pet-record application routes')
 check("onSignup={() => { setAuthEntryMode('signup'); setShowAuthScreen(true); }}" in app,
       'marketing signup CTA opens directly on Create Account')
