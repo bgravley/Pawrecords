@@ -1,51 +1,29 @@
 # YourPetPass
 
 > YourPetPass is a pet health records and travel planning app for dog and cat parents.
-> It stores vaccination history, vet visit records, allergies, and medications in one place,
-> uses AI to help extract information from uploaded vet documents for review, generates
-> AI-assisted travel planning checklists with source links, and can provide an owner-controlled tokenized Emergency QR page.
+> It stores vaccination history, vet visit records, allergies, medications and travel documents in one place and provides AI-assisted travel planning with source links.
 
-YourPetPass is built for dog and cat parents who:
-- See multiple veterinarians across different cities or after relocating
-- Travel domestically or internationally with their dog or cat
-- Board, use daycare, or use pet-sitting services and need to share health records quickly
-- Want a single source of truth for their pet's health history
+YourPetPass is built for pet parents who see multiple veterinarians, travel with pets, use boarding or daycare, relocate, or want a portable source of truth for pet health history.
 
-## Key Features
+## Editorial and source policy
 
-- Health records: vaccines, vet visits, allergies, medications — tied to the pet, not a single clinic
-- AI document scanning: photograph a vet record or vaccine card and review AI-extracted details before relying on them
-- AI travel checklists: route-specific planning checklists with official-source links; country entry/export/transit/quarantine/health rules are expected to use the responsible government authority, while carrier sources are limited to carrier-specific policies
-- QR emergency health card: when enabled, creates a tokenized, no-login emergency page with owner-selected supported fields; it is not a public pet directory and does not expose full medical records or private uploaded documents
-- Export and share: generate a health summary and email it to a vet, hotel, or daycare
+YourPetPass travel guides distinguish destination-government requirements from airline carriage policies. Country entry/export/transit requirements should be verified against the responsible government authority. Editorial-team bylines are organizational identities, not individual veterinary professionals. AI output is a planning and organization aid, not veterinary care or official travel approval.
 
-AI output is a planning and organization aid, not veterinary care or official travel approval. Pet travel requirements can change and should be confirmed with the responsible official authority before travel. YourPetPass distinguishes newly researched sources from sources that have been human reviewed.
+## Key guides
 
-## Pricing
-
-- Free plan: core health record storage
-- Premium Monthly: $4.99/month
-- Premium Annual: $39.99/year
-- Premium Lifetime: $89.99 one-time
-
-Premium unlocks AI document scanning, AI travel checklists, weight tracking, document storage, and the QR emergency health card.
-
-## Guides & Real-World Use Cases
-
-- Pet Guides (blog): https://www.yourpetpass.com/blog.html
-  - What Vaccines Does My Dog Need Before Flying: https://www.yourpetpass.com/blog/dog-vaccines-before-flying.html
-  - How to Keep Pet Health Records Straight When You Travel: https://www.yourpetpass.com/blog/pet-records-when-traveling.html
-  - Pet Health Certificates Explained: https://www.yourpetpass.com/blog/pet-health-certificates-explained.html
-  - Moving Across the Country With Pets: https://www.yourpetpass.com/blog/moving-across-country-with-pets.html
-- Real-world use cases:
-  - Switching vets without losing your pet's history: https://www.yourpetpass.com/use-cases/switching-vets.html
-  - International pet travel documents explained: https://www.yourpetpass.com/use-cases/pet-travel-documents.html
-  - A real trip, start to finish (Maria & Biscuit): https://www.yourpetpass.com/use-cases/maria-and-biscuit.html
+- Pet Guides: https://www.yourpetpass.com/blog.html
+- What to Bring to a USDA-Accredited Vet Appointment for International Pet Travel: https://www.yourpetpass.com/blog/usda-accredited-vet-appointment-pet-travel.html
+- YourPetPass Travel Desk author profile: https://www.yourpetpass.com/authors/travel-desk.html
+- What Vaccines Does My Dog Need Before Flying: https://www.yourpetpass.com/blog/dog-vaccines-before-flying.html
+- How to Keep Pet Health Records Straight When You Travel: https://www.yourpetpass.com/blog/pet-records-when-traveling.html
+- Pet Health Certificates Explained: https://www.yourpetpass.com/blog/pet-health-certificates-explained.html
+- Moving Across the Country With Pets: https://www.yourpetpass.com/blog/moving-across-country-with-pets.html
+- Switching vets without losing your pet's history: https://www.yourpetpass.com/use-cases/switching-vets.html
+- International pet travel documents explained: https://www.yourpetpass.com/use-cases/pet-travel-documents.html
 
 ## Links
 
 - Homepage: https://www.yourpetpass.com
-- Pet Guides: https://www.yourpetpass.com/blog.html
 - AI & Source Policy: https://www.yourpetpass.com/ai-policy.html
 - Privacy Policy: https://www.yourpetpass.com/privacy.html
 - Terms of Service: https://www.yourpetpass.com/terms.html
