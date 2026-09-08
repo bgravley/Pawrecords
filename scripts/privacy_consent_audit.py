@@ -54,7 +54,7 @@ check("window.YPPAnalyticsConsent?.isGranted?.() !== true" in analytics,
 privacy = (ROOT / 'public/privacy.html').read_text(encoding='utf-8', errors='ignore')
 for phrase in ['Google Analytics', 'Microsoft Clarity', 'Vercel Analytics', 'Global Privacy Control', 'Privacy choices']:
     check(phrase in privacy, f'Privacy Policy discloses {phrase}')
-check('Last Updated: September 6, 2026' in privacy, 'Privacy Policy carries the current consent update date')
+check('Last Updated: September 7, 2026' in privacy, 'Privacy Policy carries the current consent update date')
 check('pet names, medical record contents, document contents, or travel itinerary details' in privacy,
       'Privacy Policy describes the coarse analytics data boundary')
 
