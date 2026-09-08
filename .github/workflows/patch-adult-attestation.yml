@@ -1,0 +1,30 @@
+name: Patch Adult Attestation
+
+"on":
+  push:
+    branches: [auth/adult-attestation]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v4
+        with:
+          ref: auth/adult-attestation
+
+      - name: Apply adult attestation patch
+        run: python3 scripts/patch_adult_attestation.py
+
+      - name: Commit generated updates
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/components/Auth.jsx src/App.jsx api/e2e-login.js
+          git diff --cached --quiet && exit 0
+          git commit -m "Require adult attestation before account access"
+          git push origin HEAD:auth/adult-attestation
