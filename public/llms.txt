@@ -3,7 +3,7 @@
 > YourPetPass is a pet health records and travel planning app for dog and cat parents.
 > It stores vaccination history, vet visit records, allergies, and medications in one place,
 > uses AI to help extract information from uploaded vet documents for review, generates
-> AI-assisted travel planning checklists with source links, and provides a QR-code emergency health card.
+> AI-assisted travel planning checklists with source links, and can provide an owner-controlled tokenized Emergency QR page.
 
 YourPetPass is built for dog and cat parents who:
 - See multiple veterinarians across different cities or after relocating
@@ -16,7 +16,7 @@ YourPetPass is built for dog and cat parents who:
 - Health records: vaccines, vet visits, allergies, medications — tied to the pet, not a single clinic
 - AI document scanning: photograph a vet record or vaccine card and review AI-extracted details before relying on them
 - AI travel checklists: route-specific planning checklists with official-source links; country entry/export/transit/quarantine/health rules are expected to use the responsible government authority, while carrier sources are limited to carrier-specific policies
-- QR emergency health card: a public, no-login page for sitters, boarding facilities, or lost-pet situations
+- QR emergency health card: when enabled, creates a tokenized, no-login emergency page with owner-selected supported fields; it is not a public pet directory and does not expose full medical records or private uploaded documents
 - Export and share: generate a health summary and email it to a vet, hotel, or daycare
 
 AI output is a planning and organization aid, not veterinary care or official travel approval. Pet travel requirements can change and should be confirmed with the responsible official authority before travel. YourPetPass distinguishes newly researched sources from sources that have been human reviewed.
@@ -32,21 +32,21 @@ Premium unlocks AI document scanning, AI travel checklists, weight tracking, doc
 
 ## Guides & Real-World Use Cases
 
-- Pet Guides (blog): https://yourpetpass.com/blog.html
-  - What Vaccines Does My Dog Need Before Flying: https://yourpetpass.com/blog/dog-vaccines-before-flying.html
-  - How to Keep Pet Health Records Straight When You Travel: https://yourpetpass.com/blog/pet-records-when-traveling.html
-  - Pet Health Certificates Explained: https://yourpetpass.com/blog/pet-health-certificates-explained.html
-  - Moving Across the Country With Pets: https://yourpetpass.com/blog/moving-across-country-with-pets.html
+- Pet Guides (blog): https://www.yourpetpass.com/blog.html
+  - What Vaccines Does My Dog Need Before Flying: https://www.yourpetpass.com/blog/dog-vaccines-before-flying.html
+  - How to Keep Pet Health Records Straight When You Travel: https://www.yourpetpass.com/blog/pet-records-when-traveling.html
+  - Pet Health Certificates Explained: https://www.yourpetpass.com/blog/pet-health-certificates-explained.html
+  - Moving Across the Country With Pets: https://www.yourpetpass.com/blog/moving-across-country-with-pets.html
 - Real-world use cases:
-  - Switching vets without losing your pet's history: https://yourpetpass.com/use-cases/switching-vets.html
-  - International pet travel documents explained: https://yourpetpass.com/use-cases/pet-travel-documents.html
-  - A real trip, start to finish (Maria & Biscuit): https://yourpetpass.com/use-cases/maria-and-biscuit.html
+  - Switching vets without losing your pet's history: https://www.yourpetpass.com/use-cases/switching-vets.html
+  - International pet travel documents explained: https://www.yourpetpass.com/use-cases/pet-travel-documents.html
+  - A real trip, start to finish (Maria & Biscuit): https://www.yourpetpass.com/use-cases/maria-and-biscuit.html
 
 ## Links
 
-- Homepage: https://yourpetpass.com
-- Pet Guides: https://yourpetpass.com/blog.html
-- AI & Source Policy: https://yourpetpass.com/ai-policy.html
-- Privacy Policy: https://yourpetpass.com/privacy.html
-- Terms of Service: https://yourpetpass.com/terms.html
-- Contact: https://yourpetpass.com/contact.html
+- Homepage: https://www.yourpetpass.com
+- Pet Guides: https://www.yourpetpass.com/blog.html
+- AI & Source Policy: https://www.yourpetpass.com/ai-policy.html
+- Privacy Policy: https://www.yourpetpass.com/privacy.html
+- Terms of Service: https://www.yourpetpass.com/terms.html
+- Contact: https://www.yourpetpass.com/contact.html

@@ -1,72 +1,72 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://yourpetpass.com/</loc>
+    <loc>https://www.yourpetpass.com/</loc>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://yourpetpass.com/blog.html</loc>
+    <loc>https://www.yourpetpass.com/blog.html</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://yourpetpass.com/blog/dog-vaccines-before-flying.html</loc>
+    <loc>https://www.yourpetpass.com/blog/dog-vaccines-before-flying.html</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://yourpetpass.com/blog/pet-records-when-traveling.html</loc>
+    <loc>https://www.yourpetpass.com/blog/pet-records-when-traveling.html</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://yourpetpass.com/blog/pet-health-certificates-explained.html</loc>
+    <loc>https://www.yourpetpass.com/blog/pet-health-certificates-explained.html</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://yourpetpass.com/blog/moving-across-country-with-pets.html</loc>
+    <loc>https://www.yourpetpass.com/blog/moving-across-country-with-pets.html</loc>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://yourpetpass.com/contact.html</loc>
+    <loc>https://www.yourpetpass.com/contact.html</loc>
     <changefreq>monthly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://yourpetpass.com/ai-policy.html</loc>
+    <loc>https://www.yourpetpass.com/ai-policy.html</loc>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://yourpetpass.com/copyright.html</loc>
+    <loc>https://www.yourpetpass.com/copyright.html</loc>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>
   <url>
-    <loc>https://yourpetpass.com/privacy.html</loc>
+    <loc>https://www.yourpetpass.com/privacy.html</loc>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>
   <url>
-    <loc>https://yourpetpass.com/terms.html</loc>
+    <loc>https://www.yourpetpass.com/terms.html</loc>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>
   <url>
-    <loc>https://yourpetpass.com/use-cases/switching-vets.html</loc>
+    <loc>https://www.yourpetpass.com/use-cases/switching-vets.html</loc>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://yourpetpass.com/use-cases/pet-travel-documents.html</loc>
+    <loc>https://www.yourpetpass.com/use-cases/pet-travel-documents.html</loc>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://yourpetpass.com/use-cases/maria-and-biscuit.html</loc>
+    <loc>https://www.yourpetpass.com/use-cases/maria-and-biscuit.html</loc>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>
   </url>

@@ -28,4 +28,4 @@ Allow: /
 User-agent: Bytespider
 Allow: /
 
-Sitemap: https://yourpetpass.com/sitemap.xml
+Sitemap: https://www.yourpetpass.com/sitemap.xml
