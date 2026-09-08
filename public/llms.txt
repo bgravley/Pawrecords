@@ -9,6 +9,11 @@ YourPetPass is built for pet parents who see multiple veterinarians, travel with
 
 YourPetPass travel guides distinguish destination-government requirements from airline carriage policies. Country entry/export/transit requirements should be verified against the responsible government authority. Editorial-team bylines are organizational identities, not individual veterinary professionals. AI output is a planning and organization aid, not veterinary care or official travel approval.
 
+## Product privacy boundaries
+
+- Emergency QR, when enabled, creates a tokenized, no-login emergency page with owner-selected supported fields; it is not a public pet directory and does not expose full medical records or private uploaded documents.
+- AI document extraction and travel planning are assistance features. Extracted information should be reviewed before it is relied on or saved, and current travel requirements should be confirmed with the responsible government or carrier authority as applicable.
+
 ## Key guides
 
 - Pet Guides: https://www.yourpetpass.com/blog.html

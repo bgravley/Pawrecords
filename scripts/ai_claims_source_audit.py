@@ -16,7 +16,11 @@ index = Path('index.html').read_text(encoding='utf-8')
 
 CANONICAL_HOST = 'https://www.yourpetpass.com'
 OLD_HOST = 'https://yourpetpass.com'
-INDEXABLE = {
+
+# These core pages must always remain indexable. Additional editorial/author
+# pages are discovered automatically so the daily content publisher cannot make
+# this audit stale simply by adding a legitimate new page.
+CORE_INDEXABLE = {
     'index.html': '/',
     'public/blog.html': '/blog.html',
     'public/blog/dog-vaccines-before-flying.html': '/blog/dog-vaccines-before-flying.html',
@@ -32,6 +36,48 @@ INDEXABLE = {
     'public/use-cases/pet-travel-documents.html': '/use-cases/pet-travel-documents.html',
     'public/use-cases/maria-and-biscuit.html': '/use-cases/maria-and-biscuit.html',
 }
+
+
+def tag_attr(tag, name):
+    m = re.search(rf'\b{name}\s*=\s*["\']([^"\']*)["\']', tag, flags=re.I)
+    return m.group(1) if m else None
+
+
+def canonical_urls(text):
+    urls = []
+    for tag in re.findall(r'<link\b[^>]*>', text, flags=re.I):
+        if (tag_attr(tag, 'rel') or '').lower() == 'canonical':
+            href = tag_attr(tag, 'href')
+            if href:
+                urls.append(href)
+    return urls
+
+
+def is_noindex(text):
+    for tag in re.findall(r'<meta\b[^>]*>', text, flags=re.I):
+        if (tag_attr(tag, 'name') or '').lower() == 'robots':
+            directives = (tag_attr(tag, 'content') or '').lower()
+            if 'noindex' in {x.strip() for x in directives.split(',')} or 'noindex' in directives:
+                return True
+    return False
+
+
+def route_for(path):
+    if path == Path('index.html'):
+        return '/'
+    rel = path.relative_to('public').as_posix()
+    return '/' + rel
+
+
+# Discover every normal public HTML page. Explicit noindex pages such as the
+# signed-token unsubscribe screen are intentionally excluded from sitemap/canonical
+# indexability checks.
+INDEXABLE = {'index.html': '/'}
+for page in sorted(Path('public').rglob('*.html')):
+    text = page.read_text(encoding='utf-8')
+    if is_noindex(text):
+        continue
+    INDEXABLE[page.as_posix()] = route_for(page)
 
 checks=[]
 def check(ok,msg): checks.append((bool(ok),msg))
@@ -107,23 +153,29 @@ check("don't rely solely on" in terms and
       'You are solely responsible for verifying all requirements with the relevant government agencies, airlines, and veterinary authorities before traveling.' in terms,
       'Terms require independent verification and prohibit sole reliance on AI travel output')
 
-# Canonical-domain consistency: production permanently serves www, so every
-# indexable page and crawler discovery surface must point at that same host.
+# Core pages cannot disappear merely because discovery is dynamic.
+check(all(path in INDEXABLE and INDEXABLE[path] == route for path, route in CORE_INDEXABLE.items()),
+      'all core public pages remain indexable at their canonical routes')
+
+# Canonical-domain consistency: accept valid HTML link-tag syntax/attribute order
+# while still requiring exactly one canonical and the exact production route.
 for path, route in INDEXABLE.items():
     text = Path(path).read_text(encoding='utf-8')
-    expected = f'<link rel="canonical" href="{CANONICAL_HOST}{route}" />'
-    check(text.count('rel="canonical"') == 1 and expected in text,
+    expected = f'{CANONICAL_HOST}{route}'
+    urls = canonical_urls(text)
+    check(urls == [expected],
           f'{path} has exactly one canonical URL on the production www host')
     check(OLD_HOST not in text,
           f'{path} contains no stale non-www absolute URL')
 
 sitemap_locs = re.findall(r'<loc>([^<]+)</loc>', sitemap)
-check(len(sitemap_locs) == len(INDEXABLE),
-      'sitemap lists exactly the indexable public page set')
+expected_sitemap = {f'{CANONICAL_HOST}{route}' for route in INDEXABLE.values()}
+check(len(sitemap_locs) == len(set(sitemap_locs)),
+      'sitemap contains no duplicate URLs')
+check(set(sitemap_locs) == expected_sitemap,
+      'sitemap lists exactly the discovered indexable public page set')
 check(all(url.startswith(CANONICAL_HOST + '/') for url in sitemap_locs),
       'every sitemap URL uses the production www host')
-check(all(f'{CANONICAL_HOST}{route}' in sitemap_locs for route in INDEXABLE.values()),
-      'sitemap contains every canonical indexable route')
 check(f'Sitemap: {CANONICAL_HOST}/sitemap.xml' in robots and OLD_HOST not in robots,
       'robots.txt advertises the canonical www sitemap')
 check(OLD_HOST not in llms,

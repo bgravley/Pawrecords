@@ -8,15 +8,14 @@ APP_FILES = {
     'Travel': 'src/Travel.jsx',
     'Affiliate': 'src/AffiliatePortal.jsx',
 }
-EDITORIAL_FILES = [
-    'public/blog.html',
-    'public/use-cases/switching-vets.html',
-    'public/use-cases/maria-and-biscuit.html',
-    'public/use-cases/pet-travel-documents.html',
-    'public/blog/pet-records-when-traveling.html',
-    'public/blog/dog-vaccines-before-flying.html',
-    'public/blog/moving-across-country-with-pets.html',
-]
+
+# Every current and future article/use-case/organizational-author page is a
+# customer-facing editorial surface. Discover these instead of maintaining a
+# stale hand-written list whenever the daily publisher adds a page.
+EDITORIAL_FILES = ['public/blog.html']
+for pattern in ('public/blog/*.html', 'public/use-cases/*.html', 'public/authors/*.html'):
+    EDITORIAL_FILES.extend(p.relative_to(ROOT).as_posix() for p in sorted(ROOT.glob(pattern)))
+EDITORIAL_FILES = list(dict.fromkeys(EDITORIAL_FILES))
 
 LEGACY_TOKENS = [
     'Nunito',
@@ -52,7 +51,7 @@ for label, path in APP_FILES.items():
         check(legacy not in text, f'{label} no longer contains legacy brand token {legacy}')
 
 # Page-level and semantic headline examples remain Playfair rather than turning
-# old Nunito headings into body-font Lora during palette migration.
+# old headings into body-font Lora during palette migration.
 check("fontFamily: \"'Playfair Display', serif\", fontSize: 20" in app and 'Set New Password' in app,
       'password recovery title uses Playfair Display')
 check("<h3 style={{ fontFamily: \"'Playfair Display', serif\"" in travel,
@@ -60,6 +59,8 @@ check("<h3 style={{ fontFamily: \"'Playfair Display', serif\"" in travel,
 check("fontFamily: \"'Playfair Display', serif\", fontSize: 24" in affiliate and 'Welcome back' in affiliate,
       'affiliate dashboard page heading uses Playfair Display')
 
+check(len(EDITORIAL_FILES) >= 8,
+      'editorial brand audit discovers the article/use-case/author collection')
 for path in EDITORIAL_FILES:
     text = (ROOT / path).read_text(encoding='utf-8')
     check('/privacy-consent.js' in text,
