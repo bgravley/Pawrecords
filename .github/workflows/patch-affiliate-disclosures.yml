@@ -1,0 +1,30 @@
+name: Patch Affiliate Disclosures
+
+"on":
+  push:
+    branches: [fix/affiliate-commission-disclosures]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/affiliate-commission-disclosures
+
+      - name: Align affiliate wording with commission math
+        run: python3 scripts/patch_affiliate_disclosures.py
+
+      - name: Commit disclosure updates
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/AffiliatePortal.jsx api/notify-affiliate.js
+          git diff --cached --quiet && exit 0
+          git commit -m "Align affiliate disclosures with commission math"
+          git push origin HEAD:fix/affiliate-commission-disclosures
