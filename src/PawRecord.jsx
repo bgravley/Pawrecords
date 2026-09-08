@@ -2099,7 +2099,7 @@ const MoreTab=({dog,state,dispatch,userId,tier,onUpgrade,onScan})=>{
     {premium&&(<div style={{background:"#2C4A3814",border:"1px solid #2C4A3844",borderRadius:14,padding:16,display:"flex",alignItems:"center",gap:12}}>
       <div style={{flex:1}}>
         <div style={{fontWeight:700,fontSize:14,color:"#2C4A38",marginBottom:2}}>Scan Vet Documents with AI</div>
-        <div style={{fontSize:12,color:"#385744"}}>Upload any vet record, vaccine doc, or service animal cert — AI extracts and saves everything automatically.</div>
+        <div style={{fontSize:12,color:"#385744"}}>Upload a vet record, vaccine document, or service animal certificate — AI extracts useful details for you to review before you save them.</div>
       </div>
       <Btn sm onClick={onScan} style={{flexShrink:0}}><Ic n="camera" s={14}/> AI Scan</Btn>
     </div>)}
