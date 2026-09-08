@@ -1,0 +1,30 @@
+name: Patch Canonical Crawler Claims
+
+"on":
+  push:
+    branches: [seo/canonical-crawler-claims]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v4
+        with:
+          ref: seo/canonical-crawler-claims
+
+      - name: Apply canonical and crawler fixes
+        run: python3 scripts/patch_canonical_crawler_claims.py
+
+      - name: Commit generated updates
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html public scripts/ai_claims_source_audit.py
+          git diff --cached --quiet && exit 0
+          git commit -m "Align canonical URLs and crawler claims"
+          git push origin HEAD:seo/canonical-crawler-claims
