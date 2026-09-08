@@ -85,7 +85,7 @@ export default async function handler(req, res) {
 <body style="margin:0;padding:20px;background:#FAFCFB;font-family:Georgia,'Times New Roman',serif;color:#1A2E22;">
   <div style="max-width:540px;margin:0 auto;background:#FFFFFF;border:1px solid #DCE8E0;border-radius:14px;overflow:hidden;">
     <div style="background:#2C4A38;padding:18px 24px;">
-      <img src="https://yourpetpass.com/logo_horizontal_cream_transparent.png" alt="YourPetPass" width="170" style="display:block;height:auto;margin-bottom:10px;" />
+      <img src="https://www.yourpetpass.com/logo_horizontal_cream_transparent.png" alt="YourPetPass" width="170" style="display:block;height:auto;margin-bottom:10px;" />
       <div style="color:#FFFFFF;font-weight:700;font-size:17px;">New Error Logged</div>
     </div>
     <div style="padding:22px 24px;font-size:14px;line-height:1.65;">
@@ -93,7 +93,7 @@ export default async function handler(req, res) {
       <p><strong>User:</strong> ${esc(userEmail)}</p>
       <p><strong>Error:</strong></p>
       <div style="background:#EAF4EE;border-radius:10px;padding:14px;white-space:pre-wrap;word-break:break-word;">${esc(errorMessage)}</div>
-      <p style="margin-top:18px;"><a href="https://yourpetpass.com/admin" style="color:#2C4A38;font-weight:700;">View in Admin →</a></p>
+      <p style="margin-top:18px;"><a href="https://www.yourpetpass.com/admin" style="color:#2C4A38;font-weight:700;">View in Admin →</a></p>
     </div>
     <div style="background:#EAF4EE;padding:14px 24px;color:#7C9E87;font-size:11px;text-align:center;">Email alerts are capped at ${ALERT_LIMIT} per hour; all errors remain in Admin.</div>
   </div>

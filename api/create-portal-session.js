@@ -24,7 +24,7 @@ export default async function handler(req, res) {
   if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
   const userId = auth.userId;
 
-  const BASE_URL = process.env.VITE_APP_URL || 'https://yourpetpass.com';
+  const BASE_URL = process.env.VITE_APP_URL || 'https://www.yourpetpass.com';
 
   try {
     // Look up the user's Stripe customer ID from their Supabase profile

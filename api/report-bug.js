@@ -180,7 +180,7 @@ export default async function handler(req, res) {
             subject: `${reportLabel} from ${auth.email || 'a signed-in user'}`,
             html: `<div style="font-family:Georgia,'Times New Roman',serif;max-width:540px;margin:0 auto;background:#FAFCFB;color:#1A2E22;">
               <div style="background:#2C4A38;padding:18px 24px;border-radius:12px 12px 0 0;">
-                <img src="https://yourpetpass.com/logo_horizontal_cream_transparent.png" alt="YourPetPass" width="170" style="display:block;height:auto;" />
+                <img src="https://www.yourpetpass.com/logo_horizontal_cream_transparent.png" alt="YourPetPass" width="170" style="display:block;height:auto;" />
               </div>
               <div style="padding:22px 24px;background:#FFFFFF;border:1px solid #DCE8E0;border-top:0;">
                 <h2 style="color:#2C4A38;margin-top:0;">${esc(reportLabel)}</h2>
@@ -188,7 +188,7 @@ export default async function handler(req, res) {
                 <p><strong>Details:</strong></p>
                 <div style="background:#EAF4EE;padding:14px;border-radius:10px;white-space:pre-wrap;">${esc(description.trim())}</div>
                 ${emailScreenshotUrl ? `<p style="margin-top:18px;"><a href="${esc(emailScreenshotUrl)}" style="color:#2C4A38;font-weight:700;">View private screenshot</a> <span style="color:#7C9E87;font-size:12px;">(link expires in 24 hours)</span></p>` : ''}
-                <p><a href="https://yourpetpass.com/admin" style="color:#2C4A38;font-weight:700;">Review in Admin →</a></p>
+                <p><a href="https://www.yourpetpass.com/admin" style="color:#2C4A38;font-weight:700;">Review in Admin →</a></p>
               </div>
             </div>`,
           }),

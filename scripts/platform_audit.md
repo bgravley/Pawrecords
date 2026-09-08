@@ -67,7 +67,7 @@ fails at Stripe's end for that plan.
 
 Also confirm `STRIPE_WEBHOOK_SECRET` (Vercel) matches the signing secret on
 the actual live webhook endpoint in the Stripe dashboard for
-`https://yourpetpass.com/api/stripe-webhook` — a mismatch means subscription
+`https://www.yourpetpass.com/api/stripe-webhook` — a mismatch means subscription
 status updates silently stop reaching the database.
 
 ## 4. Vercel runtime errors (last 7 days)

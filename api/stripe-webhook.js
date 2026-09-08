@@ -29,9 +29,9 @@ async function sendCustomerEmail({ to, subject, bodyHtml }) {
     const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
 <body style="font-family:Georgia,'Times New Roman',serif;background:#FAFCFB;margin:0;padding:20px;color:#1A2E22;">
   <div style="background:#FFFFFF;border:1px solid #DCE8E0;border-radius:16px;max-width:520px;margin:0 auto;overflow:hidden;">
-    <div style="background:#2C4A38;padding:24px 28px;"><img src="https://yourpetpass.com/logo_horizontal_cream_transparent.png" alt="YourPetPass" width="220" style="display:block;height:auto;" /></div>
+    <div style="background:#2C4A38;padding:24px 28px;"><img src="https://www.yourpetpass.com/logo_horizontal_cream_transparent.png" alt="YourPetPass" width="220" style="display:block;height:auto;" /></div>
     <div style="padding:28px;font-size:15px;line-height:1.7;">${bodyHtml}</div>
-    <div style="background:#EAF4EE;padding:16px 28px;font-size:12px;color:#6A8372;text-align:center;">YourPetPass · Health Records &amp; Travel, Simplified. · <a href="https://yourpetpass.com/contact.html" style="color:#2C4A38;">Contact us</a></div>
+    <div style="background:#EAF4EE;padding:16px 28px;font-size:12px;color:#6A8372;text-align:center;">YourPetPass · Health Records &amp; Travel, Simplified. · <a href="https://www.yourpetpass.com/contact.html" style="color:#2C4A38;">Contact us</a></div>
   </div>
 </body></html>`;
     const response = await fetch('https://api.resend.com/emails', {

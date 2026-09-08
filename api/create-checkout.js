@@ -88,7 +88,7 @@ export default async function handler(req, res) {
   const product = PRODUCTS[priceId];
   if (!product) return res.status(400).json({ error: 'That product is not available for checkout.' });
 
-  const BASE_URL = process.env.VITE_APP_URL || 'https://yourpetpass.com';
+  const BASE_URL = process.env.VITE_APP_URL || 'https://www.yourpetpass.com';
 
   try {
     const stripe = await getStripe();

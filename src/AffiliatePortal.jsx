@@ -85,7 +85,7 @@ export default function AffiliatePortal({ userId, userEmail, onClose }) {
     </div>
   );
 
-  const referralUrl = `https://yourpetpass.com?ref=${affiliate.referral_code}`;
+  const referralUrl = `https://www.yourpetpass.com?ref=${affiliate.referral_code}`;
 
   // Sales = positive entries
   const sales = commissions.filter(c => c.status !== 'refund' && (c.commission_amount_cents || 0) > 0);
