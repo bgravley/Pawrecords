@@ -154,7 +154,7 @@ export default function AffiliatePortal({ userId, userEmail, onClose }) {
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 20, marginBottom: 20 }}>
           <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 4 }}>Your Referral Link</div>
           <div style={{ fontSize: 13, color: C.muted, marginBottom: 12 }}>
-            Share this link anywhere. Every new user who signs up through it is tracked to you permanently.
+            Share this link anywhere. When a new user signs up through it, their referral is associated with your affiliate account.
           </div>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
             <div style={{ flex: 1, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10, padding: '10px 14px', fontSize: 13, color: C.teal, fontFamily: 'monospace', wordBreak: 'break-all' }}>
@@ -165,7 +165,7 @@ export default function AffiliatePortal({ userId, userEmail, onClose }) {
             </button>
           </div>
           <div style={{ fontSize: 12, color: C.muted, marginTop: 10 }}>
-            💡 When someone visits this link and creates an account, you earn {affiliate.commission_rate}% of every payment they make — monthly, annual, or lifetime — forever.
+            For eligible payments made while your affiliate account is active, you earn {affiliate.commission_rate}% of the payment amount after Stripe processing fees. Refunds can reduce previously earned commission.
           </div>
         </div>
 
@@ -216,7 +216,7 @@ export default function AffiliatePortal({ userId, userEmail, onClose }) {
         {/* Transaction Ledger */}
         <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: 20, marginBottom: 20 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <div style={{ fontWeight: 700, fontSize: 16 }}>Transaction Ledger</div>
+            <div><div style={{ fontWeight: 700, fontSize: 16 }}>Transaction Ledger</div><div style={{ fontSize: 11, color: C.muted, marginTop: 3 }}>Customer Payment shows the gross charge or refund. Your commission is calculated from the eligible payment amount after Stripe processing fees.</div></div>
             <select value={monthFilter} onChange={e => setMonthFilter(e.target.value)}
               style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '6px 12px', fontSize: 13, color: C.text, cursor: 'pointer' }}>
               <option value="all">All time</option>
@@ -230,7 +230,7 @@ export default function AffiliatePortal({ userId, userEmail, onClose }) {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                 <thead>
                   <tr style={{ color: C.muted }}>
-                    {['Date', 'Month', 'Sale Amount', 'Your Rate', 'Your Commission', 'Type', 'Status'].map(h => (
+                    {['Date', 'Month', 'Customer Payment', 'Your Rate', 'Your Commission', 'Type', 'Status'].map(h => (
                       <th key={h} style={{ padding: '8px 12px', textAlign: 'left', borderBottom: `1px solid ${C.border}`, fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
                     ))}
                   </tr>
@@ -244,7 +244,7 @@ export default function AffiliatePortal({ userId, userEmail, onClose }) {
                         <td style={{ padding: '8px 12px', color: C.muted }}>{fmt(c.created_at?.slice(0,10))}</td>
                         <td style={{ padding: '8px 12px', color: C.muted }}>{c.period_month || '—'}</td>
                         <td style={{ padding: '8px 12px', color: isRefund ? C.red : C.text }}>
-                          {isRefund ? '-' : ''}{money(c.payment_amount_cents)}
+                          {isRefund ? '-' : ''}{money(c.gross_amount_cents)}
                         </td>
                         <td style={{ padding: '8px 12px', color: C.muted }}>{c.commission_rate}%</td>
                         <td style={{ padding: '8px 12px', fontWeight: 700, color: rowColor }}>

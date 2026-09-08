@@ -109,11 +109,12 @@ export default async function handler(req, res) {
       <p style="line-height:1.7;">You've been added as a YourPetPass affiliate partner. When someone signs up through your link and makes an eligible purchase, your referral can be tracked back to you.</p>
       <div style="background:#EAF4EE;border-radius:12px;padding:16px 18px;margin:18px 0;">
         <div style="font-size:11px;font-weight:700;color:#7C9E87;text-transform:uppercase;letter-spacing:.06em;">Commission Rate</div>
-        <div style="font-size:19px;font-weight:700;color:#2C4A38;margin-top:4px;">${esc(rateLabel)} of eligible payments</div>
+        <div style="font-size:19px;font-weight:700;color:#2C4A38;margin-top:4px;">${esc(rateLabel)} of eligible net payments</div>
       </div>
       <p><strong>Your unique referral link:</strong></p>
       <div style="background:#EAF4EE;border:1px solid #9DC4AA;border-radius:10px;padding:12px 14px;font-family:monospace;font-size:13px;color:#2C4A38;word-break:break-all;">${esc(referralUrl)}</div>
       <p style="line-height:1.7;margin-top:18px;">Share this link with your audience. Log in with this email to view your affiliate dashboard and referral activity.</p>
+      <p style="line-height:1.7;font-size:13px;color:#7C9E87;">Commission is calculated from eligible payment proceeds after Stripe processing fees. Refunds can reduce commission, and new commissions are recorded while your affiliate account remains active.</p>
       <a href="https://www.yourpetpass.com" style="display:block;background:#C9A84C;color:#1A2E22;text-decoration:none;border-radius:10px;padding:13px 20px;text-align:center;font-weight:700;margin:22px 0;">Open YourPetPass</a>
       ${safeNotes ? `<p style="color:#7C9E87;font-size:13px;font-style:italic;">Note from YourPetPass: ${safeNotes}</p>` : ''}
       <p style="line-height:1.7;">Questions? Reply to this email and we'll help.</p>
