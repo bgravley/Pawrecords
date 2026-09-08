@@ -167,7 +167,7 @@ const Modal = ({ title, onClose, children, wide }) => (
       overflow: "auto", padding: 24, boxShadow: "0 8px 40px rgba(26,46,34,0.15)"
     }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-        <h3 style={{ fontFamily: "'Lora', serif", fontSize: 22, color: C.text }}>{title}</h3>
+        <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, color: C.text }}>{title}</h3>
         <button type="button" aria-label={`Close ${title}`} onClick={onClose} style={{
           background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8,
           padding: "6px 10px", color: C.sub, cursor: "pointer"
@@ -1540,7 +1540,7 @@ ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.i
         <div style={{ marginBottom: 16 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
             <div>
-              <h3 style={{ fontFamily: "'Lora', serif", fontSize: 20, color: C.text }}>Requirements Checklist</h3>
+              <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, color: C.text }}>Requirements Checklist</h3>
               <div style={{fontSize:11,color:C.muted,marginTop:3,maxWidth:420,lineHeight:1.45}}>AI-assisted planning only. Country rules should link to the responsible government authority. Confirm official requirements before travel.</div>
             </div>
             <div style={{ display: "flex", gap: 8 }}>
@@ -1648,7 +1648,7 @@ ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.i
 
         <div style={{ marginBottom: 16 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-            <h3 style={{ fontFamily: "'Lora', serif", fontSize: 20, color: C.text }}>Documents</h3>
+            <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, color: C.text }}>Documents</h3>
             <Btn sm v="secondary" onClick={() => setShowUploadEntry(true)}>📎 Upload Entry Doc</Btn>
           </div>
           {documents.length === 0
@@ -1827,7 +1827,7 @@ export default function Travel({ userId, tier = "free", onUpgrade, onBack }) {
             <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 11, marginTop: 2, fontStyle: "italic" }}>← My Pets</div>
           </button>
           <div style={{ textAlign: "right" }}>
-            <div style={{ fontFamily: "'Lora', serif", fontSize: 22, color: "#fff", fontWeight: 600 }}>🛂 Travel Planner</div>
+            <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, color: "#fff", fontWeight: 700 }}>🛂 Travel Planner</div>
           </div>
           <Btn onClick={() => setShowNew(true)} style={{ background: C.warn, color: "#1A2E22" }}>+ New Trip</Btn>
         </div>
@@ -1865,7 +1865,7 @@ export default function Travel({ userId, tier = "free", onUpgrade, onBack }) {
         {!loading && displayed.length === 0 && (
           <section aria-label={filter === "upcoming" ? "No upcoming trips" : "No past trips"} style={{ textAlign: "center", padding: "52px 20px" }}>
             <div aria-hidden="true" style={{ fontSize: 48, marginBottom: 14 }}>✈️</div>
-            <h3 style={{ fontFamily: "'Lora', serif", fontSize: 22, marginBottom: 6, fontStyle: "italic" }}>
+            <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, marginBottom: 6, fontStyle: "italic" }}>
               {filter === "upcoming" ? "No upcoming trips" : "No past trips"}
             </h3>
             <div style={{ color: C.muted, fontSize: 14, marginBottom: 24 }}>

@@ -79,7 +79,7 @@ export default function AffiliatePortal({ userId, userEmail, onClose }) {
     <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
       <div style={{ textAlign: 'center' }}>
         <div style={{ fontSize: 40, marginBottom: 12 }}>🔍</div>
-        <div style={{ fontFamily: "'Lora', serif", fontSize: 22, marginBottom: 8 }}>No affiliate account found</div>
+        <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, fontWeight: 700, color: C.text, marginBottom: 8 }}>No affiliate account found</div>
         <div style={{ color: C.muted, fontSize: 14 }}>Contact Brandon at bgravley@rdmarketingllc.com to get set up.</div>
       </div>
     </div>
@@ -134,7 +134,7 @@ export default function AffiliatePortal({ userId, userEmail, onClose }) {
 
         {/* Welcome */}
         <div style={{ marginBottom: 24 }}>
-          <div style={{ fontFamily: "'Lora', serif", fontSize: 24, color: C.text, marginBottom: 4 }}>Welcome back 👋</div>
+          <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 700, color: C.text, marginBottom: 4 }}>Welcome back 👋</div>
           <div style={{ fontSize: 14, color: C.muted }}>
             Your referral code: <span style={{ fontFamily: 'monospace', fontWeight: 700, color: C.teal, background: `${C.teal}14`, padding: '2px 8px', borderRadius: 6 }}>{affiliate.referral_code}</span>
             &nbsp;·&nbsp; {affiliate.commission_rate}% commission &nbsp;·&nbsp;

@@ -48,10 +48,10 @@ function ResetPasswordScreen({ onDone }) {
   return (
     <div style={{ minHeight: '100vh', background: '#FAFCFB', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
       <div style={{ background: '#FFFFFF', borderRadius: 20, padding: 32, width: '100%', maxWidth: 400, boxShadow: '0 4px 24px #0000000D', border: '1px solid #DCE8E0' }}>
-        <div style={{ fontFamily: "'Lora', serif", fontSize: 26, fontWeight: 600, color: '#2C4A38', marginBottom: 6, textAlign: 'center' }}>
+        <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 26, fontWeight: 700, color: '#2C4A38', marginBottom: 6, textAlign: 'center' }}>
           🐾 YourPetPass
         </div>
-        <div style={{ fontFamily: "'Lora', serif", fontSize: 20, color: '#1A2E22', marginBottom: 20, textAlign: 'center' }}>
+        <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 700, color: '#1A2E22', marginBottom: 20, textAlign: 'center' }}>
           Set New Password
         </div>
         {success ? (
