@@ -14,6 +14,12 @@ YourPetPass travel guides distinguish destination-government requirements from a
 - Emergency QR, when enabled, creates a tokenized, no-login emergency page with owner-selected supported fields; it is not a public pet directory and does not expose full medical records or private uploaded documents.
 - AI document extraction and travel planning are assistance features. Extracted information should be reviewed before it is relied on or saved, and current travel requirements should be confirmed with the responsible government or carrier authority as applicable.
 
+## Authority resources
+
+- Pet Travel Rules Change Ledger: https://www.yourpetpass.com/pet-travel-rules-change-ledger.html
+- Machine-readable Pet Travel Rules Change Ledger: https://www.yourpetpass.com/pet-travel-rules-change-ledger.json
+- Dog Travel Between the U.S. and Mexico: Screwworm Certificate Checklist: https://www.yourpetpass.com/us-mexico-screwworm-dog-travel.html
+
 ## Key guides
 
 - Pet Guides: https://www.yourpetpass.com/blog.html

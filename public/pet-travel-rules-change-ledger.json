@@ -1,0 +1,113 @@
+{
+  "name": "YourPetPass Pet Travel Rules Change Ledger",
+  "last_reviewed": "2026-09-14",
+  "scope": "Owner-accompanied, non-commercial dog travel for current priority jurisdictions unless otherwise stated.",
+  "source_policy": {
+    "country_entry_rules": "Destination-government sources control country entry, import, quarantine, permit, treatment, vaccination, customs and border rules.",
+    "origin_export_or_return_rules": "Origin-country government sources support export, endorsement, disease-status and return requirements.",
+    "airline_rules": "Airlines are used only for their own carriage, cabin, cargo, service-animal, aircraft, booking and route restrictions.",
+    "excluded_sources": "Third-party blogs, mass directories, paid link schemes and relocation summaries are not controlling sources."
+  },
+  "entries": [
+    {
+      "review_date": "2026-09-14",
+      "affected_jurisdiction": "United States to Mexico",
+      "classification": "urgent temporary disease-control requirement",
+      "rule_field": "New World screwworm inspection certificate for pet dogs",
+      "old_value": "No routine health certificate for U.S.-origin dogs; SENASICA inspection on arrival.",
+      "proposed_new_value": "Dogs moving from the United States to Mexico must carry a New World screwworm inspection certificate issued no more than five days before Mexico entry.",
+      "effective_date": "2026-08-03",
+      "official_sources": [
+        {
+          "name": "SENASICA article",
+          "url": "https://www.gob.mx/senasica/articulos/establecemos-requisito-de-inspeccion-para-gbg-en-perros-y-aves-provenientes-de-eu",
+          "source_date": "2026-08-11"
+        },
+        {
+          "name": "SENASICA press release",
+          "url": "https://www.gob.mx/senasica/prensa/establece-mexico-requisito-de-inspeccion-sanitaria-para-gbg-en-perros-y-aves-provenientes-de-eua-432344?state=published",
+          "source_date": "2026-08-11"
+        }
+      ],
+      "confidence": "very high",
+      "recommended_action": "Keep urgent disease-control flag active and validate certificate issue date against actual entry date."
+    },
+    {
+      "review_date": "2026-09-14",
+      "affected_jurisdiction": "Mexico to United States",
+      "classification": "temporary disease-control requirement",
+      "rule_field": "Screwworm-freedom certification for dogs entering the United States",
+      "old_value": "CDC Dog Import Form and ordinary CDC pathway where applicable.",
+      "proposed_new_value": "Dogs entering the United States from Mexico still need the applicable screwworm-freedom certification in addition to CDC dog-import requirements.",
+      "effective_date": "current",
+      "official_sources": [
+        {
+          "name": "USDA APHIS dog import guidance",
+          "url": "https://www.aphis.usda.gov/pet-travel/another-country-to-us-import/dogs",
+          "source_date": "reviewed 2026-09-14"
+        }
+      ],
+      "confidence": "very high",
+      "recommended_action": "Keep this directional rule separate from U.S.-to-Mexico certificate rules."
+    },
+    {
+      "review_date": "2026-09-14",
+      "affected_jurisdiction": "Portugal / European Union",
+      "classification": "verified unchanged",
+      "rule_field": "EU non-commercial pet certificate transition",
+      "old_value": "New certificate framework effective in 2026; transition required date-versioning.",
+      "proposed_new_value": "Keep certificate logic versioned by issue date, travel date and destination. Legacy certificate acceptance remains date-limited under EU transition rules.",
+      "effective_date": "current",
+      "official_sources": [
+        {
+          "name": "Portugal DGAV",
+          "url": "https://www.dgav.pt/vaiviajar/conteudo/conteudo-animais-de-companhia/entrar-em-portugal-a-partir-de-um-pais-fora-da-ue-inclui-o-reino-unido-exceto-a-irlanda-do-norte/caes-e-gatos/",
+          "source_date": "reviewed 2026-09-14"
+        },
+        {
+          "name": "EUR-Lex Regulation 2026/705",
+          "url": "https://eur-lex.europa.eu/legal-content/EN/TXT/?qid=1768001668446&uri=CELEX%3A32026R0705",
+          "source_date": "2026"
+        }
+      ],
+      "confidence": "high",
+      "recommended_action": "Keep airport, arrival-time, transit and certificate-date validation active."
+    },
+    {
+      "review_date": "2026-09-14",
+      "affected_jurisdiction": "Colombia or Thailand to United States",
+      "classification": "verified unchanged",
+      "rule_field": "CDC high-risk dog-rabies pathway",
+      "old_value": "Colombia and Thailand treated as CDC high-risk countries.",
+      "proposed_new_value": "Keep high-risk pathway active. U.S. return requirements depend on six-month travel history and vaccination origin.",
+      "effective_date": "current",
+      "official_sources": [
+        {
+          "name": "CDC high-risk country list",
+          "url": "https://www.cdc.gov/importation/dogs/high-risk-countries.html",
+          "source_date": "reviewed 2026-09-14"
+        }
+      ],
+      "confidence": "very high",
+      "recommended_action": "Require six-month country history, vaccination origin, CDC forms, titer/quarantine pathway where applicable and arrival airport."
+    },
+    {
+      "review_date": "2026-09-14",
+      "affected_jurisdiction": "United States to Australia",
+      "classification": "verified unchanged",
+      "rule_field": "Group 3 dog import pathway",
+      "old_value": "United States excluding Guam and Hawaii handled as Group 3 origin.",
+      "proposed_new_value": "Keep long-lead Group 3 dog-import pathway, including RNATT sequencing, import permit and quarantine requirements.",
+      "effective_date": "current",
+      "official_sources": [
+        {
+          "name": "Australian DAFF Group 3 dog guide",
+          "url": "https://www.agriculture.gov.au/biosecurity-trade/cats-dogs/how-to-import/step-by-step-guides/category-3-step-by-step-guide-for-dogs",
+          "source_date": "reviewed 2026-09-14"
+        }
+      ],
+      "confidence": "high",
+      "recommended_action": "Keep manual planning and route-specific checks for RNATT, identity verification, permits, quarantine, routing and transit."
+    }
+  ]
+}
