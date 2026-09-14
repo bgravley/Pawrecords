@@ -34,6 +34,21 @@ app = (ROOT / APP_FILES['App']).read_text(encoding='utf-8')
 travel = (ROOT / APP_FILES['Travel']).read_text(encoding='utf-8')
 affiliate = (ROOT / APP_FILES['Affiliate']).read_text(encoding='utf-8')
 notifications = (ROOT / 'api/send-notifications.js').read_text(encoding='utf-8')
+shared_article_css_path = ROOT / 'public/blog-article.css'
+shared_article_css = shared_article_css_path.read_text(encoding='utf-8') if shared_article_css_path.exists() else ''
+
+def editorial_style_surface(path, text):
+    """Return the page plus any shared stylesheet that controls that page.
+
+    Several current blog articles intentionally use public/blog-article.css
+    instead of inlining every brand rule. The brand audit should still fail if
+    the linked stylesheet loses Lora, Playfair Display, Forest Green, or the
+    current secondary palette, and it should still catch legacy tokens in both
+    the page and the shared stylesheet.
+    """
+    if 'href="/blog-article.css"' in text or "href='/blog-article.css'" in text:
+        return text + '\n' + shared_article_css
+    return text
 
 # The SPA must load both official brand typefaces independently of which screen
 # happens to render first (important for password-recovery deep links).
@@ -63,23 +78,24 @@ check(len(EDITORIAL_FILES) >= 8,
       'editorial brand audit discovers the article/use-case/author collection')
 for path in EDITORIAL_FILES:
     text = (ROOT / path).read_text(encoding='utf-8')
+    style_surface = editorial_style_surface(path, text)
     check('/privacy-consent.js' in text,
           f'{path} keeps the shared privacy-consent manager')
     check('Playfair+Display' in text and 'Lora' in text,
           f'{path} loads Playfair Display headlines and Lora body')
-    check("font-family: 'Lora', serif" in text or "font-family:'Lora',serif" in text,
+    check("font-family: 'Lora', serif" in style_surface or "font-family:'Lora',serif" in style_surface,
           f'{path} uses Lora body typography')
-    check("font-family: 'Playfair Display', serif" in text or "font-family:'Playfair Display',serif" in text,
+    check("font-family: 'Playfair Display', serif" in style_surface or "font-family:'Playfair Display',serif" in style_surface,
           f'{path} uses Playfair Display headline typography')
-    check('#2C4A38' in text,
+    check('#2C4A38' in style_surface,
           f'{path} carries Forest Green')
     # Gold is intentionally optional on educational/editorial pages. The brand
     # guide calls it a limited accent, so requiring it everywhere would create
     # artificial decoration rather than enforce the actual design system.
-    check(any(token in text for token in CURRENT_SECONDARY_TOKENS),
+    check(any(token in style_surface for token in CURRENT_SECONDARY_TOKENS),
           f'{path} uses a current light or secondary brand color')
     for legacy in LEGACY_TOKENS:
-        check(legacy not in text, f'{path} no longer contains legacy brand token {legacy}')
+        check(legacy not in style_surface, f'{path} no longer contains legacy brand token {legacy}')
 
 # Reminder emails are customer-facing but email clients need safe font fallbacks.
 check("font-family: 'Lora', Georgia, serif" in notifications,
