@@ -16,6 +16,7 @@ const YourPetPass = lazy(() => import("./PawRecord.jsx"));
 const Admin = lazy(() => import("./Admin.jsx"));
 const Emergency = lazy(() => import("./Emergency.jsx"));
 const Travel = lazy(() => import("./Travel.jsx"));
+const TravelSummary = lazy(() => import("./TravelSummary.jsx"));
 const AffiliatePortal = lazy(() => import("./AffiliatePortal.jsx"));
 
 // Your admin email — only this account sees the admin dashboard
@@ -311,6 +312,10 @@ export default function App() {
   };
 
   const path = window.location.pathname;
+  const travelSummaryMatch = path.match(/^\/travel-summary\/([0-9a-f-]{36})$/i);
+  if (travelSummaryMatch) {
+    return <TravelSummary token={travelSummaryMatch[1]} />;
+  }
   const emergencyMatch = path.match(/^\/emergency\/([a-z0-9]+)$/i);
   if (emergencyMatch) {
     return <Emergency token={emergencyMatch[1]} />;
