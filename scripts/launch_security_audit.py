@@ -108,8 +108,9 @@ require("checkPublicRateLimit" in travel_share and "travel-share-read" in travel
         "Public travel-summary reads have explicit abuse/rate-limit protection")
 
 travel_summary = read("src/TravelSummary.jsx")
+travel_summary_html = read("src/lib/travelSummary.js")
 travel_ui = read("src/Travel.jsx")
-require("safeExternalUrl" in travel_summary and "safeExternalUrl" in travel_ui,
+require("safeExternalUrl" in travel_summary and "safeExternalUrl" in travel_summary_html and "safeExternalUrl" in travel_ui,
         "Travel source links enforce the HTTPS allowlist at render boundaries")
 
 index_html = read("index.html")
