@@ -30,7 +30,7 @@ export const AIRPORT_ROLE_LABELS = {
 };
 
 export const AIRPORT_ROLE_SECTIONS = {
-  departure: ["petReliefAreas", "petCheckIn", "cargoLocations", "securityScreening", "veterinaryInspection", "serviceAnimalProcess", "operatingHours", "emergencyVet"],
-  layover: ["petReliefAreas", "securityScreening", "customsProcess", "veterinaryInspection", "serviceAnimalProcess", "operatingHours", "emergencyVet"],
-  arrival: ["customsProcess", "veterinaryInspection", "cargoLocations", "petReliefAreas", "serviceAnimalProcess", "operatingHours", "emergencyVet"],
+  departure: ["arrivalRecommendation", "petReliefAreas", "waterAvailability", "petCheckIn", "cargoLocations", "securityScreening", "veterinaryInspection", "serviceAnimalProcess", "operatingHours", "terminalMapUrl", "contacts", "officialFees", "emergencyVet"],
+  layover: ["petReliefAreas", "waterAvailability", "terminalChanges", "securityScreening", "customsProcess", "veterinaryInspection", "serviceAnimalProcess", "operatingHours", "terminalMapUrl", "contacts", "officialFees", "emergencyVet"],
+  arrival: ["customsProcess", "veterinaryInspection", "cargoLocations", "petReliefAreas", "waterAvailability", "serviceAnimalProcess", "operatingHours", "terminalMapUrl", "contacts", "officialFees", "emergencyVet"],
 };

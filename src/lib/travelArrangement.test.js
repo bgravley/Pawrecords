@@ -58,3 +58,8 @@ test("checklist input includes the selected mode and only relevant details", () 
   assert.match(summary, /air waybill: 123-456/);
   assert.doesNotMatch(summary, /carrier dimensions/);
 });
+
+test("keeps only secure airline submission links", () => {
+  assert.equal(cleanAirTravelDetails({ arrangement: "in_cabin_service_animal", airline_submission_url: "javascript:alert(1)" }).airline_submission_url, undefined);
+  assert.equal(cleanAirTravelDetails({ arrangement: "in_cabin_service_animal", airline_submission_url: "https://airline.example/forms" }).airline_submission_url, "https://airline.example/forms");
+});

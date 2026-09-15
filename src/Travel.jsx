@@ -17,6 +17,7 @@ import { READINESS_LABELS, READINESS_STATUSES, readinessSummary } from "./lib/tr
 import { REVIEW_STATUSES, SOURCE_TYPES, expectedSourceType, sourceVerificationState } from "./lib/sourceVerification";
 import { buildTravelSummaryHtml, formatTravelDate } from "./lib/travelSummary";
 import { PACKING_CATEGORIES, buildPackingItems, missedConnectionGuidance, packingProgress } from "./lib/packingChecklist";
+import { SERVICE_DOCUMENT_STATUSES, cleanTravelSupport, feeLabel, isUnitedStatesRoute, normalizeTravelSupport, serviceAnimalWorkflows } from "./lib/travelSupport";
 
 const logActivity = async (userId, userEmail, action, details = {}) => {
   try {
@@ -281,6 +282,9 @@ MANDATORY USA CHECKLIST ITEMS TO INCLUDE:
    - Source: https://www.cdc.gov/importation/dogs
 ` : "No USA-specific documentation required for this route."}
 
+===== U.S. SERVICE-ANIMAL WORKFLOW =====
+${usaInvolved && pets.some(p => p.is_service_animal || p.pet_type === 'service_animal') ? `Include a government-form item for the current U.S. DOT Service Animal Air Transportation Form, sourced to https://www.transportation.gov/individuals/aviation-consumer-protection/service-animals/Air_Transportation_Form, and a separate airline-policy item for the airline's official submission process, sourced to the airline. Include the U.S. DOT relief-attestation step when a flight segment is scheduled for 8 hours or more. Do not request a disability diagnosis, certification, or documentation beyond what the responsible government or destination jurisdiction permits.` : `Do not add a generic U.S. service-animal form requirement. Only include service-animal documents explicitly required by a government authority or carrier for this route.`}
+
 ===== DIRECTION-SPECIFIC REQUIREMENTS =====
 
 EXPORT from ${trip.origin_country} (rules for LEAVING the origin country):
@@ -339,8 +343,14 @@ Each item must have these exact fields:
 - transit_countries: array of transit countries this applies to, or an empty array
 - effective_date: YYYY-MM-DD when known, otherwise empty string
 - source_expires_at: YYYY-MM-DD when the rule or source is known to expire, otherwise empty string
+- fee_amount: exact numeric amount published by the official authority, or null. Never estimate, use a range, or calculate a trip total.
+- fee_currency: three-letter currency code such as USD, or empty string
+- fee_basis: per pet, application, shipment, inspection, or other exact basis, or empty string
+- fee_notes: official conditions or exclusions, or empty string
+- fee_source_updated_at: YYYY-MM-DD shown by the official source when known, otherwise empty string
 
 Country entry/export/transit/quarantine/health requirements MUST use source_type government and the responsible government authority's official URL. Airline sources may support only airline_policy. Airport sources may support only airport_logistics.
+Only populate fee fields when the same official source explicitly publishes an exact current amount. Never infer a fee, provide a range, or sum fees.
 
 [`;
 
@@ -357,7 +367,7 @@ Country entry/export/transit/quarantine/health requirements MUST use source_type
       originCountry: trip.origin_country,
       destinationCountry: trip.destination_country,
       transportationType: trip.transportation_type || "air",
-      travelArrangementKey: `phase5:${arrangementCacheKey(trip.air_travel_arrangements, pets.map(p => p.id))}`,
+      travelArrangementKey: `travel-support-v1:${arrangementCacheKey(trip.air_travel_arrangements, pets.map(p => p.id))}`,
     }),
   });
 
@@ -401,8 +411,9 @@ const TripForm = ({ trip, userId, dogs, onSave, onClose }) => {
     notes: trip.notes || "",
     selectedPets: trip.pet_ids || [],
     airTravelArrangements: normalizeAirTravelArrangements(trip.air_travel_arrangements),
+    travelSupport: normalizeTravelSupport(trip.travel_support),
   } : {
-    name: "", returnDate: "", notes: "", selectedPets: [], airTravelArrangements: normalizeAirTravelArrangements(null),
+    name: "", returnDate: "", notes: "", selectedPets: [], airTravelArrangements: normalizeAirTravelArrangements(null), travelSupport: normalizeTravelSupport(null),
   });
   // Legs default to a single empty one (matches the simple, common case).
   // When editing a trip that has real trip_legs rows, those load in below;
@@ -417,6 +428,7 @@ const TripForm = ({ trip, userId, dogs, onSave, onClose }) => {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
   const set = (k, v) => setF(p => ({ ...p, [k]: v }));
+  const hasUnitedStatesLeg = legs.some(leg => isUnitedStatesRoute({ origin_country: leg.originCountry, destination_country: leg.destinationCountry }));
 
   useEffect(() => {
     if (!trip) return;
@@ -487,6 +499,7 @@ const TripForm = ({ trip, userId, dogs, onSave, onClose }) => {
       air_travel_arrangements: legs.some(leg => leg.transportationType === "air")
         ? buildAirTravelPayload(f.selectedPets, f.airTravelArrangements)
         : { version: 1, by_pet: {} },
+      travel_support: cleanTravelSupport(f.travelSupport),
     };
     let result, error;
     if (trip) {
@@ -616,6 +629,36 @@ const TripForm = ({ trip, userId, dogs, onSave, onClose }) => {
 
         <Field label="Return Date (optional)"><input style={inp} type="date" value={f.returnDate} onChange={e => set("returnDate", e.target.value)} /></Field>
 
+        <div style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 14, padding: 14 }}>
+          <div style={{ fontWeight: 800, fontSize: 12, color: C.sub, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 4 }}>Travel references</div>
+          <p style={{ color: C.muted, fontSize: 11, lineHeight: 1.5, margin: "0 0 10px" }}>Optional pet-travel details for your summary. Accommodation and general immigration planning are intentionally excluded.</p>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <Field label="Airline pet confirmation"><input style={inp} value={f.travelSupport.airline_pet_confirmation_reference} onChange={e => set("travelSupport", { ...f.travelSupport, airline_pet_confirmation_reference: e.target.value })} /></Field>
+            <Field label="Pet customs declaration"><input style={inp} value={f.travelSupport.customs_declaration_reference} onChange={e => set("travelSupport", { ...f.travelSupport, customs_declaration_reference: e.target.value })} /></Field>
+            <Field label="Pet inspection authority"><input style={inp} value={f.travelSupport.inspection_authority} onChange={e => set("travelSupport", { ...f.travelSupport, inspection_authority: e.target.value })} /></Field>
+            <Field label="Pet inspection location"><input style={inp} value={f.travelSupport.inspection_location} onChange={e => set("travelSupport", { ...f.travelSupport, inspection_location: e.target.value })} /></Field>
+            <Field label="Contacts last checked"><input type="date" style={inp} value={f.travelSupport.contacts_checked_at} onChange={e => set("travelSupport", { ...f.travelSupport, contacts_checked_at: e.target.value })} /></Field>
+            <Field label="Destination veterinarian"><input style={inp} value={f.travelSupport.destination_vet.name} onChange={e => set("travelSupport", { ...f.travelSupport, destination_vet: { ...f.travelSupport.destination_vet, name: e.target.value } })} /></Field>
+            <Field label="Clinic"><input style={inp} value={f.travelSupport.destination_vet.clinic} onChange={e => set("travelSupport", { ...f.travelSupport, destination_vet: { ...f.travelSupport.destination_vet, clinic: e.target.value } })} /></Field>
+            <Field label="Veterinarian phone"><input type="tel" style={inp} value={f.travelSupport.destination_vet.phone} onChange={e => set("travelSupport", { ...f.travelSupport, destination_vet: { ...f.travelSupport.destination_vet, phone: e.target.value } })} /></Field>
+            <Field label="Veterinarian email"><input type="email" style={inp} value={f.travelSupport.destination_vet.email} onChange={e => set("travelSupport", { ...f.travelSupport, destination_vet: { ...f.travelSupport.destination_vet, email: e.target.value } })} /></Field>
+          </div>
+          <div style={{ fontSize: 12, fontWeight: 800, color: C.sub, margin: "12px 0 7px" }}>Important contacts</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <Field label="Airline animal-handling desk"><input style={inp} value={f.travelSupport.airline_contact.department} onChange={e => set("travelSupport", { ...f.travelSupport, airline_contact: { ...f.travelSupport.airline_contact, department: e.target.value } })} /></Field>
+            <Field label="Airline contact phone"><input type="tel" style={inp} value={f.travelSupport.airline_contact.phone} onChange={e => set("travelSupport", { ...f.travelSupport, airline_contact: { ...f.travelSupport.airline_contact, phone: e.target.value } })} /></Field>
+            <Field label="Airline contact email"><input type="email" style={inp} value={f.travelSupport.airline_contact.email} onChange={e => set("travelSupport", { ...f.travelSupport, airline_contact: { ...f.travelSupport.airline_contact, email: e.target.value } })} /></Field>
+            <Field label="Airline official link"><input type="url" style={inp} value={f.travelSupport.airline_contact.website} onChange={e => set("travelSupport", { ...f.travelSupport, airline_contact: { ...f.travelSupport.airline_contact, website: e.target.value } })} /></Field>
+            <Field label="Government inspection office"><input style={inp} value={f.travelSupport.government_contact.organization} onChange={e => set("travelSupport", { ...f.travelSupport, government_contact: { ...f.travelSupport.government_contact, organization: e.target.value } })} /></Field>
+            <Field label="Government contact phone"><input type="tel" style={inp} value={f.travelSupport.government_contact.phone} onChange={e => set("travelSupport", { ...f.travelSupport, government_contact: { ...f.travelSupport.government_contact, phone: e.target.value } })} /></Field>
+            <Field label="Government contact email"><input type="email" style={inp} value={f.travelSupport.government_contact.email} onChange={e => set("travelSupport", { ...f.travelSupport, government_contact: { ...f.travelSupport.government_contact, email: e.target.value } })} /></Field>
+            <Field label="Government official link"><input type="url" style={inp} value={f.travelSupport.government_contact.website} onChange={e => set("travelSupport", { ...f.travelSupport, government_contact: { ...f.travelSupport.government_contact, website: e.target.value } })} /></Field>
+            <Field label="Verified local pet transport"><input style={inp} value={f.travelSupport.pet_transport.organization} onChange={e => set("travelSupport", { ...f.travelSupport, pet_transport: { ...f.travelSupport.pet_transport, organization: e.target.value } })} /></Field>
+            <Field label="Pet transport phone"><input type="tel" style={inp} value={f.travelSupport.pet_transport.phone} onChange={e => set("travelSupport", { ...f.travelSupport, pet_transport: { ...f.travelSupport.pet_transport, phone: e.target.value } })} /></Field>
+            <Field label="Pet transport website"><input type="url" style={inp} value={f.travelSupport.pet_transport.website} onChange={e => set("travelSupport", { ...f.travelSupport, pet_transport: { ...f.travelSupport.pet_transport, website: e.target.value } })} /></Field>
+          </div>
+        </div>
+
         <div>
           <div style={{ fontWeight: 800, fontSize: 12, color: C.sub, textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 10 }}>🐾 Which Pets Are Coming?</div>
           {dogs.length === 0
@@ -665,6 +708,19 @@ const TripForm = ({ trip, userId, dogs, onSave, onClose }) => {
                         {details.arrangement === "in_cabin_pet" && yesNo("service_animal_status", "Service animal?")}
                         <Field label="Seat class"><input style={inp} value={details.seat_class || ""} onChange={e => updateAirDetails(petId, "seat_class", e.target.value)} placeholder="Economy, business..." /></Field>
                         <Field label="Number of pets"><input type="number" min="1" style={inp} value={details.number_of_pets || ""} onChange={e => updateAirDetails(petId, "number_of_pets", e.target.value)} /></Field>
+                      </div>
+                    )}
+
+                    {details.arrangement === "in_cabin_service_animal" && hasUnitedStatesLeg && (
+                      <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${C.border}` }}>
+                        <div style={{ fontSize: 12, fontWeight: 800, color: C.accent, marginBottom: 8 }}>U.S. service-animal travel documents</div>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                          <Field label="DOT form status"><select style={inp} value={details.dot_form_status || "not_started"} onChange={e => updateAirDetails(petId, "dot_form_status", e.target.value)}>{SERVICE_DOCUMENT_STATUSES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
+                          <Field label="Relief form (8+ hour flight)"><select style={inp} value={details.relief_attestation_status || "not_applicable"} onChange={e => updateAirDetails(petId, "relief_attestation_status", e.target.value)}>{SERVICE_DOCUMENT_STATUSES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
+                          <Field label="Airline submission link"><input type="url" style={inp} value={details.airline_submission_url || ""} onChange={e => updateAirDetails(petId, "airline_submission_url", e.target.value)} placeholder="https://airline.com/..." /></Field>
+                          <Field label="Airline confirmation reference"><input style={inp} value={details.airline_confirmation_reference || ""} onChange={e => updateAirDetails(petId, "airline_confirmation_reference", e.target.value)} /></Field>
+                        </div>
+                        <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.5, marginTop: 8 }}>Use the current U.S. DOT forms for flights to, within, or from the United States. Destination-country rules remain separate.</div>
                       </div>
                     )}
 
@@ -904,6 +960,7 @@ const ChecklistItem = ({ item, tripPets, onTogglePet, onToggleAll, onUpload, onD
             </div>
           )}
           {!item.source_url && <div style={{ marginBottom: 8, background: C.warnDim, border: `1px solid ${C.warn}`, borderRadius: 8, padding: "8px 10px", color: C.warn, fontSize: 12, fontWeight: 700 }}>Official source needed before relying on this requirement.</div>}
+          {feeLabel(item) && <div style={{ marginBottom: 8, background: C.warnDim, border: `1px solid ${C.warn}55`, borderRadius: 8, padding: "9px 10px", fontSize: 12, lineHeight: 1.5 }}><strong>Official published fee: {feeLabel(item)}</strong>{item.fee_basis ? ` · ${item.fee_basis}` : ""}<div style={{ color: C.muted, marginTop: 2 }}>As of {item.fee_last_checked_at ? new Date(item.fee_last_checked_at).toLocaleDateString() : item.researched_at ? new Date(item.researched_at).toLocaleDateString() : "the latest source check"}{item.fee_source_updated_at ? ` · Source updated ${fmt(item.fee_source_updated_at)}` : ""}. Additional fees may apply; confirm before payment.</div>{item.fee_notes && <div style={{ color: C.sub, marginTop: 2 }}>{item.fee_notes}</div>}</div>}
 
           {/* Upload per pet */}
           {item.requires_document && !allDone && (
@@ -935,10 +992,14 @@ const EditChecklistItemModal = ({ item, onSave, onClose }) => {
     importance: item.importance || "critical", readiness_status: item.readiness_status || (item.is_completed ? "complete" : "missing"),
     readiness_weight: item.readiness_weight || (item.importance === "supporting" ? 1 : 3), document_expires_at: item.document_expires_at || "", review_notes: item.review_notes || "",
     source_type: item.source_type || "government", jurisdiction: item.jurisdiction || "", requirement_type: item.requirement_type || "other",
+    source_url: item.source_url || "", source_authority: item.source_authority || "",
     effective_date: item.effective_date || "", source_expires_at: item.source_expires_at || "", human_review_status: item.human_review_status || "pending", change_detected: !!item.change_detected,
+    fee_amount: item.fee_amount ?? "", fee_currency: item.fee_currency || "", fee_basis: item.fee_basis || "", fee_notes: item.fee_notes || "", fee_source_updated_at: item.fee_source_updated_at || "",
   });
   const [saving, setSaving] = useState(false);
   const set = (k, v) => setF(p => ({ ...p, [k]: v }));
+  const sourceValid = !f.source_url || /^https:\/\//i.test(f.source_url);
+  const feeValid = f.fee_amount === "" || (Number.isFinite(Number(f.fee_amount)) && Number(f.fee_amount) >= 0 && /^[A-Z]{3}$/.test(f.fee_currency) && sourceValid && !!f.source_url);
   const categoryLabels = {
     health_certificate: "Health Certificate", vaccination: "Vaccination", treatment: "Treatment",
     documentation: "Documentation", airline: "Airline", government_form: "Government Form",
@@ -960,8 +1021,11 @@ const EditChecklistItemModal = ({ item, onSave, onClose }) => {
       readiness_weight: Math.max(1, Math.min(5, Number(f.readiness_weight) || 1)),
       document_expires_at: f.document_expires_at || null, review_notes: f.review_notes || null,
       source_type: f.source_type, jurisdiction: f.jurisdiction || null, requirement_type: f.requirement_type,
+      source_url: f.source_url || null, source_authority: f.source_authority || null,
       effective_date: f.effective_date || null, source_expires_at: f.source_expires_at || null,
       human_review_status: f.human_review_status, change_detected: f.change_detected,
+      fee_amount: f.fee_amount === "" ? null : Number(f.fee_amount), fee_currency: f.fee_amount === "" ? null : (f.fee_currency || null), fee_basis: f.fee_basis || null,
+      fee_notes: f.fee_notes || null, fee_source_updated_at: f.fee_source_updated_at || null, fee_last_checked_at: f.fee_amount === "" ? null : new Date().toISOString(),
     }).eq('id', item.id).select().single();
     setSaving(false);
     if (error) { console.error('Checklist item update failed:', error); return; }
@@ -991,16 +1055,21 @@ const EditChecklistItemModal = ({ item, onSave, onClose }) => {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}><Field label="Readiness Weight (1–5)"><input type="number" min="1" max="5" style={inp} value={f.readiness_weight} onChange={e => set("readiness_weight", e.target.value)} /></Field><Field label="Document Expires"><input type="date" style={inp} value={f.document_expires_at} onChange={e => set("document_expires_at", e.target.value)} /></Field></div>
       <Field label="Review Notes"><textarea maxLength={1000} style={{ ...inp, minHeight: 60 }} value={f.review_notes} onChange={e => set("review_notes", e.target.value)} /></Field>
       <Field label="Source Type"><select style={inp} value={f.source_type} onChange={e => set("source_type", e.target.value)}>{SOURCE_TYPES.map(value => <option key={value} value={value}>{value}</option>)}</select></Field>
+      <Field label="Official Source URL"><input type="url" style={inp} value={f.source_url} onChange={e => set("source_url", e.target.value)} placeholder="https://..." /></Field>
+      {!sourceValid && <div role="alert" style={{ color: C.danger, fontSize: 11 }}>Official source links must begin with https://.</div>}
+      <Field label="Source Authority"><input style={inp} value={f.source_authority} onChange={e => set("source_authority", e.target.value)} /></Field>
       <Field label="Jurisdiction / Authority Scope"><input maxLength={200} style={inp} value={f.jurisdiction} onChange={e => set("jurisdiction", e.target.value)} /></Field>
       <Field label="Requirement Type"><select style={inp} value={f.requirement_type} onChange={e => set("requirement_type", e.target.value)}>{["entry","export","transit","quarantine","health","vaccination","treatment","permit","customs","airline_policy","airport_logistics","other"].map(value => <option key={value} value={value}>{value.replace(/_/g, " ")}</option>)}</select></Field>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}><Field label="Effective Date"><input type="date" style={inp} value={f.effective_date} onChange={e => set("effective_date", e.target.value)} /></Field><Field label="Source Expires"><input type="date" style={inp} value={f.source_expires_at} onChange={e => set("source_expires_at", e.target.value)} /></Field></div>
       <Field label="Human Review"><select style={inp} value={f.human_review_status} onChange={e => set("human_review_status", e.target.value)}>{REVIEW_STATUSES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
+      <div style={{ background: C.warnDim, borderRadius: 10, padding: 10 }}><div style={{ fontSize: 12, fontWeight: 800, marginBottom: 7 }}>Official published fee (optional)</div><div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}><Field label="Exact amount"><input type="number" min="0" step="0.01" style={inp} value={f.fee_amount} onChange={e => set("fee_amount", e.target.value)} /></Field><Field label="Currency"><input maxLength={3} style={{ ...inp, textTransform: "uppercase" }} value={f.fee_currency} onChange={e => set("fee_currency", e.target.value.toUpperCase())} placeholder="USD" /></Field><Field label="Basis"><input style={inp} value={f.fee_basis} onChange={e => set("fee_basis", e.target.value)} placeholder="Per pet, application..." /></Field><Field label="Source updated"><input type="date" style={inp} value={f.fee_source_updated_at} onChange={e => set("fee_source_updated_at", e.target.value)} /></Field></div><Field label="Official conditions"><input style={inp} value={f.fee_notes} onChange={e => set("fee_notes", e.target.value)} /></Field><div style={{ color: C.muted, fontSize: 11 }}>Enter only an exact amount from the official source above. YourPetPass never estimates or totals trip costs.</div></div>
+      {!feeValid && <div role="alert" style={{ color: C.danger, fontSize: 11, marginTop: 6 }}>An official fee needs an exact non-negative amount, a three-letter currency, and an HTTPS official source.</div>}
       <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: C.text }}><input type="checkbox" checked={f.change_detected} onChange={e => set("change_detected", e.target.checked)} />A source change needs review</label>
       <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: C.text, margin: "10px 0" }}>
         <input type="checkbox" checked={f.requires_document} onChange={e => set("requires_document", e.target.checked)} />
         Requires a document upload
       </label>
-      <Btn full onClick={save} disabled={saving || !f.title.trim()}>{saving ? "Saving..." : "Save Changes"}</Btn>
+      <Btn full onClick={save} disabled={saving || !f.title.trim() || !feeValid || !sourceValid}>{saving ? "Saving..." : "Save Changes"}</Btn>
     </Modal>
   );
 };
@@ -1009,6 +1078,7 @@ const AIRPORT_SECTION_LABELS = {
   petReliefAreas: "Pet relief areas", petCheckIn: "Pet check-in", cargoLocations: "Cargo and pet pickup",
   securityScreening: "Security", customsProcess: "Customs and transit", veterinaryInspection: "Veterinary inspection",
   serviceAnimalProcess: "Service animals", operatingHours: "Operating hours", emergencyVet: "Emergency veterinarian",
+  arrivalRecommendation: "When to arrive", terminalMapUrl: "Official terminal map", waterAvailability: "Water for your pet", terminalChanges: "Terminal changes", contacts: "Pet-travel contacts", officialFees: "Official government fees",
 };
 
 const AirportGuideCard = ({ code, role }) => {
@@ -1053,11 +1123,20 @@ const AirportGuideCard = ({ code, role }) => {
           if (!Array.isArray(value) || !value.length) return null;
           return <div key={key} style={{ marginBottom: 10 }}><div style={{ fontSize: 12, fontWeight: 700 }}>{AIRPORT_SECTION_LABELS[key]}</div>{value.map((area, index) => <div key={index} style={{ fontSize: 12, color: C.sub, marginTop: 4 }}><strong>{area.location}</strong>{area.terminal ? ` · ${area.terminal}` : ""}{area.type ? ` · ${area.type}` : ""}{area.notes ? <div style={{ color: C.muted }}>{area.notes}</div> : null}</div>)}</div>;
         }
+        if (key === "terminalMapUrl") return value ? <div key={key} style={{ marginBottom: 10 }}><div style={{ fontSize: 12, fontWeight: 700 }}>{AIRPORT_SECTION_LABELS[key]}</div><a href={value} target="_blank" rel="noreferrer" style={{ color: C.accent, fontSize: 12, fontWeight: 700 }}>Open official map</a></div> : null;
+        if (key === "contacts") {
+          if (!Array.isArray(value) || !value.length) return null;
+          return <div key={key} style={{ marginBottom: 10 }}><div style={{ fontSize: 12, fontWeight: 700 }}>{AIRPORT_SECTION_LABELS[key]}</div>{value.map((contact, index) => <div key={`${contact.organization}-${index}`} style={{ background: '#fff', border: `1px solid ${C.border}`, borderRadius: 8, padding: 8, marginTop: 5 }}><div style={{ fontWeight: 700, fontSize: 12 }}>{contact.organization}{contact.department ? ` · ${contact.department}` : ''}</div><div style={{ color: C.muted, fontSize: 11 }}>{contact.type?.replaceAll('_', ' ')}{contact.scope ? ` · ${contact.scope}` : ''}</div><div style={{ display: 'flex', gap: 9, flexWrap: 'wrap', marginTop: 4 }}>{contact.phone && <a href={`tel:${contact.phone}`} style={{ color: C.accent, fontSize: 11 }}>Call {contact.phone}</a>}{contact.email && <a href={`mailto:${contact.email}`} style={{ color: C.accent, fontSize: 11 }}>Email</a>}{contact.website && <a href={contact.website} target="_blank" rel="noreferrer" style={{ color: C.accent, fontSize: 11 }}>Website</a>}{contact.address && <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(contact.address)}`} target="_blank" rel="noreferrer" style={{ color: C.accent, fontSize: 11 }}>Map</a>}</div>{(contact.hours || contact.afterHours) && <div style={{ color: C.muted, fontSize: 10, marginTop: 3 }}>{contact.hours}{contact.afterHours ? ` · After hours: ${contact.afterHours}` : ''}</div>}</div>)}</div>;
+        }
+        if (key === "officialFees") {
+          if (!Array.isArray(value) || !value.length) return null;
+          return <div key={key} style={{ marginBottom: 10 }}><div style={{ fontSize: 12, fontWeight: 700 }}>{AIRPORT_SECTION_LABELS[key]}</div>{value.map((fee, index) => <div key={`${fee.name}-${index}`} style={{ fontSize: 12, color: C.sub, marginTop: 5 }}><strong>{fee.name}: {fee.currency} {fee.amount}</strong>{fee.basis ? ` · ${fee.basis}` : ''}{fee.conditions ? <div style={{ color: C.muted }}>{fee.conditions}</div> : null}<div style={{ fontSize: 10, color: C.muted }}>As of {data.lastVerified ? new Date(data.lastVerified).toLocaleDateString() : 'this source check'}{fee.sourceUpdatedAt ? ` · Source updated ${fee.sourceUpdatedAt}` : ''} · <a href={fee.sourceUrl} target="_blank" rel="noreferrer" style={{ color: C.accent }}>Official source</a>. Additional fees may apply.</div></div>)}</div>;
+        }
         if (!value) return null;
         return <div key={key} style={{ marginBottom: 10 }}><div style={{ fontSize: 12, fontWeight: 700 }}>{AIRPORT_SECTION_LABELS[key]}</div><div style={{ fontSize: 12, color: C.sub, lineHeight: 1.55, marginTop: 2 }}>{value}</div></div>;
       })}
       <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 9, marginTop: 3, fontSize: 11, color: C.muted }}>
-        Last checked {data.lastVerified ? new Date(data.lastVerified).toLocaleDateString() : "recently"}. Verify details before travel.
+        {data.sourceStatus === 'confirmed_official' ? 'Confirmed from official sources' : data.sourceStatus === 'official_not_found' ? 'Official information not found' : 'Recheck needed'} · Last checked {data.lastVerified ? new Date(data.lastVerified).toLocaleDateString() : "recently"}. Verify details before travel.
         {Array.isArray(data.officialSources) && data.officialSources.length > 0 && <div style={{ marginTop: 5 }}>Official sources: {data.officialSources.map((source, index) => <span key={source.url}>{index > 0 ? " · " : ""}<a href={source.url} target="_blank" rel="noreferrer" style={{ color: C.accent, fontWeight: 600 }}>{source.authority}</a></span>)}</div>}
       </div>
     </div>
@@ -1140,6 +1219,7 @@ const EmergencyPlanCard = ({ trip, pets, airportStops, checklist }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const arrangements = normalizeAirTravelArrangements(trip.air_travel_arrangements);
+  const support = normalizeTravelSupport(trip.travel_support);
   const cargoContacts = pets.flatMap(pet => {
     const details = arrangements.by_pet?.[pet.id] || {};
     return [details.freight_agent && `${pet.name}: ${details.freight_agent}`, details.cargo_terminal && `${pet.name} cargo terminal: ${details.cargo_terminal}`, details.consignee && `${pet.name} receiving party: ${details.consignee}`, details.customs_broker && `${pet.name} customs broker: ${details.customs_broker}`].filter(Boolean);
@@ -1169,10 +1249,28 @@ const EmergencyPlanCard = ({ trip, pets, airportStops, checklist }) => {
     <div style={{ display: 'grid', gap: 10 }}>
       <div style={{ background: C.bg, borderRadius: 10, padding: 12 }}><strong style={{ fontSize: 13 }}>Lost travel document</strong><div style={{ color: C.sub, fontSize: 12, lineHeight: 1.55, marginTop: 4 }}>Keep your pet secure. Contact the issuing government authority or veterinarian, your airline or cargo operator, and the nearest embassy or consulate when an identity document is involved. Use your backup copy to identify the document, but do not present a copy as an original when an original is required.</div></div>
       <div style={{ background: C.bg, borderRadius: 10, padding: 12 }}><strong style={{ fontSize: 13 }}>Missed connection or changed routing</strong><div style={{ color: C.sub, fontSize: 12, lineHeight: 1.55, marginTop: 4 }}>{missedConnectionGuidance(trip, pets)}</div></div>
+      <div style={{ background: C.bg, borderRadius: 10, padding: 12 }}><strong style={{ fontSize: 13 }}>Heat, severe weather, or travel disruption</strong><div style={{ color: C.sub, fontSize: 12, lineHeight: 1.55, marginTop: 4 }}>Do not assume your pet was moved with you. Contact the airline or cargo handler, confirm your pet’s physical location and care, and recheck temperature restrictions, operating hours, inspection appointments, and entry rules before accepting a changed route.</div></div>
+      {[['Airline animal handling', support.airline_contact], ['Government inspection', support.government_contact], ['Local pet transport', support.pet_transport]].filter(([, contact]) => Object.values(contact).some(Boolean)).map(([label, contact]) => <div key={label} style={{ background: C.bg, borderRadius: 10, padding: 12 }}><strong style={{ fontSize: 13 }}>{label}</strong><div style={{ color: C.sub, fontSize: 12, marginTop: 4 }}>{contact.department || contact.organization}</div><div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 5 }}>{contact.phone && <a href={`tel:${contact.phone}`} style={{ color: C.accent, fontSize: 11 }}>Call {contact.phone}</a>}{contact.email && <a href={`mailto:${contact.email}`} style={{ color: C.accent, fontSize: 11 }}>Email</a>}{contact.website && <a href={contact.website} target="_blank" rel="noreferrer" style={{ color: C.accent, fontSize: 11 }}>Official website</a>}</div>{support.contacts_checked_at && <div style={{ color: C.muted, fontSize: 10, marginTop: 4 }}>Contact checked {fmt(support.contacts_checked_at)}</div>}</div>)}
       {(trip.airline || cargoContacts.length > 0) && <div style={{ background: C.bg, borderRadius: 10, padding: 12 }}><strong style={{ fontSize: 13 }}>Airline and cargo contacts</strong>{trip.airline && <div style={{ color: C.sub, fontSize: 12, marginTop: 5 }}>{trip.airline}{trip.flight_number ? ` · Flight ${trip.flight_number}` : ''}</div>}{cargoContacts.map((contact, index) => <div key={index} style={{ color: C.sub, fontSize: 12, marginTop: 4 }}>{contact}</div>)}</div>}
       {officialContacts.length > 0 && <div style={{ background: C.bg, borderRadius: 10, padding: 12 }}><strong style={{ fontSize: 13 }}>Official contacts and sources</strong>{officialContacts.map(item => <div key={item.source_url} style={{ fontSize: 12, marginTop: 6 }}><a href={item.source_url} target="_blank" rel="noreferrer" style={{ color: C.accent, fontWeight: 700 }}>{item.source_authority || item.jurisdiction || 'Official source'}</a><span style={{ color: C.muted }}> · {(item.source_type || '').replace('_', ' ')}</span></div>)}</div>}
       {airportStops.length > 0 && <div style={{ background: C.bg, borderRadius: 10, padding: 12 }}><div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}><strong style={{ fontSize: 13 }}>Emergency veterinarians by airport</strong>{Object.keys(guides).length === 0 && <Btn sm v="secondary" onClick={loadEmergencyAirports} disabled={loading}>{loading ? 'Loading...' : 'Load contacts'}</Btn>}</div>{airportStops.map(stop => { const guide = guides[stop.code]; if (!guide) return <div key={stop.code} style={{ color: C.muted, fontSize: 12, marginTop: 6 }}>{stop.code} · Load contacts to view verified details.</div>; return <div key={stop.code} style={{ marginTop: 9 }}><strong style={{ fontSize: 12 }}>{stop.code}</strong><div style={{ color: C.sub, fontSize: 12, lineHeight: 1.5 }}>{guide.error ? 'Could not load current details.' : guide.emergencyVet || 'No emergency veterinarian was confirmed by an official source.'}</div>{!guide.error && guide.officialSources?.length > 0 && <div style={{ fontSize: 11, marginTop: 3 }}>{guide.officialSources.map((source, index) => <span key={source.url}>{index ? ' · ' : ''}<a href={source.url} target="_blank" rel="noreferrer" style={{ color: C.accent }}>{source.authority}</a></span>)}</div>}</div>; })}{error && <div role="alert" style={{ color: C.danger, fontSize: 11, marginTop: 8 }}>{error}</div>}</div>}
     </div>
+  </Card>;
+};
+
+const TravelReferenceCard = ({ trip, pets, checklist }) => {
+  const support = normalizeTravelSupport(trip.travel_support);
+  const fees = checklist.filter(item => feeLabel(item));
+  const workflows = serviceAnimalWorkflows(trip, pets);
+  const references = [['Airline pet confirmation', support.airline_pet_confirmation_reference], ['Pet customs declaration', support.customs_declaration_reference], ['Pet inspection authority', support.inspection_authority], ['Pet inspection location', support.inspection_location]].filter(([, value]) => value);
+  const vet = support.destination_vet;
+  if (!references.length && !fees.length && !workflows.length && !Object.values(vet).some(Boolean)) return null;
+  return <Card style={{ marginBottom: 16 }}>
+    <div style={{ fontWeight: 800, fontSize: 17, marginBottom: 4 }}>Travel References</div><div style={{ color: C.muted, fontSize: 12, marginBottom: 12 }}>Pet-travel confirmations, inspection details, official fees, and U.S. service-animal paperwork in one place.</div>
+    {references.length > 0 && <div style={{ display: 'grid', gap: 6, marginBottom: 12 }}>{references.map(([label, value]) => <div key={label} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 12 }}><span style={{ color: C.muted }}>{label}</span><strong style={{ textAlign: 'right' }}>{value}</strong></div>)}</div>}
+    {Object.values(vet).some(Boolean) && <div style={{ background: C.bg, borderRadius: 10, padding: 10, marginBottom: 10 }}><strong style={{ fontSize: 12 }}>Destination veterinarian</strong><div style={{ fontSize: 12, color: C.sub, marginTop: 3 }}>{[vet.name, vet.clinic].filter(Boolean).join(' · ')}</div><div style={{ display: 'flex', gap: 10, marginTop: 4 }}>{vet.phone && <a href={`tel:${vet.phone}`} style={{ color: C.accent, fontSize: 11 }}>Call {vet.phone}</a>}{vet.email && <a href={`mailto:${vet.email}`} style={{ color: C.accent, fontSize: 11 }}>Email</a>}</div></div>}
+    {workflows.map(({ pet, details }) => <div key={pet.id} style={{ background: C.accentDim, borderRadius: 10, padding: 10, marginBottom: 8 }}><strong style={{ fontSize: 12 }}>{pet.name} · U.S. service-animal forms</strong><div style={{ color: C.sub, fontSize: 11, marginTop: 3 }}>DOT form: {(details.dot_form_status || 'not_started').replaceAll('_', ' ')} · Relief form: {(details.relief_attestation_status || 'not_applicable').replaceAll('_', ' ')}</div><div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 4 }}><a href="https://www.transportation.gov/individuals/aviation-consumer-protection/service-animals/Air_Transportation_Form" target="_blank" rel="noreferrer" style={{ color: C.accent, fontSize: 11, fontWeight: 700 }}>Current U.S. DOT form</a>{details.airline_submission_url && <a href={details.airline_submission_url} target="_blank" rel="noreferrer" style={{ color: C.accent, fontSize: 11 }}>Airline submission</a>}</div>{details.airline_confirmation_reference && <div style={{ color: C.muted, fontSize: 11, marginTop: 3 }}>Confirmation: {details.airline_confirmation_reference}</div>}</div>)}
+    {fees.length > 0 && <div style={{ marginTop: 12 }}><strong style={{ fontSize: 12 }}>Known official fees</strong>{fees.map(item => <div key={item.id} style={{ background: C.warnDim, borderRadius: 9, padding: 9, marginTop: 6, fontSize: 12 }}><strong>{item.title}: {feeLabel(item)}</strong>{item.fee_basis ? ` · ${item.fee_basis}` : ''}<div style={{ color: C.muted, fontSize: 10, marginTop: 2 }}>Checked {item.fee_last_checked_at ? new Date(item.fee_last_checked_at).toLocaleDateString() : item.researched_at ? new Date(item.researched_at).toLocaleDateString() : 'when researched'} · <a href={item.source_url} target="_blank" rel="noreferrer" style={{ color: C.accent }}>Official source</a>. Additional fees may apply.</div></div>)}</div>}
   </Card>;
 };
 
@@ -1306,6 +1404,12 @@ const TripDetail = ({ trip, userId, dogs, premium, onUpgrade, onBack, onUpdate, 
         airline_scope: expectedSourceType(item) === 'airline' ? (trip.airline || null) : null,
         effective_date: item.effective_date || null,
         source_expires_at: item.source_expires_at || null,
+        fee_amount: item.fee_amount !== null && item.fee_amount !== '' && Number.isFinite(Number(item.fee_amount)) && Number(item.fee_amount) >= 0 && /^https:\/\//i.test(item.source_url || '') ? Number(item.fee_amount) : null,
+        fee_currency: item.fee_amount !== null && item.fee_amount !== '' && Number.isFinite(Number(item.fee_amount)) && /^[A-Z]{3}$/.test(item.fee_currency || '') && /^https:\/\//i.test(item.source_url || '') ? item.fee_currency : null,
+        fee_basis: item.fee_basis || null,
+        fee_notes: item.fee_notes || null,
+        fee_source_updated_at: item.fee_source_updated_at || null,
+        fee_last_checked_at: item.fee_amount !== null && item.fee_amount !== '' && Number.isFinite(Number(item.fee_amount)) && Number(item.fee_amount) >= 0 && /^https:\/\//i.test(item.source_url || '') ? now : null,
         change_detected: false,
         human_review_status: 'pending',
         sort_order: i,
@@ -1559,6 +1663,8 @@ const TripDetail = ({ trip, userId, dogs, premium, onUpgrade, onBack, onUpdate, 
         <PackingChecklistCard trip={trip} pets={tripPets} userId={userId} onTripUpdate={onUpdate} />
 
         <EmergencyPlanCard trip={trip} pets={tripPets} airportStops={airportStops} checklist={checklist} />
+
+        <TravelReferenceCard trip={trip} pets={tripPets} checklist={checklist} />
 
         {checklist.length > 0 && (
           <Card style={{ marginBottom: 16, border: `1.5px solid ${readiness.criticalMissing.length ? C.warn : C.accent}` }}>
