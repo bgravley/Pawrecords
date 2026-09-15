@@ -34,6 +34,13 @@ jobs:
           npm install --no-save playwright
           npx playwright install --with-deps chromium
 
+      - name: Run local security regression checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test src/lib/safeExternalUrl.test.js api/travel-share.test.js
+          python3 scripts/launch_security_audit.py
+
       - name: Verify notification endpoint rejects anonymous relay
         shell: bash
         run: |
