@@ -16,6 +16,7 @@ import { TIMELINE_STAGES, groupTimelineItems, parseInstructionSteps } from "./li
 import { READINESS_LABELS, READINESS_STATUSES, readinessSummary } from "./lib/travelReadiness";
 import { REVIEW_STATUSES, SOURCE_TYPES, expectedSourceType, sourceVerificationState } from "./lib/sourceVerification";
 import { buildTravelSummaryHtml, formatTravelDate } from "./lib/travelSummary";
+import { PACKING_CATEGORIES, buildPackingItems, missedConnectionGuidance, packingProgress } from "./lib/packingChecklist";
 
 const logActivity = async (userId, userEmail, action, details = {}) => {
   try {
@@ -1102,6 +1103,79 @@ const TravelShareModal = ({ trip, onClose, onTripUpdate }) => {
   </Modal>;
 };
 
+const PackingChecklistCard = ({ trip, pets, userId, onTripUpdate }) => {
+  const items = buildPackingItems(trip, pets);
+  const [state, setState] = useState(trip.packing_checklist || { version: 1, completed: {} });
+  const [saveError, setSaveError] = useState('');
+  const [savingId, setSavingId] = useState('');
+  const progress = packingProgress(items, state);
+
+  useEffect(() => setState(trip.packing_checklist || { version: 1, completed: {} }), [trip.id, trip.packing_checklist]);
+
+  const toggle = async id => {
+    if (savingId) return;
+    const previous = state;
+    const next = { version: 1, completed: { ...(state.completed || {}), [id]: !state.completed?.[id] } };
+    setState(next); setSaveError(''); setSavingId(id);
+    const { data, error } = await supabase.from('trips').update({ packing_checklist: next }).eq('id', trip.id).eq('user_id', userId).select().single();
+    setSavingId('');
+    if (error) { setState(previous); setSaveError('That change could not be saved. Please try again.'); return; }
+    onTripUpdate?.(data);
+  };
+
+  return <Card style={{ marginBottom: 16 }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'center', marginBottom: 12 }}><div><div style={{ fontWeight: 800, fontSize: 17 }}>Packing Checklist</div><div style={{ color: C.muted, fontSize: 12, marginTop: 2 }}>Adapted to your pets and how they are traveling.</div></div><div style={{ color: progress.percent === 100 ? '#357A38' : C.accent, fontWeight: 800 }}>{progress.done}/{progress.total}</div></div>
+    <div style={{ background: C.border, borderRadius: 20, height: 8, overflow: 'hidden', marginBottom: 16 }}><div style={{ background: progress.percent === 100 ? '#4CAF50' : C.warn, height: '100%', width: `${progress.percent}%`, transition: 'width .2s' }} /></div>
+    {PACKING_CATEGORIES.map(([category, label]) => {
+      const categoryItems = items.filter(entry => entry.category === category);
+      if (!categoryItems.length) return null;
+      return <div key={category} style={{ marginTop: 14 }}><div style={{ color: C.sub, fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.07em', marginBottom: 6 }}>{label}</div>{categoryItems.map(entry => <label key={entry.id} style={{ display: 'flex', gap: 10, padding: '9px 0', borderBottom: `1px solid ${C.bg}`, cursor: savingId ? 'wait' : 'pointer', opacity: savingId && savingId !== entry.id ? .65 : 1 }}><input type="checkbox" checked={state.completed?.[entry.id] === true} disabled={!!savingId} onChange={() => toggle(entry.id)} style={{ width: 18, height: 18, accentColor: C.accent, flexShrink: 0 }} /><span><strong style={{ fontSize: 13, textDecoration: state.completed?.[entry.id] ? 'line-through' : 'none' }}>{entry.title}</strong><span style={{ display: 'block', color: C.muted, fontSize: 11, lineHeight: 1.45, marginTop: 2 }}>{entry.detail}{entry.appliesTo !== 'All pets' ? ` · ${entry.appliesTo}` : ''}</span></span></label>)}</div>;
+    })}
+    {saveError && <div role="alert" style={{ color: C.danger, fontSize: 12, marginTop: 10 }}>{saveError}</div>}
+  </Card>;
+};
+
+const EmergencyPlanCard = ({ trip, pets, airportStops, checklist }) => {
+  const [guides, setGuides] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const arrangements = normalizeAirTravelArrangements(trip.air_travel_arrangements);
+  const cargoContacts = pets.flatMap(pet => {
+    const details = arrangements.by_pet?.[pet.id] || {};
+    return [details.freight_agent && `${pet.name}: ${details.freight_agent}`, details.cargo_terminal && `${pet.name} cargo terminal: ${details.cargo_terminal}`, details.consignee && `${pet.name} receiving party: ${details.consignee}`, details.customs_broker && `${pet.name} customs broker: ${details.customs_broker}`].filter(Boolean);
+  });
+  const officialContacts = checklist.filter(item => item.source_url && ['government', 'airline', 'airport'].includes(item.source_type)).reduce((result, item) => {
+    if (!result.some(existing => existing.source_url === item.source_url)) result.push(item);
+    return result;
+  }, []).slice(0, 8);
+
+  const loadEmergencyAirports = async () => {
+    setLoading(true); setError('');
+    const { data: { session } } = await supabase.auth.getSession();
+    const results = await Promise.all(airportStops.map(async stop => {
+      try {
+        const response = await fetch('/api/airport-guide', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` }, body: JSON.stringify({ airportCode: stop.code }) });
+        const body = await response.json().catch(() => ({}));
+        return [stop.code, response.ok ? body.data : { error: body.error || 'Unavailable' }];
+      } catch { return [stop.code, { error: 'Unavailable' }]; }
+    }));
+    setGuides(Object.fromEntries(results));
+    if (results.some(([, guide]) => guide?.error)) setError('Some airport emergency details could not be loaded. Use the official links below to confirm current information.');
+    setLoading(false);
+  };
+
+  return <Card style={{ marginBottom: 16, border: `1.5px solid ${C.danger}33` }}>
+    <div style={{ fontWeight: 800, fontSize: 17, marginBottom: 4 }}>Emergency Plan</div><div style={{ color: C.muted, fontSize: 12, lineHeight: 1.5, marginBottom: 14 }}>Save these details offline before you leave. In an urgent medical situation, contact local emergency services or an emergency veterinarian.</div>
+    <div style={{ display: 'grid', gap: 10 }}>
+      <div style={{ background: C.bg, borderRadius: 10, padding: 12 }}><strong style={{ fontSize: 13 }}>Lost travel document</strong><div style={{ color: C.sub, fontSize: 12, lineHeight: 1.55, marginTop: 4 }}>Keep your pet secure. Contact the issuing government authority or veterinarian, your airline or cargo operator, and the nearest embassy or consulate when an identity document is involved. Use your backup copy to identify the document, but do not present a copy as an original when an original is required.</div></div>
+      <div style={{ background: C.bg, borderRadius: 10, padding: 12 }}><strong style={{ fontSize: 13 }}>Missed connection or changed routing</strong><div style={{ color: C.sub, fontSize: 12, lineHeight: 1.55, marginTop: 4 }}>{missedConnectionGuidance(trip, pets)}</div></div>
+      {(trip.airline || cargoContacts.length > 0) && <div style={{ background: C.bg, borderRadius: 10, padding: 12 }}><strong style={{ fontSize: 13 }}>Airline and cargo contacts</strong>{trip.airline && <div style={{ color: C.sub, fontSize: 12, marginTop: 5 }}>{trip.airline}{trip.flight_number ? ` · Flight ${trip.flight_number}` : ''}</div>}{cargoContacts.map((contact, index) => <div key={index} style={{ color: C.sub, fontSize: 12, marginTop: 4 }}>{contact}</div>)}</div>}
+      {officialContacts.length > 0 && <div style={{ background: C.bg, borderRadius: 10, padding: 12 }}><strong style={{ fontSize: 13 }}>Official contacts and sources</strong>{officialContacts.map(item => <div key={item.source_url} style={{ fontSize: 12, marginTop: 6 }}><a href={item.source_url} target="_blank" rel="noreferrer" style={{ color: C.accent, fontWeight: 700 }}>{item.source_authority || item.jurisdiction || 'Official source'}</a><span style={{ color: C.muted }}> · {(item.source_type || '').replace('_', ' ')}</span></div>)}</div>}
+      {airportStops.length > 0 && <div style={{ background: C.bg, borderRadius: 10, padding: 12 }}><div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}><strong style={{ fontSize: 13 }}>Emergency veterinarians by airport</strong>{Object.keys(guides).length === 0 && <Btn sm v="secondary" onClick={loadEmergencyAirports} disabled={loading}>{loading ? 'Loading...' : 'Load contacts'}</Btn>}</div>{airportStops.map(stop => { const guide = guides[stop.code]; if (!guide) return <div key={stop.code} style={{ color: C.muted, fontSize: 12, marginTop: 6 }}>{stop.code} · Load contacts to view verified details.</div>; return <div key={stop.code} style={{ marginTop: 9 }}><strong style={{ fontSize: 12 }}>{stop.code}</strong><div style={{ color: C.sub, fontSize: 12, lineHeight: 1.5 }}>{guide.error ? 'Could not load current details.' : guide.emergencyVet || 'No emergency veterinarian was confirmed by an official source.'}</div>{!guide.error && guide.officialSources?.length > 0 && <div style={{ fontSize: 11, marginTop: 3 }}>{guide.officialSources.map((source, index) => <span key={source.url}>{index ? ' · ' : ''}<a href={source.url} target="_blank" rel="noreferrer" style={{ color: C.accent }}>{source.authority}</a></span>)}</div>}</div>; })}{error && <div role="alert" style={{ color: C.danger, fontSize: 11, marginTop: 8 }}>{error}</div>}</div>}
+    </div>
+  </Card>;
+};
+
 const TripDetail = ({ trip, userId, dogs, premium, onUpgrade, onBack, onUpdate, onDelete, onEdit, onDuplicate }) => {
   const [checklist, setChecklist] = useState([]);
   const [legs, setLegs] = useState([]);
@@ -1481,6 +1555,10 @@ const TripDetail = ({ trip, userId, dogs, premium, onUpgrade, onBack, onUpdate, 
             ))}
           </Card>
         )}
+
+        <PackingChecklistCard trip={trip} pets={tripPets} userId={userId} onTripUpdate={onUpdate} />
+
+        <EmergencyPlanCard trip={trip} pets={tripPets} airportStops={airportStops} checklist={checklist} />
 
         {checklist.length > 0 && (
           <Card style={{ marginBottom: 16, border: `1.5px solid ${readiness.criticalMissing.length ? C.warn : C.accent}` }}>
