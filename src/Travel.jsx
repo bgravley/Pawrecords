@@ -15,6 +15,7 @@ import { AIRPORT_ROLE_LABELS, AIRPORT_ROLE_SECTIONS, buildAirportStops } from ".
 import { TIMELINE_STAGES, groupTimelineItems, parseInstructionSteps } from "./lib/travelTimeline";
 import { READINESS_LABELS, READINESS_STATUSES, readinessSummary } from "./lib/travelReadiness";
 import { REVIEW_STATUSES, SOURCE_TYPES, expectedSourceType, sourceVerificationState } from "./lib/sourceVerification";
+import { buildTravelSummaryHtml, formatTravelDate } from "./lib/travelSummary";
 
 const logActivity = async (userId, userEmail, action, details = {}) => {
   try {
@@ -1062,6 +1063,45 @@ const AirportGuideCard = ({ code, role }) => {
   );
 };
 
+const TravelShareModal = ({ trip, onClose, onTripUpdate }) => {
+  const canvasRef = useRef();
+  const [share, setShare] = useState({ travel_share_enabled: !!trip.travel_share_enabled, travel_share_token: trip.travel_share_token || null, travel_share_expires_at: trip.travel_share_expires_at || null });
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState('');
+  const shareUrl = share.travel_share_token ? `${window.location.origin}/travel-summary/${share.travel_share_token}` : '';
+
+  useEffect(() => {
+    if (!shareUrl || !canvasRef.current || !window.QRious) return;
+    new window.QRious({ element: canvasRef.current, value: shareUrl, size: 180, foreground: C.accent, background: '#FFFFFF', level: 'H' });
+  }, [shareUrl]);
+
+  const updateShare = async action => {
+    setSaving(true); setMessage('');
+    const { data: { session } } = await supabase.auth.getSession();
+    try {
+      const response = await fetch('/api/travel-share', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` }, body: JSON.stringify({ tripId: trip.id, action }) });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || 'Your secure link could not be updated.');
+      setShare(body); onTripUpdate?.({ ...trip, ...body });
+      setMessage(action === 'disable' ? 'Sharing is off.' : 'Your private link is ready.');
+    } catch (error) { setMessage(error.message); }
+    setSaving(false);
+  };
+
+  const copy = async () => { await navigator.clipboard.writeText(shareUrl); setMessage('Link copied.'); };
+
+  return <Modal title="Secure Travel Summary" onClose={onClose}>
+    <div style={{ color: C.sub, fontSize: 13, lineHeight: 1.6, marginBottom: 16 }}>Share a read-only trip summary with a veterinarian, airline, cargo agent, or family member. It includes your selected pets, microchip and service status, emergency contact, itinerary, document names, and requirement status. Uploaded files stay private.</div>
+    {!share.travel_share_enabled ? <Btn full onClick={() => updateShare('enable')} disabled={saving} style={{ justifyContent: 'center', background: C.warn, color: C.text }}>{saving ? 'Creating...' : 'Create private link'}</Btn> : <div style={{ textAlign: 'center' }}>
+      <canvas ref={canvasRef} width="180" height="180" aria-label="QR code for secure travel summary" style={{ width: 180, height: 180, borderRadius: 12, background: '#fff' }} />
+      <div style={{ wordBreak: 'break-all', fontSize: 12, color: C.muted, margin: '10px 0' }}>{shareUrl}</div>
+      <div style={{ fontSize: 12, color: C.sub, marginBottom: 14 }}>Expires {formatTravelDate(share.travel_share_expires_at)}. Regenerating immediately turns off the old link.</div>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}><Btn onClick={copy} disabled={saving} style={{ flex: 1, justifyContent: 'center' }}>Copy link</Btn><Btn v="secondary" onClick={() => updateShare('regenerate')} disabled={saving} style={{ flex: 1, justifyContent: 'center' }}>New link</Btn><Btn v="danger" onClick={() => updateShare('disable')} disabled={saving} style={{ flex: 1, justifyContent: 'center' }}>Turn off</Btn></div>
+    </div>}
+    {message && <div role="status" style={{ marginTop: 12, color: message.includes('could not') ? C.danger : C.accent, fontSize: 12, fontWeight: 700 }}>{message}</div>}
+  </Modal>;
+};
+
 const TripDetail = ({ trip, userId, dogs, premium, onUpgrade, onBack, onUpdate, onDelete, onEdit, onDuplicate }) => {
   const [checklist, setChecklist] = useState([]);
   const [legs, setLegs] = useState([]);
@@ -1079,6 +1119,7 @@ const TripDetail = ({ trip, userId, dogs, premium, onUpgrade, onBack, onUpdate, 
   const [deleting, setDeleting] = useState(false);
   const [showAddItem, setShowAddItem] = useState(false);
   const [showUploadEntry, setShowUploadEntry] = useState(false);
+  const [showTravelSummary, setShowTravelSummary] = useState(false);
   const [newItem, setNewItem] = useState({ title: "", description: "", category: "other", deadline_date: "", notes: "" });
   const [entryDoc, setEntryDoc] = useState({ name: "", notes: "", file: null });
   const fr = useRef();
@@ -1324,32 +1365,14 @@ const TripDetail = ({ trip, userId, dogs, premium, onUpgrade, onBack, onUpdate, 
     if (data) { setDocuments(prev => [...prev, data]); setShowUploadEntry(false); setEntryDoc({ name: "", notes: "", file: null }); }
   };
 
-  const exportAllDocs = () => {
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Travel Documents — ${trip.name || trip.origin_city + ' to ' + trip.destination_city}</title>
-<style>body{font-family:Georgia,serif;max-width:720px;margin:40px auto;padding:0 24px;color:#111}
-h1{font-size:26px;margin-bottom:4px}.gen{color:#666;font-size:13px;margin-bottom:32px}
-h2{font-size:14px;font-weight:700;text-transform:uppercase;border-bottom:2px solid #111;padding-bottom:6px;margin:28px 0 14px}
-table{width:100%;border-collapse:collapse;font-size:13px}th{background:#f2f2f2;padding:8px 10px;text-align:left}
-td{padding:8px 10px;border-bottom:1px solid #e8e8e8;vertical-align:top}
-.done{color:#065f46;background:#d1fae5;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700}
-.pending{color:#92400e;background:#fef3c7;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700}
-footer{margin-top:48px;color:#aaa;font-size:12px;border-top:1px solid #eee;padding-top:16px}
-@media print{body{margin:16px}}</style></head><body>
-<h1>🛂 Travel Documents</h1>
-<div class="gen">${trip.name || ''} · ${trip.origin_city}, ${trip.origin_country} → ${trip.destination_city}, ${trip.destination_country} · Departure: ${fmt(trip.departure_date)} · Generated ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} · YourPetPass</div>
-<h2>Traveling Pets</h2>
-<p>${tripPets.map(p => `${p.name} (${p.breed || 'Mixed'}${p.is_service_animal ? ', Service Animal' : ''}${p.is_esa ? ', ESA' : ''})`).join(', ') || '—'}</p>
-<h2>Requirements Checklist</h2>
-<table><tr><th>Requirement</th><th>Category</th><th>Status</th><th>Source</th></tr>
-${checklist.map(i => `<tr><td><b>${i.title}</b>${i.description ? '<br><small>' + i.description + '</small>' : ''}</td><td>${i.category || '—'}</td><td><span class="${i.is_completed ? 'done' : 'pending'}">${i.is_completed ? '✓ Complete' : 'Pending'}</span></td><td>${i.source_name ? `<a href="${i.source_url}">${i.source_name}</a>` : '—'}${i.researched_at ? '<br><small>Researched ' + new Date(i.researched_at).toLocaleDateString() + '</small>' : ''}</td></tr>`).join('')}
-</table>
-${documents.length ? `<h2>Uploaded Documents</h2><table><tr><th>Document</th><th>Date</th><th>Type</th></tr>
-${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.is_entry_document ? 'Entry Document' : 'Travel Document'}</td></tr>`).join('')}</table>` : ''}
-<footer>Generated by YourPetPass · Always verify requirements with official sources before travel.</footer></body></html>`;
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([html], { type: "text/html" }));
-    a.download = `${(trip.name || trip.origin_city + '_to_' + trip.destination_city).replace(/\s+/g, '_')}_TravelDocs.html`;
-    a.click();
+  const printTravelSummary = () => {
+    const popup = window.open('', '_blank');
+    if (!popup) { setGenError({ message: 'Allow pop-ups to print or save your travel summary as a PDF.' }); return; }
+    popup.document.write(buildTravelSummaryHtml({ trip, legs, pets: tripPets, documents, checklist }));
+    popup.document.close();
+    popup.opener = null;
+    popup.focus();
+    setTimeout(() => popup.print(), 250);
   };
 
   const categories = ["health_certificate", "vaccination", "treatment", "documentation", "airline", "government_form", "entry_document", "other"];
@@ -1668,10 +1691,13 @@ ${documents.map(d => `<tr><td>${d.name}</td><td>${fmt(d.doc_date)}</td><td>${d.i
             ))}
         </div>
 
-        {(checklist.length > 0 || documents.length > 0) && (
-          <Btn full onClick={exportAllDocs} style={{ background: C.accentDark, color: "#fff", justifyContent: "center" }}>📥 Export All Travel Documents</Btn>
-        )}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <Btn full onClick={printTravelSummary} style={{ background: C.accentDark, color: "#fff", justifyContent: "center" }}>🖨 Print / Save PDF</Btn>
+          <Btn full onClick={() => setShowTravelSummary(true)} style={{ background: C.warn, color: C.text, justifyContent: "center" }}>🔒 Share Summary</Btn>
+        </div>
       </div>
+
+      {showTravelSummary && <TravelShareModal trip={trip} onClose={() => setShowTravelSummary(false)} onTripUpdate={onUpdate} />}
 
       {editingItem && (
         <EditChecklistItemModal item={editingItem}

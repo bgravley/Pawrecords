@@ -1,6 +1,6 @@
 # YourPetPass Platform Update Roadmap
 
-Phases One through Four are complete. Phase Five is active; Phases Six and Seven remain queued.
+Phases One through Six are complete. Phase Seven remains queued.
 
 ## Phase One — Expanded trip intake + pet travel method
 
@@ -29,16 +29,23 @@ Phases One through Four are complete. Phase Five is active; Phases Six and Seven
 - Missing, uploaded awaiting review, needs correction, complete, not applicable, blocked, and expired states
 - Critical gaps, upcoming deadlines, and document issues in one actionable view
 
-## Phase Five — Official sources + verification (active)
+## Phase Five — Official sources + verification (complete)
 
 - Government sources for country entry, export, transit, quarantine, health, and customs rules
 - Airline sources only for airline policy; airport sources only for airport logistics
 - Jurisdiction, requirement type, route/species/travel scopes, effective and expiration dates
 - Last checked, change detection, and human review status
 
+## Phase Six — Printable/shareable Travel Summary (complete)
+
+- Mobile-friendly trip summary with itinerary, flights, travel method, pets, microchip and service status
+- Health-document, permit, lab, requirement-status, and emergency-contact overview
+- Branded print view that can be saved as a PDF
+- Owner-controlled, expiring, read-only secure link with QR code and immediate revocation
+- Uploaded document files remain private; shared views expose only summary metadata
+
 ## Queued phases
 
-6. Printable/shareable Travel Summary
 7. Adaptive packing checklist and emergency section
 
 Product rules: no estimated-cost feature; government sources support country requirements, airline sources support airline policy, and airport sources support airport logistics.
