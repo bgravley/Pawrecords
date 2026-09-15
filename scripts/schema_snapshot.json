@@ -255,7 +255,13 @@
     "effective_date",
     "source_expires_at",
     "change_detected",
-    "human_review_status"
+    "human_review_status",
+    "fee_amount",
+    "fee_currency",
+    "fee_basis",
+    "fee_notes",
+    "fee_source_updated_at",
+    "fee_last_checked_at"
   ],
   "trip_documents": [
     "id",
@@ -291,7 +297,8 @@
     "travel_share_enabled",
     "travel_share_token",
     "travel_share_expires_at",
-    "packing_checklist"
+    "packing_checklist",
+    "travel_support"
   ],
   "vaccinations": [
     "id",

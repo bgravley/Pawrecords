@@ -24,14 +24,18 @@ export const cleanAirTravelDetails = (details = {}) => {
 
   const allowedByArrangement = {
     in_cabin_pet: ["carrier_dimensions", "combined_weight", "carrier_type", "service_animal_status", "seat_class", "number_of_pets"],
-    in_cabin_service_animal: ["service_animal_status", "seat_class", "number_of_pets"],
+    in_cabin_service_animal: ["service_animal_status", "seat_class", "number_of_pets", "dot_form_status", "airline_submission_url", "airline_confirmation_reference", "relief_attestation_status"],
     checked_pet: ["kennel_dimensions", "kennel_construction", "combined_weight", "same_flight_confirmed", "temperature_concerns", "breed_restrictions"],
     manifest_cargo: ["cargo_reservation_status", "air_waybill", "freight_agent", "cargo_terminal", "consignee", "customs_broker"],
   };
   const cleaned = { arrangement };
   for (const key of allowedByArrangement[arrangement] || []) {
     const value = details[key];
-    if (value !== "" && value !== null && value !== undefined) cleaned[key] = value;
+    if (value !== "" && value !== null && value !== undefined) {
+      if (key === "airline_submission_url") {
+        if (/^https:\/\//i.test(String(value).trim())) cleaned[key] = String(value).trim();
+      } else cleaned[key] = value;
+    }
   }
   if (arrangement === "in_cabin_service_animal") cleaned.service_animal_status = true;
   return cleaned;

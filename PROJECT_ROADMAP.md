@@ -54,3 +54,13 @@ Phases One through Seven are complete.
 - Lost-document and missed-connection guidance tailored to the pet's travel arrangement
 
 Product rules: no estimated-cost feature; government sources support country requirements, airline sources support airline policy, and airport sources support airport logistics.
+
+## Follow-up travel support release
+
+- Exact official fees with currency, basis, source, source date, and last-checked date; no estimates or trip totals
+- Focused airport conveniences: arrival guidance, official maps, pet water availability, and terminal-change notes
+- Structured pet-travel contacts for emergency vets, poison control, airline handling, cargo, government inspection, customs, and verified local pet transport
+- Clear airport source coverage states instead of a subjective confidence score
+- Travel Summary references for airline confirmation, pet customs/inspection, destination veterinarian, and official fees
+- U.S.-focused service-animal document workflow using current DOT and airline submission links
+- Deliberately excludes difficulty scoring, accommodation planning, general immigration planning, restaurant listings, and estimated trip costs

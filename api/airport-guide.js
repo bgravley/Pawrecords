@@ -11,15 +11,16 @@ async function getCached(airportCode) {
   const response = await fetch(url, { headers: serviceHeaders() });
   if (!response.ok) return null;
   const rows = await response.json();
-  return rows?.[0]?.guide_json || null;
+  const guide = rows?.[0]?.guide_json || null;
+  return guide?.guideVersion >= 2 ? guide : null;
 }
 
 async function research(airportCode) {
   if (!process.env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY not configured');
-  const prompt = `Research a practical pet-travel airport guide for ${airportCode}. Use ONLY the airport's official website or airport authority for airport logistics, and official government agencies for security, customs, transit, and veterinary inspection. Do not use blogs, aggregators, airline pages, or estimated costs. If an item cannot be confirmed from an official source, use an empty string rather than guessing.
+  const prompt = `Research a practical pet-travel airport guide for ${airportCode}. Use ONLY the airport's official website or airport authority for airport logistics; official government agencies for security, customs, transit, veterinary inspection, and government fees; and the direct official website of an emergency veterinarian, poison-control organization, or pet-transport provider for that provider's own contact details. Do not use blogs, aggregators, estimated costs, price ranges, restaurants, shopping, or hotels. If an item cannot be confirmed from an allowed source, use an empty string rather than guessing. Fees must be exact published amounts; never calculate a total. Contacts must be clean structured records, not prose. Set sourceStatus to confirmed_official only when the returned details are supported by the listed sources; otherwise use official_not_found or recheck_needed.
 
 Return only valid JSON with this shape:
-{"airportName":"","summary":"","petReliefAreas":[{"location":"","terminal":null,"type":"indoor or outdoor","notes":""}],"petCheckIn":"","cargoLocations":"","securityScreening":"","customsProcess":"","veterinaryInspection":"","serviceAnimalProcess":"","operatingHours":"","emergencyVet":"nearest confirmed emergency veterinary facility and contact details, if an official source confirms it","officialSources":[{"authority":"","sourceType":"airport or government","url":"https://...","supports":"fields supported by this source"}]}`;
+{"airportName":"","summary":"","petReliefAreas":[{"location":"","terminal":null,"type":"indoor or outdoor","notes":""}],"petCheckIn":"","cargoLocations":"","securityScreening":"","customsProcess":"","veterinaryInspection":"","serviceAnimalProcess":"","operatingHours":"","emergencyVet":"","arrivalRecommendation":"","terminalMapUrl":"https://...","waterAvailability":"","terminalChanges":"","sourceStatus":"confirmed_official or official_not_found or recheck_needed","contacts":[{"organization":"","department":"","type":"emergency_vet, poison_control, animal_handling, cargo, government_inspection, customs, or pet_transport","phone":"","email":"","website":"https://...","address":"","hours":"","afterHours":"","scope":"what this contact handles","sourceUrl":"https://..."}],"officialFees":[{"name":"","amount":25,"currency":"USD","basis":"per pet/application/shipment/inspection","conditions":"","authority":"","sourceUrl":"https://...","sourceUpdatedAt":"YYYY-MM-DD or empty"}],"officialSources":[{"authority":"","sourceType":"airport, government, or provider","url":"https://...","supports":"fields supported by this source"}]}`;
   const response = await fetch('https://api.openai.com/v1/responses', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.OPENAI_API_KEY}` }, body: JSON.stringify({ model: 'gpt-4o', input: prompt, tools: [{ type: 'web_search' }] }) });
   if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error?.message || `OpenAI request failed (${response.status})`);
   const data = await response.json();

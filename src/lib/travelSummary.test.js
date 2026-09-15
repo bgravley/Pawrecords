@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { categorizeTravelDocuments, escapeHtml, petTravelDetails } from './travelSummary.js';
+import { buildTravelSummaryHtml, categorizeTravelDocuments, escapeHtml, petTravelDetails } from './travelSummary.js';
 
 test('escapes user-supplied summary text', () => {
   assert.equal(escapeHtml('<script>"x"</script>'), '&lt;script&gt;&quot;x&quot;&lt;/script&gt;');
@@ -19,3 +19,9 @@ test('keeps service classification separate from travel arrangement', () => {
   assert.equal(pets[0].travel_arrangement, 'in_cabin_service_animal');
 });
 
+test('prints official fees individually without a calculated total', () => {
+  const html = buildTravelSummaryHtml({ trip: { origin_city: 'Miami', origin_country: 'United States', destination_city: 'Quito', destination_country: 'Ecuador', travel_support: {} }, checklist: [{ title: 'Inspection fee', fee_amount: 25, fee_currency: 'USD', fee_basis: 'per pet', source_url: 'https://gov.example/fee', fee_last_checked_at: '2026-09-15' }] });
+  assert.match(html, /Inspection fee: USD 25/);
+  assert.match(html, /not an estimated trip total/);
+  assert.doesNotMatch(html, /Estimated Total/);
+});
