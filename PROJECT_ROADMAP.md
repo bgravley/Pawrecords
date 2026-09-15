@@ -1,6 +1,6 @@
 # YourPetPass Platform Update Roadmap
 
-Phases One through Six are complete. Phase Seven remains queued.
+Phases One through Seven are complete.
 
 ## Phase One — Expanded trip intake + pet travel method
 
@@ -44,8 +44,13 @@ Phases One through Six are complete. Phase Seven remains queued.
 - Owner-controlled, expiring, read-only secure link with QR code and immediate revocation
 - Uploaded document files remain private; shared views expose only summary metadata
 
-## Queued phases
+## Phase Seven — Packing checklist + emergency section (complete)
 
-7. Adaptive packing checklist and emergency section
+- Packing categories for documents, food and water, medication, carrier or kennel, restraint, comfort, cleaning, arrival, and emergencies
+- Adaptive cabin, checked-pet, manifest-cargo, service-animal, land, sea, and bus items
+- Saved packing progress on every trip
+- Airport-specific emergency-veterinarian details supported by official airport sources when available
+- Airline, cargo, government, customs-broker, consignee, and receiving-party contacts from the trip
+- Lost-document and missed-connection guidance tailored to the pet's travel arrangement
 
 Product rules: no estimated-cost feature; government sources support country requirements, airline sources support airline policy, and airport sources support airport logistics.

@@ -290,7 +290,8 @@
     "air_travel_arrangements",
     "travel_share_enabled",
     "travel_share_token",
-    "travel_share_expires_at"
+    "travel_share_expires_at",
+    "packing_checklist"
   ],
   "vaccinations": [
     "id",
