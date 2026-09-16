@@ -34,9 +34,10 @@ async function publicSummary(token) {
     db.from('trip_legs').select('origin_city,origin_country,origin_airport_code,destination_city,destination_country,destination_airport_code,departure_date,transportation_type,airline,flight_number,leg_order').eq('trip_id', trip.id).eq('user_id', trip.user_id).order('leg_order'),
     db.from('trip_documents').select('name,doc_type,doc_date,is_entry_document,notes').eq('trip_id', trip.id).eq('user_id', trip.user_id).order('created_at'),
     db.from('trip_checklist_items').select('title,category,is_completed,readiness_status,document_name,source_url,source_authority,last_verified_at,researched_at,fee_amount,fee_currency,fee_basis,fee_notes,fee_source_updated_at,fee_last_checked_at').eq('trip_id', trip.id).eq('user_id', trip.user_id).order('sort_order'),
-    petIds.length ? db.from('dogs').select('id,name,species,breed,color,photo_url,microchip,pet_type,is_service_animal,is_esa,emergency_contact,emergency_phone').eq('user_id', trip.user_id).in('id', petIds) : Promise.resolve({ data: [], error: null }),
+    petIds.length ? db.from('dogs').select('name,species,breed,color,microchip,pet_type,is_service_animal,is_esa,emergency_contact,emergency_phone').eq('user_id', trip.user_id).in('id', petIds) : Promise.resolve({ data: [], error: null }),
   ]);
   for (const result of [legsResult, documentsResult, checklistResult, petsResult]) if (result.error) throw result.error;
+  delete trip.id;
   delete trip.user_id;
   delete trip.pet_ids;
   return { trip, legs: legsResult.data || [], documents: documentsResult.data || [], checklist: checklistResult.data || [], pets: petsResult.data || [] };
