@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "./lib/supabase";
+import { compressImageForUpload } from "./lib/db";
 import {
   AIR_TRAVEL_ARRANGEMENTS,
   arrangementCacheKey,
@@ -1497,8 +1498,9 @@ const TripDetail = ({ trip, userId, dogs, premium, onUpgrade, onBack, onUpdate, 
 
   const uploadDoc = async (item, file) => {
     if (!file) return;
-    const path = `${userId}/trips/${trip.id}/${item.id}_${file.name}`;
-    const { error: uploadErr } = await supabase.storage.from('documents').upload(path, file, { upsert: true });
+    const uploadFile = await compressImageForUpload(file);
+    const path = `${userId}/trips/${trip.id}/${item.id}_${uploadFile.name}`;
+    const { error: uploadErr } = await supabase.storage.from('documents').upload(path, uploadFile, { upsert: true, contentType: uploadFile.type || file.type });
     if (uploadErr) { console.error('Document upload failed:', uploadErr); setGenError({ message: 'Could not upload that file — please try again.' }); return; }
     const { data, error } = await supabase.from('trip_documents').insert({
       trip_id: trip.id, user_id: userId, checklist_item_id: item.id,
@@ -1532,8 +1534,9 @@ const TripDetail = ({ trip, userId, dogs, premium, onUpgrade, onBack, onUpdate, 
     if (!entryDoc.name) return;
     let path = null;
     if (entryDoc.file) {
-      path = `${userId}/trips/${trip.id}/entry_${entryDoc.file.name}`;
-      const { error: uploadErr } = await supabase.storage.from('documents').upload(path, entryDoc.file, { upsert: true });
+      const uploadFile = await compressImageForUpload(entryDoc.file);
+      path = `${userId}/trips/${trip.id}/entry_${uploadFile.name}`;
+      const { error: uploadErr } = await supabase.storage.from('documents').upload(path, uploadFile, { upsert: true, contentType: uploadFile.type || entryDoc.file.type });
       if (uploadErr) { console.error('Entry document upload failed:', uploadErr); setGenError({ message: 'Could not upload that file — please try again.' }); return; }
     }
     const { data, error } = await supabase.from('trip_documents').insert({
