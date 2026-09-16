@@ -14,11 +14,13 @@ The scan checks added historical lines for high-confidence forms of:
 - private keys;
 - AWS access keys;
 - GitHub tokens;
+- OpenAI API keys;
+- Anthropic API keys;
 - Stripe live/restricted keys and webhook secrets;
 - Google API keys;
 - Slack tokens;
 - Resend API keys;
-- quoted generic secret/password/token assignments;
+- quoted or unquoted generic API/service/private-key, secret, password, and token assignments;
 - Supabase JWTs whose decoded role is `service_role`.
 
 Known test fixtures, environment-variable references, and explicit placeholders are excluded.
