@@ -110,6 +110,8 @@ require("select('name,species,breed,color,microchip,pet_type,is_service_animal,i
         "Public travel summaries exclude internal pet IDs and private photo paths")
 require("select('id,name,species,breed,color,photo_url" not in travel_share,
         "Public travel summaries cannot expose private pet identifiers through the pet select")
+require("delete trip.id;" in travel_share and "delete trip.user_id;" in travel_share,
+        "Public travel summaries strip internal trip/account identifiers before response")
 
 travel_summary = read("src/TravelSummary.jsx")
 require("pet.photo_url" not in travel_summary,
