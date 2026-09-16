@@ -106,8 +106,16 @@ require("revoke execute on function public.handle_new_user()" in migration and
 travel_share = read("api/travel-share.js")
 require("checkPublicRateLimit" in travel_share and "travel-share-read" in travel_share,
         "Public travel-summary reads have explicit abuse/rate-limit protection")
+require("select('name,species,breed,color,microchip,pet_type,is_service_animal,is_esa,emergency_contact,emergency_phone')" in travel_share,
+        "Public travel summaries exclude internal pet IDs and private photo paths")
+require("select('id,name,species,breed,color,photo_url" not in travel_share,
+        "Public travel summaries cannot expose private pet identifiers through the pet select")
+require("delete trip.id;" in travel_share and "delete trip.user_id;" in travel_share,
+        "Public travel summaries strip internal trip/account identifiers before response")
 
 travel_summary = read("src/TravelSummary.jsx")
+require("pet.photo_url" not in travel_summary,
+        "Public travel-summary UI does not render private pet file URLs")
 travel_summary_html = read("src/lib/travelSummary.js")
 travel_ui = read("src/Travel.jsx")
 require("safeExternalUrl" in travel_summary and "safeExternalUrl" in travel_summary_html and "safeExternalUrl" in travel_ui,
