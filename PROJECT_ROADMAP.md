@@ -64,3 +64,7 @@ Product rules: no estimated-cost feature; government sources support country req
 - Travel Summary references for airline confirmation, pet customs/inspection, destination veterinarian, and official fees
 - U.S.-focused service-animal document workflow using current DOT and airline submission links
 - Deliberately excludes difficulty scoring, accommodation planning, general immigration planning, restaurant listings, and estimated trip costs
+
+## Post-audit implementation program
+
+The sequenced remediation, operational-hardening, rule-maintenance, and next-product plan is maintained in [`docs/POST_AUDIT_IMPLEMENTATION_PLAN.md`](docs/POST_AUDIT_IMPLEMENTATION_PLAN.md).
