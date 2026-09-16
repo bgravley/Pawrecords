@@ -62,7 +62,16 @@ def allowed(value: str, line: str) -> bool:
     # being suppressed merely because a comment also says "example" or "test".
     del line
     lowered = value.lower()
-    return any(marker in lowered for marker in ALLOWLIST_MARKERS)
+    if any(marker in lowered for marker in ALLOWLIST_MARKERS):
+        return True
+
+    # Unquoted assignments such as accessToken: parsed.access_token are
+    # variable/property references, not literal credentials. Provider-specific
+    # token detectors and the JWT detector still inspect actual literal values.
+    if re.fullmatch(r"[A-Za-z_$][A-Za-z0-9_$]*(?:\.[A-Za-z_$][A-Za-z0-9_$]*)+", value):
+        return True
+
+    return False
 
 
 def fingerprint(value: str) -> str:
