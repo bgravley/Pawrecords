@@ -5,6 +5,9 @@ travel = Path('src/Travel.jsx').read_text(encoding='utf-8')
 paw = Path('src/PawRecord.jsx').read_text(encoding='utf-8')
 migration = Path('supabase/migrations/20260916184500_tighten_client_logging_rls.sql').read_text(encoding='utf-8')
 
+# This gate validates the intended client/database trust boundary; live policy
+# verification still occurs separately before any production migration.
+
 checks = [
     ("session?.access_token || supabaseKey" not in travel,
      "Travel logging never falls back to anonymous authorization"),
