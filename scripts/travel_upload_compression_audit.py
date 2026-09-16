@@ -2,6 +2,7 @@
 from pathlib import Path
 
 travel = Path('src/Travel.jsx').read_text(encoding='utf-8')
+paw = Path('src/PawRecord.jsx').read_text(encoding='utf-8')
 
 checks = [
     ('import { compressImageForUpload } from "./lib/db";' in travel,
@@ -14,6 +15,10 @@ checks = [
      'Checklist-item uploads no longer send the original image file directly'),
     ("upload(path, entryDoc.file, { upsert: true })" not in travel,
      'Entry-document uploads no longer send the original image file directly'),
+    ('const uploadFile=await db.compressImageForUpload(certFile);' in paw,
+     'Pet certification document images use the shared compression helper'),
+    ('upload(path,certFile,{upsert:true})' not in paw,
+     'Pet certification uploads no longer send the original image file directly'),
 ]
 
 failed = [msg for ok, msg in checks if not ok]
