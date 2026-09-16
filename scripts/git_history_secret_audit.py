@@ -22,6 +22,8 @@ PATTERNS = (
     ("private-key", re.compile(r"-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----")),
     ("aws-access-key", re.compile(r"\b(?:AKIA|ASIA)[A-Z0-9]{16}\b")),
     ("github-token", re.compile(r"\b(?:gh[pousr]_[A-Za-z0-9]{36,255}|github_pat_[A-Za-z0-9_]{40,255})\b")),
+    ("openai-api-key", re.compile(r"\b(?:sk-[A-Za-z0-9]{32,}|sk-(?:proj|svcacct|admin)-[A-Za-z0-9_-]{20,})\b")),
+    ("anthropic-api-key", re.compile(r"\bsk-ant-[A-Za-z0-9_-]{20,}\b")),
     ("stripe-live-key", re.compile(r"\b(?:sk|rk)_live_[A-Za-z0-9]{16,}\b")),
     ("stripe-webhook-secret", re.compile(r"\bwhsec_[A-Za-z0-9]{24,}\b")),
     ("google-api-key", re.compile(r"\bAIza[0-9A-Za-z_-]{35}\b")),
@@ -30,8 +32,8 @@ PATTERNS = (
 )
 
 GENERIC_ASSIGNMENT = re.compile(
-    r"(?i)\b(?:api[_-]?key|secret|password|access[_-]?token|auth[_-]?token)\b"
-    r"\s*[:=]\s*['\"]([^'\"]{16,})['\"]"
+    r"(?i)\b(?:api[_-]?key|service[_-]?key|private[_-]?key|secret|password|access[_-]?token|auth[_-]?token)\b"
+    r"\s*[:=]\s*(?:['\"]([^'\"]{16,})['\"]|([A-Za-z0-9_./+=:$\-]{16,}))"
 )
 JWT = re.compile(r"\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b")
 
@@ -44,6 +46,9 @@ ALLOWLIST_MARKERS = (
     "sample",
     "fake",
     "not-a-real",
+    "test-key",
+    "test-secret",
+    "test-token",
     "yourpetpass_behavior",
     "process.env",
     "import.meta.env",
@@ -52,8 +57,12 @@ ALLOWLIST_MARKERS = (
 
 
 def allowed(value: str, line: str) -> bool:
-    combined = f"{value} {line}".lower()
-    return any(marker in combined for marker in ALLOWLIST_MARKERS)
+    # Allowlisting is based on the matched value itself, not arbitrary words
+    # elsewhere on the same source line. This prevents a real credential from
+    # being suppressed merely because a comment also says "example" or "test".
+    del line
+    lowered = value.lower()
+    return any(marker in lowered for marker in ALLOWLIST_MARKERS)
 
 
 def fingerprint(value: str) -> str:
@@ -79,8 +88,8 @@ def findings_for_line(line: str):
                 yield detector, value
 
     for match in GENERIC_ASSIGNMENT.finditer(line):
-        value = match.group(1)
-        if not allowed(value, line):
+        value = match.group(1) or match.group(2)
+        if value and not allowed(value, line):
             yield "generic-secret-assignment", value
 
     for match in JWT.finditer(line):
