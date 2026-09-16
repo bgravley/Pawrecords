@@ -3,6 +3,9 @@ from pathlib import Path
 import re
 
 migration = Path('supabase/migrations/20260916190000_revoke_client_grants_backend_tables.sql').read_text(encoding='utf-8')
+
+# This gate verifies code-level reachability and the intended grants migration;
+# live SQL privilege verification remains a separate pre-production step.
 client_text = '\n'.join(
     p.read_text(encoding='utf-8', errors='ignore')
     for p in Path('src').rglob('*')
