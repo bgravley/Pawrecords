@@ -37,6 +37,7 @@ async function publicSummary(token) {
     petIds.length ? db.from('dogs').select('name,species,breed,color,microchip,pet_type,is_service_animal,is_esa,emergency_contact,emergency_phone').eq('user_id', trip.user_id).in('id', petIds) : Promise.resolve({ data: [], error: null }),
   ]);
   for (const result of [legsResult, documentsResult, checklistResult, petsResult]) if (result.error) throw result.error;
+  delete trip.id;
   delete trip.user_id;
   delete trip.pet_ids;
   return { trip, legs: legsResult.data || [], documents: documentsResult.data || [], checklist: checklistResult.data || [], pets: petsResult.data || [] };
