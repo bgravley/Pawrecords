@@ -35,6 +35,9 @@ jobs:
       - name: Run full site audit
         run: python3 scripts/audit.py
 
+      - name: Run account deletion Storage audit
+        run: python3 scripts/account_deletion_storage_audit.py
+
       - name: Run repository artifact hygiene audit
         run: python3 scripts/repository_artifact_hygiene_audit.py
 
