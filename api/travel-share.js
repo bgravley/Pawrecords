@@ -2,8 +2,11 @@ import { randomUUID } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import { verifyUser } from './_verifyUser.js';
 import { setCorsHeaders } from './_cors.js';
+import { checkPublicRateLimit } from './_publicRateLimit.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const PUBLIC_READ_LIMIT = 120;
+const PUBLIC_READ_WINDOW_MS = 15 * 60 * 1000;
 let adminClient;
 
 function admin() {
@@ -49,6 +52,20 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     const token = typeof req.query?.token === 'string' ? req.query.token : '';
     if (!UUID_RE.test(token)) return res.status(404).json({ error: 'This travel summary link is not available.' });
+
+    const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown';
+    const rate = await checkPublicRateLimit({
+      ip,
+      form: 'travel-share-read',
+      limit: PUBLIC_READ_LIMIT,
+      windowMs: PUBLIC_READ_WINDOW_MS,
+    });
+    if (!rate.ok) return res.status(rate.status).json({ error: rate.error });
+    if (rate.limited) {
+      res.setHeader('Retry-After', '900');
+      return res.status(429).json({ error: 'Too many requests. Please wait a few minutes and try again.' });
+    }
+
     try {
       const summary = await publicSummary(token);
       if (!summary) return res.status(404).json({ error: 'This travel summary link is unavailable or has expired.' });
