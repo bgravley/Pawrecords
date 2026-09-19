@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import ecuadorPreview from './data/ecuadorGuidePreview.json';
 
 const C = { green:'#2C4A38', sage:'#7C9E87', light:'#9DC4AA', mint:'#EAF4EE', white:'#FAFCFB', gold:'#C9A84C', text:'#1A2E22', muted:'#5C7464' };
 
@@ -32,6 +33,7 @@ export default function PetTravelRequirementsPreview() {
     return ()=>{ active=false; };
   },[destinationSlug]);
 
+  const fixtureGuide = destinationSlug === 'ecuador' ? ecuadorPreview : null;
   const hasReviewedGuide = guide?.editorial_status === 'reviewed' && guide?.requirements?.length > 0;
 
   const field={width:'100%',boxSizing:'border-box',padding:'12px 13px',borderRadius:10,border:'1px solid #D7E4DA',background:'#fff',fontFamily:"'Lora', serif",fontSize:14,color:C.text};
@@ -60,7 +62,22 @@ export default function PetTravelRequirementsPreview() {
       </section>
 
       {destination && <section style={{marginTop:26}}>
-        {loading ? <div style={{padding:22,color:C.muted}}>Checking reviewed YourPetPass requirements…</div> : hasReviewedGuide ? <>
+        {fixtureGuide ? <>
+          <div style={{background:C.mint,borderRadius:18,padding:24,border:'1px solid #D4E6D9'}}>
+            <div style={{fontSize:11,fontWeight:700,color:C.sage,textTransform:'uppercase',letterSpacing:'.08em'}}>Full guide review fixture · not published</div>
+            <h2 style={{fontFamily:"'Playfair Display', serif",fontSize:32,color:C.green,margin:'7px 0 10px'}}>{fixtureGuide.destination.display_name} pet entry requirements</h2>
+            <p style={{fontSize:16,lineHeight:1.75,margin:'0 0 12px'}}>{fixtureGuide.direct_answer}</p>
+            <div style={{fontSize:12,color:C.muted}}>Reviewed {fixtureGuide.reviewed_date} · {fixtureGuide.author}</div>
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))',gap:14,marginTop:16}}>
+            {fixtureGuide.decision_points[0].options.map(option=><div key={option.label} style={{background:'#fff',border:'1px solid #E0E9E2',borderRadius:14,padding:18}}><div style={{fontWeight:800,color:C.green,marginBottom:7}}>{option.label}</div><div style={{fontSize:14,lineHeight:1.65,color:C.muted}}>{option.result}</div></div>)}
+          </div>
+          <h3 style={{fontFamily:"'Playfair Display', serif",fontSize:25,color:C.green,margin:'28px 0 12px'}}>Requirements at a glance</h3>
+          <div style={{display:'grid',gap:12}}>{fixtureGuide.requirements.map(r=><article key={r.title} style={{background:'#fff',border:'1px solid #E0E9E2',borderRadius:14,padding:19}}><div style={{fontSize:11,fontWeight:700,textTransform:'uppercase',color:C.sage}}>{r.type.replaceAll('_',' ')}</div><h4 style={{fontFamily:"'Playfair Display', serif",fontSize:21,color:C.green,margin:'5px 0 7px'}}>{r.title}</h4><p style={{margin:0,lineHeight:1.7}}>{r.text}</p>{r.timing&&<div style={{marginTop:10,fontWeight:700,color:C.green}}>Timing: {r.timing}</div>}<div style={{marginTop:10,fontSize:12,color:C.muted}}>Official source: {r.source}</div></article>)}</div>
+          <div style={{marginTop:18,background:'#fff',borderLeft:`4px solid ${C.gold}`,padding:'16px 18px',borderRadius:10,lineHeight:1.65}}>{fixtureGuide.product_connection.mid}</div>
+          <div style={{marginTop:18,background:C.green,color:'#fff',padding:22,borderRadius:16}}><div style={{fontFamily:"'Playfair Display', serif",fontSize:23,marginBottom:7}}>Turn requirements into your trip checklist</div><div style={{color:'#E5EFE8',lineHeight:1.65}}>{fixtureGuide.product_connection.end}</div><button disabled style={{marginTop:13,border:0,borderRadius:10,padding:'12px 17px',background:C.gold,color:C.text,fontWeight:800,opacity:.65}}>Build my trip — enabled after review</button></div>
+          <div style={{marginTop:16,fontSize:12,lineHeight:1.6,color:C.muted}}><strong>Freshness review:</strong> {fixtureGuide.freshness_note}</div>
+        </> : loading ? <div style={{padding:22,color:C.muted}}>Checking reviewed YourPetPass requirements…</div> : hasReviewedGuide ? <>
           <div style={{background:C.mint,borderRadius:16,padding:22,border:'1px solid #D4E6D9'}}>
             <div style={{fontSize:12,fontWeight:700,color:C.sage,textTransform:'uppercase',letterSpacing:'.08em'}}>Reviewed destination guide</div>
             <h2 style={{fontFamily:"'Playfair Display', serif",fontSize:30,color:C.green,margin:'6px 0 10px'}}>{guide.jurisdiction.display_name} pet entry requirements</h2>
