@@ -17,7 +17,7 @@ const Admin = lazy(() => import("./Admin.jsx"));
 const Emergency = lazy(() => import("./Emergency.jsx"));
 const Travel = lazy(() => import("./Travel.jsx"));
 const TravelSummary = lazy(() => import("./TravelSummary.jsx"));
-const AffiliatePortal = lazy(() => import("./AffiliatePortal.jsx"));
+const AffiliatePortal = lazy(() => import("./AffiliatePortal.jsx"));\nconst PetTravelRequirementsPreview = lazy(() => import("./PetTravelRequirementsPreview.jsx"));
 
 // Your admin email — only this account sees the admin dashboard
 const ADMIN_EMAIL = "bgravley@rdmarketingllc.com";
