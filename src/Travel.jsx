@@ -392,7 +392,10 @@ Only populate fee fields when the same official source explicitly publishes an e
   if (start === -1 || end === 0) throw new Error(`No JSON array found. Got: ${text.slice(0, 200)}`);
 
   try {
-    return JSON.parse(text.slice(start, end));
+    return {
+      items: JSON.parse(text.slice(start, end)),
+      usageSummary: data.usageSummary || null,
+    };
   } catch (e) {
     throw new Error(`JSON parse failed: ${e.message}`);
   }
@@ -1358,7 +1361,7 @@ const TripDetail = ({ trip, userId, dogs, premium, onUpgrade, onBack, onUpdate, 
       // so this is identical to the pre-multi-leg behavior. A layover leg's
       // only role in the app is the pet relief area lookup on its
       // Itinerary card, which is unaffected by this.
-      const items = await generateChecklist(trip, tripPets, userId);
+      const { items, usageSummary } = await generateChecklist(trip, tripPets, userId);
       const tripSpecies = new Set(tripPets.map(p => p.species || 'dog'));
       const filteredItems = items.filter(item => tripSpecies.has(item.applies_to || 'dog'));
 
@@ -1420,23 +1423,20 @@ const TripDetail = ({ trip, userId, dogs, premium, onUpgrade, onBack, onUpdate, 
       if (data) {
         setChecklist(prev => [...prev, ...data]);
         logActivity(userId, null, 'checklist_generated', { origin: trip.origin_city, destination: trip.destination_city, itemCount: data.length });
-        // Send confirmation email with current usage, best-effort
+        // Send confirmation email with server-authoritative quota data, best-effort.
+        // The browser never reads ai_usage_log directly.
         supabase.auth.getUser().then(async ({ data: userData }) => {
           const email = userData?.user?.email;
           if (!email) return;
-          const { data: prof } = await supabase.from('profiles').select('ai_travel_limit_override, travel_credits_balance').eq('id', userId).single();
-          const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0,0,0,0);
-          const { count } = await supabase.from('ai_usage_log').select('id', { count: 'exact', head: true })
-            .eq('user_id', userId).eq('feature', 'travel_checklist').eq('success', true).gte('created_at', monthStart.toISOString());
           fetch('/api/notify-user-action', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               actionType: 'checklist_generated', recipientEmail: email,
               data: {
                 origin: trip.origin_city, destination: trip.destination_city,
-                used: count || 0,
-                limit: prof?.ai_travel_limit_override ?? 3,
-                creditsBalance: prof?.travel_credits_balance || 0,
+                used: usageSummary?.used ?? null,
+                limit: usageSummary?.limit ?? null,
+                creditsBalance: usageSummary?.creditsBalance ?? 0,
               },
             }),
           }).catch(() => {});
