@@ -1,0 +1,42 @@
+{
+  "status": "REVIEW_PREVIEW_ONLY",
+  "destination": {
+    "slug": "ecuador",
+    "display_name": "Ecuador"
+  },
+  "reviewed_date": "2026-09-19",
+  "author": "YourPetPass Travel Desk",
+  "direct_answer": "Dogs and cats entering Ecuador need an official Zoosanitary Export Certificate from the veterinary authority in the country of origin. The workflow changes if your pet arrives as cargo: cargo arrivals also use Ecuador's Zoosanitary Import Permit process and advance document handling.",
+  "decision_points": [
+    {
+      "question": "How is your pet arriving?",
+      "options": [
+        {"label": "With you in the accompanied passenger flow", "result": "Official origin-country zoosanitary export certificate is the core Ecuador entry document; the separate cargo import-permit workflow does not apply."},
+        {"label": "As cargo", "result": "Use the cargo import workflow, including the Zoosanitary Import Permit and advance document submission."}
+      ]
+    }
+  ],
+  "requirements": [
+    {
+      "type": "health_certificate",
+      "title": "Official Zoosanitary Export Certificate",
+      "text": "The certificate must be issued by the official veterinary service of the country of origin, in Spanish or English, and meet Ecuador's sanitary requirements.",
+      "source": "Agrocalidad",
+      "source_url": "https://www.agrocalidad.gob.ec/ingreso-al-ecuador-de-animales-de-compania-perros-y-gatos/"
+    },
+    {
+      "type": "permit",
+      "scope": "cargo_arrival",
+      "title": "Cargo arrival permit workflow",
+      "text": "Dogs and cats arriving as cargo use the Zoosanitary Import Permit workflow. Current Agrocalidad guidance specifies advance document handling 72 hours before arrival.",
+      "timing": "72 hours before arrival",
+      "source": "Agrocalidad",
+      "source_url": "https://www.agrocalidad.gob.ec/ingreso-al-ecuador-de-animales-de-compania-perros-y-gatos/"
+    }
+  ],
+  "freshness_note": "Older official Ecuador PDFs remain accessible and contain language that can differ from current web guidance. Publication must use the current governing source and mark superseded copies stale rather than blending them.",
+  "product_connection": {
+    "mid": "YourPetPass can keep the official certificate, vaccination records and travel documents together with your pet's health history.",
+    "end": "Build the trip in YourPetPass to turn the reviewed requirements into a route-specific checklist."
+  }
+}
