@@ -159,38 +159,49 @@ const petTypeLabel=type=>{if(type==='service_animal')return'Service Animal';if(t
 const petTypeColor=type=>{if(type==='service_animal')return'#2C4A38';if(type==='esa')return'#C9A84C';return null;};
 
 // ── ACTIVITY & ERROR LOGGING ──────────────────────────────
-const logActivity = async (userId, userEmail, action, details = {}) => {
+const logActivity = async (_userId, _userEmail, action, details = {}) => {
   try {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
     const { data: { session } } = await supabase.auth.getSession();
-    const token = session?.access_token || supabaseKey;
+    if (!session?.access_token || !session?.user?.id) return;
     await fetch(`${supabaseUrl}/rest/v1/activity_log`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'apikey': supabaseKey,
-        'Authorization': `Bearer ${token}`,
+        'Authorization': `Bearer ${session.access_token}`,
       },
-      body: JSON.stringify({ user_id: userId, user_email: userEmail, action, details })
+      body: JSON.stringify({
+        user_id: session.user.id,
+        user_email: session.user.email || null,
+        action,
+        details,
+      })
     });
   } catch (e) { /* silent fail */ }
 };
 
-const logError = async (userId, userEmail, context, errorMessage) => {
+const logError = async (_userId, _userEmail, context, errorMessage) => {
   try {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
     const { data: { session } } = await supabase.auth.getSession();
-    const token = session?.access_token || supabaseKey;
+    if (!session?.access_token || !session?.user?.id) return;
     await fetch(`${supabaseUrl}/rest/v1/error_log`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'apikey': supabaseKey,
-        'Authorization': `Bearer ${token}`,
+        'Authorization': `Bearer ${session.access_token}`,
       },
-      body: JSON.stringify({ user_id: userId, user_email: userEmail, context, error_message: errorMessage, reviewed: false })
+      body: JSON.stringify({
+        user_id: session.user.id,
+        user_email: session.user.email || null,
+        context,
+        error_message: errorMessage,
+        reviewed: false,
+      })
     });
   } catch (e) { /* silent fail */ }
 };
