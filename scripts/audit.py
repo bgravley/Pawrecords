@@ -594,6 +594,15 @@ else:
                     if d == 0:
                         break
                 elif km.group(2) and d == 1:
+                    # A real top-level object key must begin immediately after
+                    # the opening brace or a top-level comma (allowing quotes).
+                    # This prevents ternary/expression values such as null from
+                    # being misread as database column names.
+                    prefix = buf[:km.start(2)].rstrip()
+                    if prefix.endswith(("'", '"')):
+                        prefix = prefix[:-1].rstrip()
+                    if prefix and prefix[-1] not in "{,":
+                        continue
                     keys.append(km.group(2))
             for k in keys:
                 if k not in snapshot[table]:
