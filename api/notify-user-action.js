@@ -76,14 +76,17 @@ const TEMPLATES = {
     subject: `📄 Document added to ${petName}'s records`,
     body: `<h2>Document saved</h2><p>A new document was successfully added to ${esc(petName)}'s health records and is ready to view anytime.</p>`,
   }),
-  checklist_generated: ({ origin, destination, used, limit, creditsBalance }) => ({
-    subject: `✈️ Travel checklist ready: ${origin} → ${destination}`,
-    body: `<h2>Checklist generated</h2><p>Your AI travel checklist for ${esc(origin)} → ${esc(destination)} is ready in the Travel tab.</p>
-      <p style="background:#EAF4EE;border-radius:10px;padding:12px 16px;margin-top:14px;">
-        <strong>Usage this month:</strong> ${esc(used)}/${esc(limit)} included checklists used
-        ${Number(creditsBalance) > 0 ? `<br><strong>Bonus credits remaining:</strong> ${esc(creditsBalance)}` : ''}
-      </p>`,
-  }),
+  checklist_generated: ({ origin, destination, used, limit, creditsBalance }) => {
+    const hasUsage = used !== null && used !== undefined && limit !== null && limit !== undefined;
+    return {
+      subject: `✈️ Travel checklist ready: ${origin} → ${destination}`,
+      body: `<h2>Checklist generated</h2><p>Your AI travel checklist for ${esc(origin)} → ${esc(destination)} is ready in the Travel tab.</p>
+        ${hasUsage ? `<p style="background:#EAF4EE;border-radius:10px;padding:12px 16px;margin-top:14px;">
+          <strong>Usage this month:</strong> ${esc(used)}/${esc(limit)} included checklists used
+          ${Number(creditsBalance) > 0 ? `<br><strong>Bonus credits remaining:</strong> ${esc(creditsBalance)}` : ''}
+        </p>` : ''}`,
+    };
+  },
 };
 
 export default async function handler(req, res) {

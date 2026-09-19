@@ -598,10 +598,12 @@ const DogForm=({dog,userId,userEmail,onSave,onClose})=>{
           }
         }catch(e){console.error("Photo upload failed:",e);}
       }
-      // Upload cert
+      // Upload certification document. Image files are compressed; PDFs and
+      // other non-image files pass through unchanged.
       if(certFile){
-        const path=`${userId}/certs/${result.id}_${certFile.name}`;
-        await supabase.storage.from("documents").upload(path,certFile,{upsert:true});
+        const uploadFile=await db.compressImageForUpload(certFile);
+        const path=`${userId}/certs/${result.id}_${uploadFile.name}`;
+        await supabase.storage.from("documents").upload(path,uploadFile,{upsert:true,contentType:uploadFile.type||certFile.type});
         await supabase.from("dogs").update({certification_doc_path:path}).eq("id",result.id);
         result.certification_doc_path=path;
       }
@@ -971,13 +973,13 @@ const AIScanModal=({dog,state,userId,userEmail,dispatch,onSave,onClose,onUpgrade
     await new Promise((resolve,reject)=>{
       if(window.pdfjsLib){resolve();return;}
       const script=document.createElement("script");
-      script.src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+      script.src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";script.integrity="sha512-q+4liFwdPC/bNdhUpZx6aXDx/h77yEQtn4I1slHydcbZK34nLaR3cAeYSJshoxIOq3mjEf7xJE8YWIUHMn+oCQ==";script.crossOrigin="anonymous";script.referrerPolicy="no-referrer";
       script.onload=()=>{window.pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";resolve();};
       script.onerror=()=>reject(new Error("Failed to load PDF library"));
       document.head.appendChild(script);
     });
     const pdfjsLib=window.pdfjsLib;
-    const pdf=await pdfjsLib.getDocument({data:new Uint8Array(arrayBuffer)}).promise;
+    const pdf=await pdfjsLib.getDocument({data:new Uint8Array(arrayBuffer),isEvalSupported:false}).promise;
     const results=[];
     const pagesToLoad=Math.min(pdf.numPages,MAX_IMAGES-images.length);
     for(let i=1;i<=pagesToLoad;i++){
