@@ -598,10 +598,12 @@ const DogForm=({dog,userId,userEmail,onSave,onClose})=>{
           }
         }catch(e){console.error("Photo upload failed:",e);}
       }
-      // Upload cert
+      // Upload certification document. Image files are compressed; PDFs and
+      // other non-image files pass through unchanged.
       if(certFile){
-        const path=`${userId}/certs/${result.id}_${certFile.name}`;
-        await supabase.storage.from("documents").upload(path,certFile,{upsert:true});
+        const uploadFile=await db.compressImageForUpload(certFile);
+        const path=`${userId}/certs/${result.id}_${uploadFile.name}`;
+        await supabase.storage.from("documents").upload(path,uploadFile,{upsert:true,contentType:uploadFile.type||certFile.type});
         await supabase.from("dogs").update({certification_doc_path:path}).eq("id",result.id);
         result.certification_doc_path=path;
       }
