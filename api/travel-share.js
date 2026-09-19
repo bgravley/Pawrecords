@@ -2,8 +2,11 @@ import { randomUUID } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import { verifyUser } from './_verifyUser.js';
 import { setCorsHeaders } from './_cors.js';
+import { checkPublicRateLimit } from './_publicRateLimit.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const PUBLIC_READ_LIMIT = 120;
+const PUBLIC_READ_WINDOW_MS = 15 * 60 * 1000;
 let adminClient;
 
 function admin() {
@@ -31,9 +34,10 @@ async function publicSummary(token) {
     db.from('trip_legs').select('origin_city,origin_country,origin_airport_code,destination_city,destination_country,destination_airport_code,departure_date,transportation_type,airline,flight_number,leg_order').eq('trip_id', trip.id).eq('user_id', trip.user_id).order('leg_order'),
     db.from('trip_documents').select('name,doc_type,doc_date,is_entry_document,notes').eq('trip_id', trip.id).eq('user_id', trip.user_id).order('created_at'),
     db.from('trip_checklist_items').select('title,category,is_completed,readiness_status,document_name,source_url,source_authority,last_verified_at,researched_at,fee_amount,fee_currency,fee_basis,fee_notes,fee_source_updated_at,fee_last_checked_at').eq('trip_id', trip.id).eq('user_id', trip.user_id).order('sort_order'),
-    petIds.length ? db.from('dogs').select('id,name,species,breed,color,photo_url,microchip,pet_type,is_service_animal,is_esa,emergency_contact,emergency_phone').eq('user_id', trip.user_id).in('id', petIds) : Promise.resolve({ data: [], error: null }),
+    petIds.length ? db.from('dogs').select('name,species,breed,color,microchip,pet_type,is_service_animal,is_esa,emergency_contact,emergency_phone').eq('user_id', trip.user_id).in('id', petIds) : Promise.resolve({ data: [], error: null }),
   ]);
   for (const result of [legsResult, documentsResult, checklistResult, petsResult]) if (result.error) throw result.error;
+  delete trip.id;
   delete trip.user_id;
   delete trip.pet_ids;
   return { trip, legs: legsResult.data || [], documents: documentsResult.data || [], checklist: checklistResult.data || [], pets: petsResult.data || [] };
@@ -49,6 +53,20 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     const token = typeof req.query?.token === 'string' ? req.query.token : '';
     if (!UUID_RE.test(token)) return res.status(404).json({ error: 'This travel summary link is not available.' });
+
+    const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown';
+    const rate = await checkPublicRateLimit({
+      ip,
+      form: 'travel-share-read',
+      limit: PUBLIC_READ_LIMIT,
+      windowMs: PUBLIC_READ_WINDOW_MS,
+    });
+    if (!rate.ok) return res.status(rate.status).json({ error: rate.error });
+    if (rate.limited) {
+      res.setHeader('Retry-After', '900');
+      return res.status(429).json({ error: 'Too many requests. Please wait a few minutes and try again.' });
+    }
+
     try {
       const summary = await publicSummary(token);
       if (!summary) return res.status(404).json({ error: 'This travel summary link is unavailable or has expired.' });
