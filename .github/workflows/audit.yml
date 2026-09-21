@@ -50,6 +50,9 @@ jobs:
       - name: Run client logging security audit
         run: python3 scripts/client_logging_security_audit.py
 
+      - name: Run backend-only table grant audit
+        run: python3 scripts/backend_table_grants_audit.py
+
       - name: Run repository artifact hygiene audit
         run: python3 scripts/repository_artifact_hygiene_audit.py
 
