@@ -132,7 +132,13 @@ async function sbRpc(name, payload) {
     const detail = await response.text().catch(() => '');
     throw new Error(`Supabase RPC ${name} failed (${response.status}): ${detail.slice(0, 200)}`);
   }
-  return response.json();
+  const body = await response.text();
+  if (!body.trim()) return null;
+  try {
+    return JSON.parse(body);
+  } catch {
+    throw new Error(`Supabase RPC ${name} returned an invalid JSON response`);
+  }
 }
 
 async function claimStripeEvent(event) {
