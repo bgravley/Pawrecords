@@ -19,6 +19,12 @@ export function formatTravelDate(value) {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
 }
 
+function sourceDateLabel(item) {
+  if (item?.fee_last_checked_at) return `Checked ${formatTravelDate(item.fee_last_checked_at)}`;
+  if (item?.researched_at) return `Researched ${formatTravelDate(item.researched_at)}`;
+  return 'Researched date unavailable';
+}
+
 export function arrangementLabel(value) {
   return AIR_TRAVEL_ARRANGEMENTS.find(option => option.value === value)?.label || 'Not decided yet';
 }
@@ -71,7 +77,7 @@ export function buildTravelSummaryHtml({ trip, legs = [], pets = [], documents =
   const referenceRows = travelSupportReferenceRows(support).map(([label, value]) => [label, label === 'Contacts checked' ? formatTravelDate(value) : value]);
   const destinationVet = Object.values(support.destination_vet).some(Boolean) ? `<h3>Destination veterinarian</h3><p>${escapeHtml([support.destination_vet.name, support.destination_vet.clinic, support.destination_vet.phone, support.destination_vet.email].filter(Boolean).join(' · '))}</p>` : '';
   const serviceRows = workflows.map(({ pet, details }) => `<li><strong>${escapeHtml(pet.name)}</strong> · DOT form ${escapeHtml((details.dot_form_status || 'not started').replace(/_/g, ' '))} · Relief form ${escapeHtml((details.relief_attestation_status || 'not applicable').replace(/_/g, ' '))}${details.airline_confirmation_reference ? ` · Confirmation ${escapeHtml(details.airline_confirmation_reference)}` : ''}</li>`).join('');
-  const fees = officialFees.map(item => `<li><strong>${escapeHtml(item.title)}: ${escapeHtml(feeLabel(item))}</strong>${item.fee_basis ? ` · ${escapeHtml(item.fee_basis)}` : ''}<br><small>Checked ${escapeHtml(formatTravelDate(item.fee_last_checked_at || item.researched_at))}${item.fee_source_updated_at ? ` · Source updated ${escapeHtml(formatTravelDate(item.fee_source_updated_at))}` : ''} · <a href="${escapeHtml(item.source_url)}">Official source</a>. Additional fees may apply.</small></li>`).join('');
+  const fees = officialFees.map(item => `<li><strong>${escapeHtml(item.title)}: ${escapeHtml(feeLabel(item))}</strong>${item.fee_basis ? ` · ${escapeHtml(item.fee_basis)}` : ''}<br><small>${escapeHtml(sourceDateLabel(item))}${item.fee_source_updated_at ? ` · Source updated ${escapeHtml(formatTravelDate(item.fee_source_updated_at))}` : ''} · <a href="${escapeHtml(item.source_url)}">Official source</a>. Additional fees may apply.</small></li>`).join('');
   const travelReferences = referenceRows.length || destinationVet || serviceRows || fees ? `${referenceRows.length ? `<table><tbody>${rows(referenceRows)}</tbody></table>` : ''}${destinationVet}${serviceRows ? `<h3>U.S. service-animal documents</h3><ul>${serviceRows}</ul>` : ''}${fees ? `<h3>Known official fees</h3><ul>${fees}</ul><p class="notice">Fees are individual published amounts, not an estimated trip total. Confirm before payment.</p>` : ''}` : '<p>No additional pet-travel references added.</p>';
 
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)} - Travel Summary</title><style>
