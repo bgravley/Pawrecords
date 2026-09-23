@@ -2,6 +2,66 @@
 // All Supabase database operations for PawRecord
 import { supabase } from './supabase'
 
+const IMAGE_UPLOAD_MAX_DIMENSION = 1600
+const IMAGE_UPLOAD_QUALITY = 0.82
+
+const canCompressImage = (file) => (
+  typeof window !== 'undefined' &&
+  typeof document !== 'undefined' &&
+  typeof FileReader !== 'undefined' &&
+  typeof Image !== 'undefined' &&
+  typeof HTMLCanvasElement !== 'undefined' &&
+  file &&
+  file.type &&
+  file.type.startsWith('image/') &&
+  file.type !== 'image/svg+xml'
+)
+
+const compressedFileName = (file) => {
+  const base = (file.name || 'upload').replace(/\.[^.]+$/, '') || 'upload'
+  return `${base}.jpg`
+}
+
+export const compressImageForUpload = async (file, options = {}) => {
+  if (!canCompressImage(file)) return file
+
+  const maxDimension = options.maxDimension || IMAGE_UPLOAD_MAX_DIMENSION
+  const quality = options.quality || IMAGE_UPLOAD_QUALITY
+
+  return new Promise((resolve) => {
+    const reader = new FileReader()
+    reader.onerror = () => resolve(file)
+    reader.onload = () => {
+      const img = new Image()
+      img.onerror = () => resolve(file)
+      img.onload = () => {
+        try {
+          const scale = Math.min(1, maxDimension / Math.max(img.width, img.height))
+          const width = Math.max(1, Math.round(img.width * scale))
+          const height = Math.max(1, Math.round(img.height * scale))
+          const canvas = document.createElement('canvas')
+          canvas.width = width
+          canvas.height = height
+          const ctx = canvas.getContext('2d')
+          if (!ctx) return resolve(file)
+          ctx.drawImage(img, 0, 0, width, height)
+          canvas.toBlob((blob) => {
+            if (!blob || blob.size >= file.size) return resolve(file)
+            resolve(new File([blob], compressedFileName(file), {
+              type: 'image/jpeg',
+              lastModified: Date.now(),
+            }))
+          }, 'image/jpeg', quality)
+        } catch (e) {
+          resolve(file)
+        }
+      }
+      img.src = reader.result
+    }
+    reader.readAsDataURL(file)
+  })
+}
+
 // ── DOGS ──────────────────────────────────────────────────
 export const getDogs = async (userId) => {
   const { data, error } = await supabase
@@ -30,9 +90,10 @@ export const deleteDog = async (id) => supabase.from('dogs').delete().eq('id', i
 
 // ── DOG PHOTO UPLOAD ──────────────────────────────────────
 export const uploadDogPhoto = async (userId, dogId, file) => {
-  const ext = file.name.split('.').pop()
+  const uploadFile = await compressImageForUpload(file, { maxDimension: 1200, quality: 0.8 })
+  const ext = uploadFile.name.split('.').pop() || 'jpg'
   const path = `${userId}/dogs/${dogId}.${ext}`
-  const { error: upErr } = await supabase.storage.from('documents').upload(path, file, { upsert: true })
+  const { error: upErr } = await supabase.storage.from('documents').upload(path, uploadFile, { upsert: true, contentType: uploadFile.type || file.type })
   if (upErr) return { url: null, error: upErr }
   const { data } = supabase.storage.from('documents').getPublicUrl(path)
   return { url: data.publicUrl, error: null }
@@ -175,10 +236,11 @@ export const getDocuments = async (userId) => {
 export const addDocument = async (userId, doc, file) => {
   let filePath = null
   if (file) {
-    const ext = (file.name?.split('.').pop() || 'jpg').toLowerCase()
+    const uploadFile = await compressImageForUpload(file)
+    const ext = (uploadFile.name?.split('.').pop() || 'jpg').toLowerCase()
     const rand = Math.random().toString(36).slice(2, 8)
     filePath = `${userId}/docs/${doc.dogId}/${Date.now()}-${rand}.${ext}`
-    const { error: upErr } = await supabase.storage.from('documents').upload(filePath, file, { upsert: true, contentType: file.type })
+    const { error: upErr } = await supabase.storage.from('documents').upload(filePath, uploadFile, { upsert: true, contentType: uploadFile.type || file.type })
     if (upErr) throw upErr
   }
   const { data, error } = await supabase.from('documents').insert({
