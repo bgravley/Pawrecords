@@ -116,7 +116,7 @@ jobs:
       - name: Run AI claims and source hierarchy audit
         run: python3 scripts/ai_claims_source_audit.py
 
-      - name: Run travel claims hygiene audit
+      - name: Run travel rule guardrail audit\n        run: python3 scripts/travel_rule_guardrail_audit.py\n\n      - name: Run travel claims hygiene audit
         run: python3 scripts/travel_claims_hygiene_audit.py
 
       - name: Run legal and admin hygiene audit
