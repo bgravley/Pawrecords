@@ -40,6 +40,10 @@
   ],
   "rewrites": [
     {
+      "source": "/pet-travel-requirements/canada",
+      "destination": "/pet-travel-requirements/canada/index.html"
+    },
+    {
       "source": "/pet-travel-requirements/france",
       "destination": "/pet-travel-requirements/france/index.html"
     },
