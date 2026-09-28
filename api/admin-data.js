@@ -2,7 +2,64 @@
 // Server-side admin data fetcher — uses service role key to bypass RLS
 // Only callable with a valid admin check
 
+import { createClient } from '@supabase/supabase-js';
 import { setCorsHeaders } from './_cors.js';
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+async function listStorageFilesRecursive(bucket, rootPath) {
+  const files = [];
+  const pending = [rootPath];
+  const seenFolders = new Set();
+
+  while (pending.length) {
+    const folder = pending.pop();
+    if (!folder || seenFolders.has(folder)) continue;
+    seenFolders.add(folder);
+    if (seenFolders.size > 5000) throw new Error('Storage cleanup exceeded safe folder limit');
+
+    let offset = 0;
+    while (true) {
+      const { data, error } = await bucket.list(folder, {
+        limit: 1000,
+        offset,
+        sortBy: { column: 'name', order: 'asc' },
+      });
+      if (error) throw new Error(`Storage list failed for ${folder}: ${error.message}`);
+
+      const entries = Array.isArray(data) ? data : [];
+      for (const entry of entries) {
+        const path = `${folder}/${entry.name}`;
+        if (entry.id === null) pending.push(path);
+        else files.push(path);
+      }
+
+      if (entries.length < 1000) break;
+      offset += entries.length;
+    }
+  }
+
+  return files;
+}
+
+async function removeUserStorage(supabaseUrl, serviceKey, userId) {
+  const storageAdmin = createClient(supabaseUrl, serviceKey, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  });
+  const bucket = storageAdmin.storage.from('documents');
+  const paths = await listStorageFilesRecursive(bucket, userId);
+
+  for (let i = 0; i < paths.length; i += 1000) {
+    const batch = paths.slice(i, i + 1000);
+    const { error } = await bucket.remove(batch);
+    if (error) throw new Error(`Storage cleanup failed: ${error.message}`);
+  }
+
+  // Re-list the user's root so deletion fails closed if anything remains.
+  const remaining = await listStorageFilesRecursive(bucket, userId);
+  if (remaining.length) throw new Error(`Storage cleanup incomplete: ${remaining.length} object(s) remain`);
+  return paths.length;
+}
 
 async function checkedFetch(url, options, label) {
   const r = await fetch(url, options);
@@ -219,6 +276,7 @@ export default async function handler(req, res) {
     if (type === 'delete_user') {
       const { targetUserId } = req.body;
       if (!targetUserId) return res.status(400).json({ error: 'targetUserId required' });
+      if (!UUID_RE.test(targetUserId)) return res.status(400).json({ error: 'Invalid targetUserId' });
 
       // Every user-owned table already has a proper FK to profiles(id) with
       // either ON DELETE CASCADE (allergies, documents, dogs,
@@ -246,6 +304,12 @@ export default async function handler(req, res) {
       } catch (_) { /* best-effort, only used for error log context */ }
 
       try {
+        // Storage objects are not children of profiles(id), so database
+        // cascades cannot remove uploaded health/travel files. Delete every
+        // object under this user's UUID root through the Storage API first.
+        // Fail closed: if Storage cleanup fails, do not delete the profile.
+        const removedStorageObjects = await removeUserStorage(supabaseUrl, serviceKey, targetUserId);
+
         // Explicit status update: the FK's ON DELETE SET NULL will null out
         // affiliates.user_id automatically, but won't touch status -- do
         // that here so the affiliate record is left clearly cancelled.
@@ -273,7 +337,7 @@ export default async function handler(req, res) {
           return res.status(200).json({ data: { partial: true, warning: 'Account data deleted, but the auth login itself could not be removed. Contact Supabase support if this persists.' } });
         }
 
-        return res.status(200).json({ data: { deleted: true } });
+        return res.status(200).json({ data: { deleted: true, removedStorageObjects } });
       } catch (err) {
         console.error('delete_user failed:', err.message);
         await logAdminError(supabaseUrl, headers, 'user_delete_failed', targetEmail, err.message);

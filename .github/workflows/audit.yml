@@ -23,17 +23,35 @@ jobs:
         with:
           node-version: 24
 
-      - name: Install dependencies
-        run: npm install
+      - name: Install dependencies from lockfile
+        run: npm ci
 
       - name: Build production bundle
         run: npm run build
+
+      - name: Run complete Node behavior test suite
+        run: npm test
 
       - name: Run public bundle loading audit
         run: python3 scripts/bundle_loading_audit.py
 
       - name: Run full site audit
         run: python3 scripts/audit.py
+
+      - name: Run travel upload compression audit
+        run: python3 scripts/travel_upload_compression_audit.py
+
+      - name: Run travel quota integrity audit
+        run: python3 scripts/travel_quota_integrity_audit.py
+
+      - name: Run account deletion Storage audit
+        run: python3 scripts/account_deletion_storage_audit.py
+
+      - name: Run client logging security audit
+        run: python3 scripts/client_logging_security_audit.py
+
+      - name: Run backend-only table grant audit
+        run: python3 scripts/backend_table_grants_audit.py
 
       - name: Run repository artifact hygiene audit
         run: python3 scripts/repository_artifact_hygiene_audit.py

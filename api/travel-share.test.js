@@ -22,7 +22,7 @@ test('invalid public tokens fail closed before database access', async () => {
 
 test('preflight exposes only the summary endpoint methods', async () => {
   const res = response();
-  await handler({ method: 'OPTIONS', headers: { origin: 'https://yourpetpass.com' } }, res);
+  await handler({ method: 'OPTIONS', headers: { origin: 'https://www.yourpetpass.com' } }, res);
   assert.equal(res.statusCode, 204);
   assert.equal(res.headers['Access-Control-Allow-Methods'], 'GET, POST, OPTIONS');
 });

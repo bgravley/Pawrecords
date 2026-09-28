@@ -39,9 +39,10 @@ FROM pg_proc WHERE proname = 'handle_new_user';
 
 -- 3. OVERSIZED STORAGE OBJECTS ----------------------------------------------
 -- BAD RESULT: any rows returned. Profile photos over ~500KB load slowly or
--- appear broken on mobile. Avatars should be compressed to well under 200KB
--- on upload. (On 2026-07-07 there were six 1.3-3MB pet photos causing exactly
--- this "photo won't load" symptom.)
+-- appear broken on mobile. New browser-side image uploads are compressed before
+-- storage, but older objects can remain above this threshold and should be
+-- reviewed for one-time cleanup. Do not delete or recompress PDFs based on this
+-- query alone.
 SELECT name,
        round((metadata->>'size')::numeric / 1024) AS kb,
        metadata->>'mimetype' AS type
@@ -69,8 +70,10 @@ ORDER BY c.relrowsecurity, c.relname;
 
 
 -- 5. STORAGE BUCKET VISIBILITY ----------------------------------------------
--- The "documents" bucket must be public = true, because the app builds public
--- URLs (getPublicUrl) for pet photos. If it's private, every photo 404s.
+-- The "documents" bucket must remain PRIVATE (public = false). Private health
+-- documents and pet files are served through the authenticated/private-file
+-- gateway or short-lived signed URLs. A public documents bucket would bypass
+-- that privacy boundary.
 SELECT id, name, public FROM storage.buckets;
 
 

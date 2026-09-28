@@ -5,6 +5,7 @@ import re
 marketing = Path('src/Marketing.jsx').read_text(encoding='utf-8')
 paw = Path('src/PawRecord.jsx').read_text(encoding='utf-8')
 travel = Path('src/Travel.jsx').read_text(encoding='utf-8')
+travel_summary = Path('src/lib/travelSummary.js').read_text(encoding='utf-8')
 api = Path('api/ai-travel.js').read_text(encoding='utf-8')
 source_lib = Path('src/lib/sourceVerification.js').read_text(encoding='utf-8')
 llms = Path('public/llms.txt').read_text(encoding='utf-8')
@@ -115,9 +116,12 @@ check('item.human_review_status === "verified" && item.last_verified_at' in trav
       'travel UI only displays human-verified date when review status is verified')
 check('Researched ${new Date(item.researched_at).toLocaleDateString()}' in travel,
       'travel UI labels AI research time as Researched')
-check("'<br><small>Researched ' + new Date(i.researched_at).toLocaleDateString()" in travel,
-      'exported travel checklist labels AI source date as Researched')
-check("'<br><small>Checked ' + new Date(i.researched_at).toLocaleDateString()" not in travel,
+check('function sourceDateLabel(item)' in travel_summary and
+      "if (item?.fee_last_checked_at) return `Checked ${formatTravelDate(item.fee_last_checked_at)}`;" in travel_summary and
+      "if (item?.researched_at) return `Researched ${formatTravelDate(item.researched_at)}`;" in travel_summary,
+      'exported travel checklist labels AI source date as Researched unless a fee check date exists')
+check("Checked ${escapeHtml(formatTravelDate(item.researched_at))}" not in travel_summary and
+      "Checked ${formatTravelDate(item.researched_at)}" not in travel_summary,
       'export cannot imply that AI research alone was a verification check')
 check('AI-assisted planning only. Country rules should link to the responsible government authority.' in travel,
       'travel checklist carries an in-context AI planning disclosure')

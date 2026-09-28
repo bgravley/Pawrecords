@@ -159,38 +159,49 @@ const petTypeLabel=type=>{if(type==='service_animal')return'Service Animal';if(t
 const petTypeColor=type=>{if(type==='service_animal')return'#2C4A38';if(type==='esa')return'#C9A84C';return null;};
 
 // ── ACTIVITY & ERROR LOGGING ──────────────────────────────
-const logActivity = async (userId, userEmail, action, details = {}) => {
+const logActivity = async (_userId, _userEmail, action, details = {}) => {
   try {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
     const { data: { session } } = await supabase.auth.getSession();
-    const token = session?.access_token || supabaseKey;
+    if (!session?.access_token || !session?.user?.id) return;
     await fetch(`${supabaseUrl}/rest/v1/activity_log`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'apikey': supabaseKey,
-        'Authorization': `Bearer ${token}`,
+        'Authorization': `Bearer ${session.access_token}`,
       },
-      body: JSON.stringify({ user_id: userId, user_email: userEmail, action, details })
+      body: JSON.stringify({
+        user_id: session.user.id,
+        user_email: session.user.email || null,
+        action,
+        details,
+      })
     });
   } catch (e) { /* silent fail */ }
 };
 
-const logError = async (userId, userEmail, context, errorMessage) => {
+const logError = async (_userId, _userEmail, context, errorMessage) => {
   try {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
     const { data: { session } } = await supabase.auth.getSession();
-    const token = session?.access_token || supabaseKey;
+    if (!session?.access_token || !session?.user?.id) return;
     await fetch(`${supabaseUrl}/rest/v1/error_log`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'apikey': supabaseKey,
-        'Authorization': `Bearer ${token}`,
+        'Authorization': `Bearer ${session.access_token}`,
       },
-      body: JSON.stringify({ user_id: userId, user_email: userEmail, context, error_message: errorMessage, reviewed: false })
+      body: JSON.stringify({
+        user_id: session.user.id,
+        user_email: session.user.email || null,
+        context,
+        error_message: errorMessage,
+        reviewed: false,
+      })
     });
   } catch (e) { /* silent fail */ }
 };
@@ -598,10 +609,12 @@ const DogForm=({dog,userId,userEmail,onSave,onClose})=>{
           }
         }catch(e){console.error("Photo upload failed:",e);}
       }
-      // Upload cert
+      // Upload certification document. Image files are compressed; PDFs and
+      // other non-image files pass through unchanged.
       if(certFile){
-        const path=`${userId}/certs/${result.id}_${certFile.name}`;
-        await supabase.storage.from("documents").upload(path,certFile,{upsert:true});
+        const uploadFile=await db.compressImageForUpload(certFile);
+        const path=`${userId}/certs/${result.id}_${uploadFile.name}`;
+        await supabase.storage.from("documents").upload(path,uploadFile,{upsert:true,contentType:uploadFile.type||certFile.type});
         await supabase.from("dogs").update({certification_doc_path:path}).eq("id",result.id);
         result.certification_doc_path=path;
       }
@@ -971,13 +984,13 @@ const AIScanModal=({dog,state,userId,userEmail,dispatch,onSave,onClose,onUpgrade
     await new Promise((resolve,reject)=>{
       if(window.pdfjsLib){resolve();return;}
       const script=document.createElement("script");
-      script.src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+      script.src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";script.integrity="sha512-q+4liFwdPC/bNdhUpZx6aXDx/h77yEQtn4I1slHydcbZK34nLaR3cAeYSJshoxIOq3mjEf7xJE8YWIUHMn+oCQ==";script.crossOrigin="anonymous";script.referrerPolicy="no-referrer";
       script.onload=()=>{window.pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";resolve();};
       script.onerror=()=>reject(new Error("Failed to load PDF library"));
       document.head.appendChild(script);
     });
     const pdfjsLib=window.pdfjsLib;
-    const pdf=await pdfjsLib.getDocument({data:new Uint8Array(arrayBuffer)}).promise;
+    const pdf=await pdfjsLib.getDocument({data:new Uint8Array(arrayBuffer),isEvalSupported:false}).promise;
     const results=[];
     const pagesToLoad=Math.min(pdf.numPages,MAX_IMAGES-images.length);
     for(let i=1;i<=pagesToLoad;i++){

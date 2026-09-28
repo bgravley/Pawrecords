@@ -279,6 +279,15 @@ async function restGet(context, info, session, table, params) {
   return response.json();
 }
 
+async function anonRestGet(context, info, table, params) {
+  const query = new URLSearchParams(params).toString();
+  const response = await context.request.get(`${info.origin}/rest/v1/${table}?${query}`, {
+    headers: { apikey: info.anonKey },
+  });
+  if (response.status() !== 200) throw new Error(`anonymous ${table} query returned ${response.status()}: ${(await response.text()).slice(0, 200)}`);
+  return response.json();
+}
+
 async function createPrivateDocument(context, info, session, dogId) {
   const marker = `YOURPETPASS-E2E-${RUN_TAG}`;
   const path = `${session.userId}/e2e/${RUN_TAG}-private-record.pdf`;
@@ -662,7 +671,7 @@ await check('RLS and private Storage isolate one signed-in customer from another
       if (body.includes(PET_NAME) || body.includes(TRIP_NAME) || body.includes(DOC_NAME)) throw new Error('Primary customer data appeared in the secondary customer UI');
     });
 
-    await step('RLS blocks reads of the first customer pet, trip, and document rows', async () => {
+    await step('RLS blocks reads of the first customer pet, trip, document, and health rows', async () => {
       const session = await readBrowserSession(page);
       for (let i = 0; i < 20 && (!secondarySupabase.origin || !secondarySupabase.anonKey); i += 1) await sleep(250);
       const info = secondarySupabase.origin ? secondarySupabase : primarySupabase;
@@ -670,6 +679,11 @@ await check('RLS and private Storage isolate one signed-in customer from another
       for (const [table, id] of [['dogs', primaryDogId], ['trips', primaryTripId], ['documents', primaryDocument.id]]) {
         const rows = await restGet(context, info, session, table, { id: `eq.${id}`, select: 'id' });
         if (rows.length !== 0) throw new Error(`Secondary customer could read primary ${table} row`);
+      }
+
+      for (const table of ['vaccinations', 'medications', 'allergies', 'vet_visits', 'emergency_contacts']) {
+        const rows = await restGet(context, info, session, table, { user_id: `eq.${primarySession.userId}`, select: 'id' });
+        if (rows.length !== 0) throw new Error(`Secondary customer could read primary ${table} rows`);
       }
 
       const update = await context.request.patch(`${info.origin}/rest/v1/dogs?id=eq.${encodeURIComponent(primaryDogId)}&select=id,name`, {
@@ -690,6 +704,24 @@ await check('RLS and private Storage isolate one signed-in customer from another
       const response = await context.request.get(`${BASE}/api/storage-file?path=${encodeURIComponent(primaryDocument.path)}`);
       if (response.status() !== 403) throw new Error(`Expected 403 for cross-customer private file, got ${response.status()}`);
     });
+  } finally {
+    await context.close();
+  }
+});
+
+await check('Anonymous Supabase access cannot read sensitive customer records', async () => {
+  if (!primarySupabase?.origin || !primarySupabase?.anonKey || !primarySession?.userId) {
+    throw new Error('Primary flow did not produce Supabase connection details required for anonymous authorization probes');
+  }
+  const context = await browser.newContext({ userAgent: 'YourPetPass-Anonymous-Authorization-E2E/1.0' });
+  try {
+    for (const table of ['dogs', 'documents', 'vaccinations', 'medications', 'allergies', 'vet_visits', 'emergency_contacts', 'trips']) {
+      const rows = await anonRestGet(context, primarySupabase, table, {
+        user_id: `eq.${primarySession.userId}`,
+        select: 'id',
+      });
+      if (rows.length !== 0) throw new Error(`Anonymous caller could read ${table} rows for the synthetic customer`);
+    }
   } finally {
     await context.close();
   }

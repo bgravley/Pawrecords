@@ -25,3 +25,18 @@ test('prints official fees individually without a calculated total', () => {
   assert.match(html, /not an estimated trip total/);
   assert.doesNotMatch(html, /Estimated Total/);
 });
+
+
+test('rejects unsafe source URLs in printable HTML', () => {
+  const html = buildTravelSummaryHtml({
+    trip: { origin_city: 'Quito', origin_country: 'Ecuador', destination_city: 'Miami', destination_country: 'United States', travel_support: {} },
+    checklist: [
+      { title: 'Unsafe source', source_url: 'javascript:alert(1)', source_authority: 'Fake authority' },
+      { title: 'Safe source', source_url: 'https://example.gov/rules', source_authority: 'Official authority' },
+    ],
+    shareUrl: 'javascript:alert(2)',
+  });
+  assert.doesNotMatch(html, /javascript:/i);
+  assert.match(html, /https:\/\/example\.gov\/rules/);
+  assert.match(html, /Source needed/);
+});

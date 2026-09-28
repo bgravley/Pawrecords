@@ -102,7 +102,37 @@ require("revoke execute on function public.handle_new_user()" in migration and
         "revoke execute on function public.notify_new_error()" in migration,
         "Launch migration revokes direct RPC access to trigger-only SECURITY DEFINER functions")
 
-# 4. Health-certificate content regression
+# 4. Public endpoint, URL, and supply-chain regressions
+travel_share = read("api/travel-share.js")
+require("checkPublicRateLimit" in travel_share and "travel-share-read" in travel_share,
+        "Public travel-summary reads have explicit abuse/rate-limit protection")
+require("select('name,species,breed,color,microchip,pet_type,is_service_animal,is_esa,emergency_contact,emergency_phone')" in travel_share,
+        "Public travel summaries exclude internal pet IDs and private photo paths")
+require("select('id,name,species,breed,color,photo_url" not in travel_share,
+        "Public travel summaries cannot expose private pet identifiers through the pet select")
+require("delete trip.id;" in travel_share and "delete trip.user_id;" in travel_share,
+        "Public travel summaries strip internal trip/account identifiers before response")
+
+travel_summary = read("src/TravelSummary.jsx")
+require("pet.photo_url" not in travel_summary,
+        "Public travel-summary UI does not render private pet file URLs")
+travel_summary_html = read("src/lib/travelSummary.js")
+travel_ui = read("src/Travel.jsx")
+require("safeExternalUrl" in travel_summary and "safeExternalUrl" in travel_summary_html and "safeExternalUrl" in travel_ui,
+        "Travel source links enforce the HTTPS allowlist at render boundaries")
+
+index_html = read("index.html")
+require("html2pdf.bundle.min.js" in index_html and "integrity=" in index_html and
+        "qrious.min.js" in index_html,
+        "Static CDN JavaScript is protected with Subresource Integrity")
+
+paw_record = read("src/PawRecord.jsx")
+require("pdf.min.js" in paw_record and "script.integrity" in paw_record,
+        "Dynamically loaded PDF.js has Subresource Integrity")
+require("isEvalSupported:false" in paw_record,
+        "PDF.js disables the vulnerable eval code path for uploaded PDFs")
+
+# 5. Health-certificate content regression
 article = read("public/blog/pet-health-certificates-explained.html")
 article_lower = article.lower()
 require("<h1>pet health certificates explained</h1>" in article_lower,

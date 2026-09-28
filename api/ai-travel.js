@@ -12,7 +12,7 @@ import { verifyUser } from './_verifyUser.js';
 import { setCorsHeaders } from './_cors.js';
 
 // ── Logging ────────────────────────────────────────────────────────────────
-async function logUsage({ userId, userEmail, model, inputTokens, outputTokens, destination, success, error }) {
+async function logUsage({ userId, userEmail, model, inputTokens, outputTokens, destination, success, error, feature = 'travel_checklist' }) {
   try {
     // Cost estimate varies by model — check current provider pricing pages for exact figures.
     const rates = {
@@ -31,7 +31,7 @@ async function logUsage({ userId, userEmail, model, inputTokens, outputTokens, d
       body: JSON.stringify({
         user_id: userId || null,
         user_email: userEmail || null,
-        feature: 'travel_checklist',
+        feature,
         model,
         input_tokens: inputTokens,
         output_tokens: outputTokens,
@@ -337,6 +337,8 @@ export default async function handler(req, res) {
   }
 
   let userProfile = null;
+  let quotaCount = null;
+  let monthlyLimit = null;
 
   try {
     // ── Premium gate — applies to real users only. The prewarm job has no
@@ -344,6 +346,7 @@ export default async function handler(req, res) {
     // go straight to the cache-population logic below.
     if (!isPrewarmJob) {
       userProfile = await getUserProfile(userId);
+      monthlyLimit = userProfile.travelLimitOverride !== null ? userProfile.travelLimitOverride : 3;
       const isPremium = userProfile.tier === 'premium' || userProfile.tier === 'lifetime';
       if (!isPremium) {
         return res.status(403).json({
@@ -357,9 +360,23 @@ export default async function handler(req, res) {
     const cached = await getCachedChecklist(originCountry, destinationCountry, transportationType, travelArrangementKey);
     if (cached) {
       console.log(`Cache hit for ${originCountry} → ${destinationCountry} (${transportationType || 'air'})`);
+      let usageSummary = null;
+      if (userId && userProfile) {
+        try {
+          quotaCount = await checkRateLimit(userId);
+          usageSummary = {
+            used: quotaCount,
+            limit: monthlyLimit,
+            creditsBalance: userProfile.creditsBalance,
+          };
+        } catch (usageErr) {
+          console.error('Cached checklist usage summary failed:', usageErr.message);
+        }
+      }
       return res.status(200).json({
         choices: [{ message: { content: JSON.stringify(cached) } }],
         cached: true,
+        usageSummary,
       });
     }
   } catch (err) {
@@ -370,24 +387,22 @@ export default async function handler(req, res) {
   // ── Rate limit + bonus credits — only applies when we pay for generation ──
   let useCreditInstead = false;
   if (userId && userProfile) {
-    let count;
     try {
-      count = await checkRateLimit(userId);
+      quotaCount = await checkRateLimit(userId);
     } catch (err) {
       console.error('Rate limit check failed:', err.message);
       return res.status(503).json({ error: 'Could not verify your usage limit right now — please try again in a moment.' });
     }
-    const MONTHLY_LIMIT = userProfile.travelLimitOverride !== null ? userProfile.travelLimitOverride : 3;
 
-    if (count >= MONTHLY_LIMIT) {
+    if (quotaCount >= monthlyLimit) {
       if (userProfile.creditsBalance > 0) {
         useCreditInstead = true; // they've bought extra — let it through, spend a credit after success
       } else {
         return res.status(429).json({
-          error: `Monthly travel checklist limit reached (${MONTHLY_LIMIT}/month). Buy more checklists or wait until the 1st of next month.`,
+          error: `Monthly travel checklist limit reached (${monthlyLimit}/month). Buy more checklists or wait until the 1st of next month.`,
           rateLimitExceeded: true,
-          generationsUsed: count,
-          generationsLimit: MONTHLY_LIMIT,
+          generationsUsed: quotaCount,
+          generationsLimit: monthlyLimit,
           creditsBalance: userProfile.creditsBalance,
         });
       }
@@ -449,6 +464,7 @@ export default async function handler(req, res) {
         inputTokens: verifyResult.usage.input_tokens || 0,
         outputTokens: verifyResult.usage.output_tokens || 0,
         destination, success: true,
+        feature: 'travel_checklist_verification',
       });
     }
 
@@ -457,8 +473,20 @@ export default async function handler(req, res) {
       await spendOneCredit(userId, userProfile.creditsBalance);
     }
 
+    const usageSummary = userId && userProfile && quotaCount !== null
+      ? {
+          used: quotaCount + 1,
+          limit: monthlyLimit,
+          creditsBalance: useCreditInstead
+            ? Math.max(0, userProfile.creditsBalance - 1)
+            : userProfile.creditsBalance,
+        }
+      : null;
+
     return res.status(200).json({
-      choices: [{ message: { content: JSON.stringify(checklistItems) } }]
+      choices: [{ message: { content: JSON.stringify(checklistItems) } }],
+      cached: false,
+      usageSummary,
     });
 
   } catch (err) {
