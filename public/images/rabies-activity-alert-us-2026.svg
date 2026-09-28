@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="840" viewBox="0 0 1400 840" role="img" aria-labelledby="title desc">
+<title id="title">Pet rabies safety alert illustration</title>
+<desc id="desc">Dog and cat beside a rabies vaccination record and shield, with distant wildlife silhouettes representing bats, raccoons, skunks and foxes.</desc>
+<rect width="1400" height="840" fill="#EAF4EE"/>
+<rect x="0" y="0" width="1400" height="170" fill="#2C4A38"/>
+<circle cx="118" cy="95" r="52" fill="#C9A84C" opacity=".95"/>
+<path d="M91 105c10-30 44-43 68-23 16 13 17 39 1 55-17 17-43 18-60 1-9-9-12-21-9-33Z" fill="#FAFCFB"/>
+<circle cx="109" cy="82" r="8" fill="#2C4A38"/><circle cx="132" cy="74" r="8" fill="#2C4A38"/><circle cx="153" cy="85" r="8" fill="#2C4A38"/>
+<path d="M122 117c0-15 13-27 28-27s28 12 28 27c0 18-13 30-28 30s-28-12-28-30Z" transform="translate(-13 0)" fill="#2C4A38"/>
+<text x="210" y="82" fill="#FAFCFB" font-family="Georgia,serif" font-size="42" font-weight="700">Rabies activity alert</text>
+<text x="210" y="128" fill="#9DC4AA" font-family="Georgia,serif" font-size="25">What pet owners should check now</text>
+
+<g transform="translate(110 230)">
+<rect x="0" y="0" width="760" height="470" rx="34" fill="#FAFCFB"/>
+<rect x="36" y="40" width="320" height="390" rx="22" fill="#F4F8F5" stroke="#7C9E87" stroke-width="3"/>
+<rect x="68" y="76" width="256" height="52" rx="12" fill="#2C4A38"/>
+<text x="92" y="111" fill="#FAFCFB" font-family="Arial,sans-serif" font-size="23" font-weight="700">RABIES VACCINE RECORD</text>
+<line x1="82" y1="170" x2="307" y2="170" stroke="#9DC4AA" stroke-width="9" stroke-linecap="round"/>
+<line x1="82" y1="215" x2="275" y2="215" stroke="#9DC4AA" stroke-width="9" stroke-linecap="round"/>
+<line x1="82" y1="260" x2="292" y2="260" stroke="#9DC4AA" stroke-width="9" stroke-linecap="round"/>
+<circle cx="195" cy="345" r="53" fill="#C9A84C"/>
+<path d="M170 345l17 18 35-39" fill="none" stroke="#FAFCFB" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+
+<g transform="translate(400 68)">
+<path d="M120 50c75 0 120 60 120 127v88c0 52-34 95-87 95H87C34 360 0 317 0 265v-88C0 110 45 50 120 50Z" fill="#C89E74"/>
+<ellipse cx="120" cy="210" rx="83" ry="94" fill="#D9B58B"/>
+<circle cx="88" cy="193" r="9" fill="#1A2E22"/><circle cx="153" cy="193" r="9" fill="#1A2E22"/>
+<ellipse cx="120" cy="227" rx="16" ry="12" fill="#1A2E22"/>
+<path d="M75 70L38 12 26 95Z" fill="#B6865D"/><path d="M166 70l39-58 13 83Z" fill="#B6865D"/>
+<path d="M94 250q26 20 53 0" fill="none" stroke="#1A2E22" stroke-width="5" stroke-linecap="round"/>
+<path d="M226 195c54 8 79 39 85 91l-45 6c-7-34-23-47-52-52Z" fill="#7C9E87"/>
+<circle cx="296" cy="294" r="58" fill="#2C4A38"/>
+<path d="M267 296l20 21 39-47" fill="none" stroke="#FAFCFB" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+</g>
+
+<g transform="translate(930 250)">
+<rect width="350" height="390" rx="28" fill="#2C4A38"/>
+<text x="34" y="58" fill="#C9A84C" font-family="Arial,sans-serif" font-size="18" font-weight="700" letter-spacing="2">WILDLIFE EXPOSURE</text>
+<text x="34" y="96" fill="#FAFCFB" font-family="Georgia,serif" font-size="28" font-weight="700">Keep your distance.</text>
+<text x="34" y="130" fill="#9DC4AA" font-family="Arial,sans-serif" font-size="18">Call your vet after a</text>
+<text x="34" y="155" fill="#9DC4AA" font-family="Arial,sans-serif" font-size="18">suspected pet exposure.</text>
+<g fill="#9DC4AA">
+<path d="M52 230c22-23 45-19 60 2 11-17 30-25 51-11-8 26-29 37-51 31-22 8-46 0-60-22Z"/>
+<path d="M190 247c0-36 21-62 52-62 31 0 52 26 52 62 0 33-21 57-52 57-31 0-52-24-52-57Z"/>
+<path d="M211 190l-21-29 8 50M273 190l22-29-8 50" stroke="#9DC4AA" stroke-width="14" fill="none" stroke-linecap="round"/>
+<path d="M42 332c34-49 88-43 116 0-32 25-84 26-116 0Z"/>
+<path d="M206 342c22-49 74-64 108-23-16 40-65 57-108 23Z"/>
+</g>
+</g>
+<text x="110" y="775" fill="#2C4A38" font-family="Georgia,serif" font-size="28" font-weight="700">YourPetPass</text>
+<text x="292" y="775" fill="#7C9E87" font-family="Arial,sans-serif" font-size="20">Health Records &amp; Travel, Simplified.</text>
+</svg>
