@@ -13,11 +13,11 @@ An item is not complete merely because code exists. Depending on the item, compl
 - code evidence: pull request, commit, migration, or automated test;
 - live evidence: production behavior or live configuration state;
 - the environment and date verified;
-- an owner and reviewer for high-risk work;
+- an owner and, when available, an independent reviewer for high-risk work;
 - a repeat cadence when the control can drift;
 - rollback or recovery instructions for infrastructure and data changes.
 
-High-risk security changes require independent diff review under the security review policy introduced by PR #115. A second AI review is useful, but is not automatically independent.
+High-risk security changes use independent diff review when a qualified reviewer is available. When YourPetPass is operating as a one-owner repository without such a reviewer, the documented solo-maintainer exception in `SECURITY_REVIEW_POLICY.md` applies. A second AI review is useful supporting evidence, but is not represented as independent human review.
 
 ## Delivery rules
 
@@ -27,7 +27,7 @@ High-risk security changes require independent diff review under the security re
 4. Use airline sources only for airline-specific policy and airport sources for airport logistics.
 5. Never present estimated trip costs or calculate a trip total. Display only exact published fees with a source and as-of date.
 6. Preserve existing trips, documents, entitlements, and sharing links unless a migration explicitly documents otherwise.
-7. No production merge for high-risk changes without independent review and live verification.
+7. No production merge for high-risk changes without independent review or the documented solo-maintainer exception, plus live verification.
 
 ## Workstream 0 — Coordinate the open audit release
 
@@ -47,10 +47,10 @@ Scope already implemented in the open branch:
 
 Required actions:
 
-1. Obtain independent diff review.
+1. Obtain independent diff review when available; otherwise record explicit owner approval and satisfy every solo-maintainer exception gate.
 2. Resolve all review findings and rerun the complete 38-step audit.
 3. Decide whether the Cloudflare Workers check is production-relevant. If not, remove or clearly mark the obsolete integration as non-blocking. If it is relevant, repair it before merge.
-4. Merge only after the current head is approved and green.
+4. Merge only after the current head is explicitly approved and green under the applicable review path.
 5. Verify the exact merge SHA reaches Vercel production.
 6. Run authenticated production smoke tests, including anonymous/User A/User B isolation.
 7. Record production evidence in the audit control register.
@@ -400,13 +400,13 @@ Exit criteria:
 
 - every recurring control has a cadence, owner, failure notification, and last-success evidence;
 - unchanged/non-actionable monitoring remains quiet;
-- high-risk releases cannot bypass required review and verification.
+- high-risk releases cannot bypass the applicable independent-review or solo-maintainer approval path and verification gates.
 
 ## Recommended release sequence
 
 | Tranche | Scope | Production gate |
 |---|---|---|
-| 0 | Review, merge, and verify PR #115 | Independent approval, full audit, exact-SHA production smoke |
+| 0 | Review, merge, and verify PR #115 | Independent approval or documented solo-maintainer exception, full audit, exact-SHA production smoke |
 | 1 | Secret history, backup restore, deletion, architecture, warnings, PDF decision | Findings resolved or explicitly accepted with evidence |
 | 2 | Trip-image compression and canary storage cleanup | Visual/access/privacy verification and rollback proof |
 | 3 | `pg_net` review and any isolated database migration | Dependency map, reversible migration, notification smoke |
@@ -427,4 +427,4 @@ Exit criteria:
 
 ## Immediate next action
 
-Do not start a competing implementation branch for PR #115's scope. First obtain independent review of PR #115, merge the approved head, verify the exact production deployment, and update the audit control evidence. In parallel, planning and non-mutating discovery may begin for backup restoration, deletion verification, secret-history scanning, storage cleanup, `pg_net` dependencies, and Stripe reconnection prerequisites.
+Do not start a competing implementation branch for PR #115's scope. First complete the applicable independent-review or solo-maintainer approval path for the integrated release, merge the approved head, verify the exact production deployment, and update the audit control evidence. In parallel, planning and non-mutating discovery may begin for backup restoration, deletion verification, secret-history scanning, storage cleanup, `pg_net` dependencies, and Stripe reconnection prerequisites.
