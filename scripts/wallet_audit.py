@@ -63,6 +63,9 @@ check('walletConfig?.providers?.enabled' in paw, 'Wallet UI stays hidden until a
 check('show_rabies_status' in paw and 'show_microchip_last4' in paw and 'show_service_animal' in paw and 'show_emergency_contact' in paw, 'Wallet optional health/identity fields are explicit opt-ins')
 
 check(package.get('dependencies', {}).get('passkit-generator') == '3.5.8', 'Apple pass generator dependency is pinned to patched 3.5.8 exactly')
+check(package.get('overrides', {}).get('joi') == '17.13.7', 'Apple pass schema validation uses the patched Joi release')
+check("ownedPet(req, req.body?.petId)" in apple and "decodeBase64Env('APPLE_WALLET_SIGNER_CERT_B64')" in apple,
+      'Apple pass signing uses an owned pet and server-held certificates, not requester-supplied verification material')
 check(not (ROOT / '.github/workflows/wallet-deps-temp.yml').exists(), 'Temporary Wallet dependency workflow is absent')
 check(not (ROOT / '.github/workflows/wallet-ui-temp.yml').exists(), 'Temporary Wallet UI workflow is absent')
 

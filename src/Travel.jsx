@@ -264,40 +264,36 @@ ${transportMode === "sea" ? `- Focus on the cruise line or ferry company's speci
 ${transportMode === "land" ? `- Focus on land border crossing requirements specifically — these can differ from air entry requirements at the same border (e.g., different checkpoint hours, different document checks at land crossings vs international airports). Do NOT include airline-specific items.` : ""}
 ${transportMode === "bus" ? `- Focus on the specific bus company's pet policy (many intercity bus lines have limited or no pet allowances outside of service animals), and land border crossing requirements if this route crosses an international border. Do NOT include airline-specific items.` : ""}
 
-===== CRITICAL RULE: USA INVOLVEMENT =====
+===== U.S. ROUTE RESEARCH — DO NOT ASSUME ONE UNIVERSAL CERTIFICATE =====
 ${usaInvolved ? `
-⚠️ THE UNITED STATES OR A US TERRITORY IS INVOLVED IN THIS TRIP. THE FOLLOWING USA REQUIREMENTS MUST BE INCLUDED AS SEPARATE CHECKLIST ITEMS — NO EXCEPTIONS:
+The United States or a U.S. territory is involved. Research the CURRENT rule for the actual direction of travel and pet species from the responsible government authority.
 
-IMPORTANT TIMING WARNING: ALL USA documentation must be completed BEFORE the pet leaves the United States. If the pet has already left the USA, it may be too late to complete some steps and additional quarantine or testing requirements may apply on return.
+EXPORTING FROM THE UNITED STATES:
+- The destination country sets its pet-entry certificate requirements. USDA APHIS confirms there is NOT one universal health certificate.
+- Do NOT automatically require APHIS Form 7001 or APHIS endorsement. Use the destination-specific certificate and require endorsement only when the current official destination instructions require it.
+- Source destination-specific U.S. export requirements from the current USDA APHIS destination page and, where useful, the destination government's own authority.
 
-NOTE: Puerto Rico, Guam, US Virgin Islands, American Samoa, and Northern Mariana Islands are US territories subject to the SAME federal CDC and USDA requirements as the continental United States. If origin or destination is any US territory, ALL items below are required.
+ENTERING OR RETURNING TO THE UNITED STATES:
+- For dogs, use current CDC dog-import rules and distinguish the dog's country history during the 6 months before U.S. entry and whether rabies vaccination is U.S.-issued or foreign-issued.
+- Do NOT treat a normal rabies certificate, APHIS Form 7001, or an export health certificate as a universal substitute for CDC's current import documents.
+- Dogs that have only been in dog-rabies-free or low-risk countries during the prior 6 months generally use the CDC Dog Import Form plus CDC's baseline age, health, and microchip requirements; high-risk-country histories have additional requirements.
+- If the trip data does not establish the pet's full 6-month country history or vaccination origin, state the requirement conditionally and tell the user what fact must be confirmed. Do not guess.
+- Do NOT state that a 28-day quarantine universally applies. CDC describes quarantine or reservation requirements only for particular scenarios.
+- For cats, do not apply dog-only CDC forms or dog-rabies rules.
+- U.S. territories may have additional territorial entry rules. Research the receiving territory's responsible authority rather than assuming continental-U.S. rules are the complete requirement set.
 
-MANDATORY USA CHECKLIST ITEMS TO INCLUDE:
+Current primary sources:
+- USDA APHIS pet travel: https://www.aphis.usda.gov/pet-travel
+- CDC dog importation: https://www.cdc.gov/importation/dogs
+` : "No U.S.-specific route instruction applies."}
 
-1. "USDA-Accredited Veterinarian Health Exam" (deadline: 10 days before departure from USA)
-   - The examining vet MUST be USDA-accredited (not just any licensed vet)
-   - Find USDA-accredited vets at: https://www.aphis.usda.gov/pet-travel
-   - Vet completes APHIS Form 7001 (health certificate)
-   - This exam must happen within 10 days of the departure date FROM the USA
+===== CURRENT EU CERTIFICATE TRANSITION =====
+If the destination is in the European Union, verify the current EU non-commercial pet rules against the European Commission and the current USDA APHIS destination page. The current certificate model applies from October 1, 2026. Certificates under the prior model remain eligible only when issued before October 1, 2026. The current EU animal health certificate is valid for entry for 10 days from issue by the official veterinarian (extended by the sea journey duration where applicable), not 30 days.
+Primary EU source: https://food.ec.europa.eu/animals/live-animal-movements/dogs-cats-and-ferrets/bringing-pet-eu-non-eu-country_en
 
-2. "USDA APHIS State Office Endorsement — MUST BE DONE BEFORE LEAVING USA" (deadline: 5-7 days before USA departure)
-   - After the vet signs Form 7001, the owner must send or hand-deliver the original signed form to their state's USDA APHIS Veterinary Services office for an official government endorsement stamp
-   - This CANNOT be done from abroad — it must happen before the pet leaves the USA
-   - Processing takes 1-3 business days by mail, same-day if hand-delivered
-   - Find your state USDA office: https://www.aphis.usda.gov/pet-travel
-   - ⚠️ WARNING: Skipping this step means the pet will be quarantined for 28 days or required to complete a titer test upon return to the USA
-
-3. "CDC Dog Import Online Form" (deadline: 2-5 business days before USA arrival)
-   - Required for ALL dogs entering the USA since 2024
-   - Submit online at: https://www.cdc.gov/importation/dogs
-   - Must be submitted before arrival — cannot be done at the border
-
-4. "Valid US-Issued Rabies Vaccination Certificate" 
-   - Dog must have been vaccinated against rabies IN THE UNITED STATES by a licensed US veterinarian
-   - Certificate must show: vet name, vet license number, vaccine brand, lot number, date given, expiration date
-   - If the rabies vaccine was given abroad, it may NOT be accepted by US Customs — get a US vet to administer or re-administer before departure
-   - Source: https://www.cdc.gov/importation/dogs
-` : "No USA-specific documentation required for this route."}
+===== CAYMAN ISLANDS CURRENT DOG AND CAT RULE =====
+If the destination is the Cayman Islands, use the current USDA APHIS Cayman Islands page and distinguish dogs/cats from other species. For dogs and cats traveling from the United States, the health certificate must be issued by a USDA-accredited veterinarian and DOES NOT require APHIS endorsement. Do not apply that exception to other species. Include the Cayman Islands import permit and the exact current certificate timing from the official source.
+Primary Cayman source: https://www.aphis.usda.gov/pet-travel/us-to-another-country-export/pet-travel-us-cayman-islands
 
 ===== U.S. SERVICE-ANIMAL WORKFLOW =====
 ${usaInvolved && pets.some(p => p.is_service_animal || p.pet_type === 'service_animal') ? `Include a government-form item for the current U.S. DOT Service Animal Air Transportation Form, sourced to https://www.transportation.gov/individuals/aviation-consumer-protection/service-animals/Air_Transportation_Form, and a separate airline-policy item for the airline's official submission process, sourced to the airline. Include the U.S. DOT relief-attestation step when a flight segment is scheduled for 8 hours or more. Do not request a disability diagnosis, certification, or documentation beyond what the responsible government or destination jurisdiction permits.` : `Do not add a generic U.S. service-animal form requirement. Only include service-animal documents explicitly required by a government authority or carrier for this route.`}
@@ -305,12 +301,12 @@ ${usaInvolved && pets.some(p => p.is_service_animal || p.pet_type === 'service_a
 ===== DIRECTION-SPECIFIC REQUIREMENTS =====
 
 EXPORT from ${trip.origin_country} (rules for LEAVING the origin country):
-${isOriginUSA ? "- USDA APHIS Form 7001 health certificate (see USA requirements above)" : ""}
+${isOriginUSA ? "- Use the current USDA APHIS destination page to identify the destination-specific certificate, timing, and whether endorsement is required. Do not assume Form 7001." : ""}
 ${trip.origin_country === "Colombia" ? "- ICA (Instituto Colombiano Agropecuario) export health certificate — apply at ica.gov.co" : ""}
 - Any other export requirements specific to ${trip.origin_country}
 
 IMPORT into ${trip.destination_country} (rules for ENTERING the destination country):
-${isDestUSA ? "- See USA requirements above (CDC form, endorsed health cert, rabies cert)" : ""}
+${isDestUSA ? "- Apply current CDC dog-import rules only to dogs, based on 6-month country history and rabies-vaccination origin. Research separate federal and territorial rules for other species or U.S. territories." : ""}
 ${trip.destination_country === "Colombia" ? `- ICA import permit — apply online at https://www.ica.gov.co before travel
 - Health certificate issued by licensed vet in ${trip.origin_country}, endorsed by ${trip.origin_country} agricultural authority
 - Current rabies vaccination certificate (valid, not expired)
@@ -384,7 +380,7 @@ Only populate fee fields when the same official source explicitly publishes an e
       originCountry: trip.origin_country,
       destinationCountry: trip.destination_country,
       transportationType: trip.transportation_type || "air",
-      travelArrangementKey: `travel-support-v1:${arrangementCacheKey(trip.air_travel_arrangements, pets.map(p => p.id))}`,
+      travelArrangementKey: `travel-support-v2:${trip.departure_date || 'date-unknown'}:${arrangementCacheKey(trip.air_travel_arrangements, pets.map(p => p.id))}`,
     }),
   });
 

@@ -137,6 +137,12 @@ jobs:
       - name: Run travel claims hygiene audit
         run: python3 scripts/travel_claims_hygiene_audit.py
 
+      - name: Run time-sensitive travel rule guardrail audit
+        run: python3 scripts/travel_rule_guardrail_audit.py
+
+      - name: Run operational table security audit
+        run: python3 scripts/operational_table_security_audit.py
+
       - name: Run legal and admin hygiene audit
         run: python3 scripts/legal_admin_hygiene_audit.py
 

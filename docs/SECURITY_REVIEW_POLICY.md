@@ -30,6 +30,8 @@ The exception requires all of the following:
 
 The exception must not be used to ignore a failed gate, unresolved critical finding, unexplained secret exposure, destructive migration without recovery evidence, or a production smoke-test failure. Any such result stops the release until it is resolved.
 
+Time-limited dependency exceptions may be recorded only when no patched upstream release exists, the affected code path is demonstrably unreachable, the exact advisory and rationale are enforced by an automated gate, and the exception has a near-term expiry date that makes the gate fail closed. These exceptions remain accepted residual risk and must be listed in the release record.
+
 At minimum, review should consider:
 - cross-user/IDOR access
 - fail-open behavior
