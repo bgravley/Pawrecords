@@ -4,6 +4,7 @@ import { supabase } from "./lib/supabase";
 import * as db from "./lib/db";
 import { resizeImageFile } from "./lib/imageResize";
 import { createScanImagePayload, MAX_SCAN_REQUEST_BYTES, readScanResponse, SCAN_RETRY_MESSAGE, scanRequestSize } from "./lib/aiScanPayload";
+import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.mjs?url";
 
 const WeightHistoryChart = lazy(() => import("./WeightHistoryChart.jsx"));
 
@@ -981,16 +982,14 @@ const AIScanModal=({dog,state,userId,userEmail,dispatch,onSave,onClose,onUpgrade
   };
 
   const loadPdfAsImage=async(arrayBuffer)=>{
-    await new Promise((resolve,reject)=>{
-      if(window.pdfjsLib){resolve();return;}
-      const script=document.createElement("script");
-      script.src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";script.integrity="sha512-q+4liFwdPC/bNdhUpZx6aXDx/h77yEQtn4I1slHydcbZK34nLaR3cAeYSJshoxIOq3mjEf7xJE8YWIUHMn+oCQ==";script.crossOrigin="anonymous";script.referrerPolicy="no-referrer";
-      script.onload=()=>{window.pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";resolve();};
-      script.onerror=()=>reject(new Error("Failed to load PDF library"));
-      document.head.appendChild(script);
-    });
-    const pdfjsLib=window.pdfjsLib;
-    const pdf=await pdfjsLib.getDocument({data:new Uint8Array(arrayBuffer),isEvalSupported:false}).promise;
+    const pdfjsLib=await import("pdfjs-dist/build/pdf.mjs");
+    pdfjsLib.GlobalWorkerOptions.workerSrc=pdfWorkerUrl;
+    const pdf=await pdfjsLib.getDocument({
+      data:new Uint8Array(arrayBuffer),
+      isEvalSupported:false,
+      enableScripting:false,
+      enableXfa:false,
+    }).promise;
     const results=[];
     const pagesToLoad=Math.min(pdf.numPages,MAX_IMAGES-images.length);
     for(let i=1;i<=pagesToLoad;i++){
