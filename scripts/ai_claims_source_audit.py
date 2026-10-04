@@ -67,6 +67,8 @@ def route_for(path):
     if path == Path('index.html'):
         return '/'
     rel = path.relative_to('public').as_posix()
+    if rel.endswith('/index.html'):
+        return '/' + rel[:-len('index.html')]
     return '/' + rel
 
 

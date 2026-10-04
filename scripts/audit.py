@@ -340,7 +340,10 @@ for path in all_files(("public",), (".html",)):
     content = read(path)
     if re.search(r'<meta[^>]+name=["\']robots["\'][^>]+content=["\'][^"\']*noindex', content, re.IGNORECASE):
         continue
-    full_url = "https://www.yourpetpass.com" + path.replace("public/", "/")
+    route = path.replace("public/", "/")
+    if route.endswith("/index.html"):
+        route = route[:-len("index.html")]
+    full_url = "https://www.yourpetpass.com" + route
     if full_url not in sitemap_urls:
         missing_from_sitemap.append(path)
 for path in missing_from_sitemap:
