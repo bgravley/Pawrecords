@@ -12,6 +12,7 @@ import os
 import re
 import subprocess
 import sys
+from datetime import date
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(ROOT)
@@ -553,8 +554,42 @@ try:
     if vuln_count is None:
         remind("Could not parse npm audit output — run `npm audit --production` manually.")
     elif vuln_count > 0:
-        sev = audit_data.get("metadata", {}).get("vulnerabilities", {})
-        fail(f"npm audit found {vuln_count} known vulnerabilities in production dependencies ({sev}).")
+        # node-forge has no patched release for this September 2026 advisory.
+        # Its affected verification path is unreachable here: YourPetPass uses
+        # passkit-generator only to SIGN passes with server-owned certificates;
+        # it never verifies requester-supplied signatures or certificates.
+        # Keep this exception short-lived so a patched upstream release becomes
+        # a required update instead of a permanent audit suppression.
+        accepted_advisories = {
+            "https://github.com/advisories/GHSA-86w9-cpqp-85rv": date(2026, 11, 1),
+        }
+        vulnerabilities = audit_data.get("vulnerabilities", {})
+        memo = {}
+
+        def unresolved(name, trail=()):
+            if name in memo:
+                return memo[name]
+            if name in trail:
+                return True
+            entry = vulnerabilities.get(name, {})
+            for cause in entry.get("via", []):
+                if isinstance(cause, dict):
+                    expires = accepted_advisories.get(cause.get("url"))
+                    if not expires or date.today() > expires:
+                        memo[name] = True
+                        return True
+                elif unresolved(cause, trail + (name,)):
+                    memo[name] = True
+                    return True
+            memo[name] = False
+            return False
+
+        unresolved_packages = sorted(name for name in vulnerabilities if unresolved(name))
+        if unresolved_packages:
+            fail(f"npm audit found unresolved production vulnerabilities in: {', '.join(unresolved_packages)}.")
+        else:
+            ok("npm audit — no unaccepted production vulnerabilities")
+            remind("Temporary node-forge GHSA-86w9-cpqp-85rv exception expires 2026-11-01; the affected signature-verification path is not used by the server-only Apple pass signer.")
     else:
         ok("npm audit — 0 known vulnerabilities in production dependencies")
 except Exception as e:
