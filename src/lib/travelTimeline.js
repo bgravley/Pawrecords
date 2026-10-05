@@ -49,3 +49,50 @@ export function parseInstructionSteps(value) {
     return text.slice(start, end).trim();
   }).filter(Boolean);
 }
+
+
+// Deterministic date math for the reviewed structured knowledge layer.
+// AI may research a missing rule, but deadline arithmetic is calculated here.
+const KNOWLEDGE_DAY_MS = 24 * 60 * 60 * 1000;
+const knowledgeDate = value => {
+  if (!value) return null;
+  const d = new Date(`${String(value).slice(0,10)}T12:00:00Z`);
+  return Number.isNaN(d.getTime()) ? null : d;
+};
+const addKnowledgeTime = (date, amount, unit) => {
+  const d = new Date(date.getTime());
+  if (unit === 'hours') return new Date(d.getTime() + amount * 60 * 60 * 1000);
+  if (unit === 'days') return new Date(d.getTime() + amount * KNOWLEDGE_DAY_MS);
+  if (unit === 'weeks') return new Date(d.getTime() + amount * 7 * KNOWLEDGE_DAY_MS);
+  if (unit === 'months') { d.setUTCMonth(d.getUTCMonth() + amount); return d; }
+  return null;
+};
+const knowledgeIso = d => d ? d.toISOString().slice(0,10) : null;
+
+export function calculateRequirementWindow(requirement, { departureDate, arrivalDate } = {}) {
+  if (!requirement?.timing_unit || !requirement?.timing_direction) return { calculable:false, reason:'No structured timing rule' };
+  if (requirement.timing_direction === 'after_event' || requirement.timing_direction === 'valid_for') {
+    return { calculable:false, reason:'Requires the triggering event date', timing_basis:requirement.timing_basis || null };
+  }
+  const anchor = requirement.timing_direction === 'before_arrival'
+    ? knowledgeDate(arrivalDate || departureDate)
+    : knowledgeDate(departureDate);
+  if (!anchor) return { calculable:false, reason:'Travel date required' };
+  const min = requirement.timing_min == null ? null : Number(requirement.timing_min);
+  const max = requirement.timing_max == null ? null : Number(requirement.timing_max);
+  return {
+    calculable:true,
+    anchor:knowledgeIso(anchor),
+    earliest:max == null ? null : knowledgeIso(addKnowledgeTime(anchor,-max,requirement.timing_unit)),
+    latest:min == null ? null : knowledgeIso(addKnowledgeTime(anchor,-min,requirement.timing_unit)),
+    timing_unit:requirement.timing_unit,
+    timing_direction:requirement.timing_direction,
+  };
+}
+
+export function buildReviewedTravelTimeline(requirements, trip) {
+  return (requirements || [])
+    .map(requirement => ({ requirement, window:calculateRequirementWindow(requirement,trip) }))
+    .filter(item => item.window.calculable)
+    .sort((a,b)=>(a.window.latest || a.window.earliest || '').localeCompare(b.window.latest || b.window.earliest || ''));
+}
