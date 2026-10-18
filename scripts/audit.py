@@ -13,6 +13,7 @@ import re
 import subprocess
 import sys
 from datetime import date
+from dependency_audit_result import parse_audit_result
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(ROOT)
@@ -549,10 +550,10 @@ else:
 print("[25/28] Checking npm audit for known vulnerabilities (production deps)...")
 try:
     npm_result = run(["npm", "audit", "--production", "--json"], timeout=60)
-    audit_data = json.loads(npm_result.stdout) if npm_result.stdout else {}
+    audit_data = parse_audit_result(npm_result.stdout, npm_result.returncode)
     vuln_count = audit_data.get("metadata", {}).get("vulnerabilities", {}).get("total")
     if vuln_count is None:
-        remind("Could not parse npm audit output — run `npm audit --production` manually.")
+        fail("Could not parse npm audit output; dependency security is unverified.")
     elif vuln_count > 0:
         # node-forge has no patched release for this September 2026 advisory.
         # Its affected verification path is unreachable here: YourPetPass uses
@@ -593,7 +594,7 @@ try:
     else:
         ok("npm audit — 0 known vulnerabilities in production dependencies")
 except Exception as e:
-    remind(f"Could not run npm audit ({e}) — run it manually.")
+    fail(f"Could not complete npm audit ({e}); dependency security is unverified.")
 
 print("[26/28] Checking core security headers are configured in vercel.json...")
 try:

@@ -35,6 +35,9 @@ jobs:
       - name: Run public bundle loading audit
         run: python3 scripts/bundle_loading_audit.py
 
+      - name: Test dependency audit failure handling
+        run: python3 -m unittest discover -s scripts -p test_dependency_audit_result.py
+
       - name: Run full site audit
         run: python3 scripts/audit.py
 
