@@ -10,7 +10,7 @@
 
 import { verifyUser } from './_verifyUser.js';
 import { setCorsHeaders } from './_cors.js';
-import { isCanadaUs, routeRuleCacheKey, validCanadaUsCache, finalizeCanadaUs, canadaUsResearchInstruction } from './_canadaUsTravel.js';
+import { isCanadaUs, routeRuleCacheKey, validCanadaUsCache, finalizeCanadaUs, canadaUsBaseline, canadaUsResearchInstruction } from './_canadaUsTravel.js';
 
 // ── Logging ────────────────────────────────────────────────────────────────
 async function logUsage({ userId, userEmail, model, inputTokens, outputTokens, destination, success, error, feature = 'travel_checklist' }) {
@@ -333,7 +333,9 @@ export default async function handler(req, res) {
   }
 
   const { messages, destination, originCountry, destinationCountry, transportationType, travelArrangementKey: requestedArrangementKey } = req.body;
-  const travelArrangementKey = routeRuleCacheKey(originCountry, destinationCountry, requestedArrangementKey);
+  const reviewedLand = isCanadaUs(originCountry, destinationCountry) && String(transportationType).trim().toLowerCase() === 'land';
+  const routeKey = routeRuleCacheKey(originCountry, destinationCountry, requestedArrangementKey);
+  const travelArrangementKey = reviewedLand ? `${routeKey}:land-baseline-v1` : routeKey;
 
   if (!messages || !Array.isArray(messages)) {
     return res.status(400).json({ error: 'messages array required' });
@@ -360,9 +362,17 @@ export default async function handler(req, res) {
     }
 
     // ── Check the route cache — free for everyone, no quota cost ────────────
-    const cached = await getCachedChecklist(originCountry, destinationCountry, transportationType, travelArrangementKey);
+    let cached = await getCachedChecklist(originCountry, destinationCountry, transportationType, travelArrangementKey);
+    const cacheHit = Boolean(cached);
+    // Airline/airport extras are not applicable to this land-route baseline.
+    // Serve reviewed rules directly, preserving auth/Premium gates and avoiding
+    // paid generation, quota consumption, and stochastic malformed extras.
+    if (reviewedLand && !cached) {
+      cached = canadaUsBaseline();
+      await saveToCache(originCountry, destinationCountry, cached, transportationType, travelArrangementKey);
+    }
     if (cached) {
-      console.log(`Cache hit for ${originCountry} → ${destinationCountry} (${transportationType || 'air'})`);
+      console.log(`${cacheHit ? 'Cache hit' : 'Reviewed land baseline'} for ${originCountry} → ${destinationCountry} (${transportationType || 'air'})`);
       let usageSummary = null;
       if (userId && userProfile) {
         try {
@@ -378,7 +388,7 @@ export default async function handler(req, res) {
       }
       return res.status(200).json({
         choices: [{ message: { content: JSON.stringify(cached) } }],
-        cached: true,
+        cached: cacheHit,
         usageSummary,
       });
     }

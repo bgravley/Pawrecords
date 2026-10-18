@@ -70,7 +70,7 @@ test('prewarm pipeline never writes or returns rejected generation; valid output
         return new Response('[]');
       };
       const res = response();
-      await handler({method:'POST',headers:{'x-prewarm-secret':'test-only'},body:{messages:[{content:'Research Canada to US'}],originCountry:'Canada',destinationCountry:'United States',transportationType:'land'}},res);
+      await handler({method:'POST',headers:{'x-prewarm-secret':'test-only'},body:{messages:[{content:'Research Canada to US'}],originCountry:'Canada',destinationCountry:'United States',transportationType:'air'}},res);
       assert.equal(res.statusCode,expected);
       const writes = calls.filter(c => c.url.includes('travel_route_cache') && c.options.method === 'POST');
       assert.match(calls.find(c => c.url.includes('travel_route_cache')).url, /ca-us-2026-10-18-v1/);
@@ -82,6 +82,67 @@ test('prewarm pipeline never writes or returns rejected generation; valid output
         assert.deepEqual(JSON.parse(res.body.choices[0].message.content),canadaUsBaseline());
         assert.match(JSON.parse(writes[0].options.body).travel_arrangement_key,/ca-us-2026-10-18-v1/);
       }
+    }
+  } finally {
+    global.fetch = originalFetch;
+    for (const key of Object.keys(process.env)) if (!(key in oldEnv)) delete process.env[key];
+    Object.assign(process.env,oldEnv);
+  }
+});
+
+test('land prewarm returns reviewed rules without model calls or quota writes', async () => {
+  const originalFetch = global.fetch;
+  const oldEnv = {...process.env};
+  Object.assign(process.env, {CRON_SECRET:'test-only',SUPABASE_URL:'https://example.invalid',SUPABASE_SERVICE_KEY:'test-only'});
+  try {
+    const calls = [];
+    let stored = null;
+    global.fetch = async (url, options = {}) => {
+      calls.push({url, options});
+      assert.ok(url.includes('travel_route_cache'), 'Land baseline must not call models or write AI usage');
+      if (options.method === 'POST') stored = JSON.parse(options.body).checklist_json;
+      return new Response(JSON.stringify(!options.method && stored ? [{checklist_json:stored}] : []));
+    };
+    for (const cached of [false, true]) {
+      const res = response();
+      await handler({method:'POST',headers:{'x-prewarm-secret':'test-only'},body:{messages:[],originCountry:'Canada',destinationCountry:'US',transportationType:'land'}},res);
+      assert.equal(res.statusCode,200);
+      assert.equal(res.body.cached,cached);
+      assert.deepEqual(JSON.parse(res.body.choices[0].message.content),canadaUsBaseline());
+    }
+    assert.equal(calls.filter(c => c.options.method === 'POST').length,1);
+    assert.match(calls[0].url,/land-baseline-v1/);
+  } finally {
+    global.fetch = originalFetch;
+    for (const key of Object.keys(process.env)) if (!(key in oldEnv)) delete process.env[key];
+    Object.assign(process.env,oldEnv);
+  }
+});
+
+test('reviewed land rules retain authentication and Premium gates without charging credits', async () => {
+  const originalFetch = global.fetch;
+  const oldEnv = {...process.env};
+  Object.assign(process.env, {SUPABASE_URL:'https://example.invalid',SUPABASE_SERVICE_KEY:'test-only'});
+  try {
+    for (const [tier, token, status] of [['premium',false,401],['free',true,403],['premium',true,200]]) {
+      const writes = [];
+      global.fetch = async (url, options = {}) => {
+        if (options.method) writes.push(url);
+        if (url.includes('/auth/')) return new Response(JSON.stringify({id:'synthetic',email:'test@example.invalid'}));
+        if (url.includes('/profiles')) return new Response(JSON.stringify([{subscription_tier:tier,travel_credits_balance:2}]));
+        if (url.includes('/ai_usage_log')) return new Response('[]',{headers:{'content-range':'0-0/3'}});
+        assert.ok(url.includes('travel_route_cache'), 'No model call permitted');
+        return new Response('[]');
+      };
+      const res = response();
+      await handler({method:'POST',headers:token ? {authorization:'Bearer test-only'} : {},body:{messages:[],originCountry:'Canada',destinationCountry:'US',transportationType:'land'}},res);
+      assert.equal(res.statusCode,status);
+      if (status === 200) {
+        assert.deepEqual(res.body.usageSummary,{used:3,limit:3,creditsBalance:2});
+        assert.deepEqual(JSON.parse(res.body.choices[0].message.content),canadaUsBaseline());
+      }
+      assert.ok(writes.every(url => url.includes('travel_route_cache')));
+      if (status !== 200) assert.equal(writes.length,0);
     }
   } finally {
     global.fetch = originalFetch;
