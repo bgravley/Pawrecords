@@ -10,7 +10,7 @@
 
 import { verifyUser } from './_verifyUser.js';
 import { setCorsHeaders } from './_cors.js';
-import { isCanadaUs, routeRuleCacheKey, validCanadaUsCache, finalizeCanadaUs, canadaUsBaseline, canadaUsResearchInstruction } from './_canadaUsTravel.js';
+import { isCanadaUs, routeRuleCacheKey, validCanadaUsCache, finalizeCanadaUs, canadaUsBaseline, canadaUsResearchFallback, canadaUsResearchInstruction } from './_canadaUsTravel.js';
 import { normalizedDemandSpecies } from './_travelKnowledge.js';
 
 // ── Logging ────────────────────────────────────────────────────────────────
@@ -478,6 +478,9 @@ export default async function handler(req, res) {
 
     const gotRealResult = Array.isArray(checklistItems) && (checklistItems.length > 0 || isCanadaUs(originCountry, destinationCountry));
 
+    if (!gotRealResult && isCanadaUs(originCountry, destinationCountry)) {
+      throw new Error('Supplemental research returned no parseable checklist');
+    }
     if (!gotRealResult) {
       await logUsage({
         userId, userEmail, model: 'gpt-4o',
@@ -539,6 +542,17 @@ export default async function handler(req, res) {
 
   } catch (err) {
     await logUsage({ userId, userEmail, model: 'gpt-4o', inputTokens: 0, outputTokens: 0, destination, success: false, error: err.message });
+    if (isCanadaUs(originCountry, destinationCountry)) {
+      const safeItems = canadaUsResearchFallback();
+      await saveToCache(originCountry, destinationCountry, safeItems, transportationType, travelArrangementKey);
+      return res.status(200).json({
+        choices: [{ message: { content: JSON.stringify(safeItems) } }],
+        cached: false,
+        usageSummary: userProfile && quotaCount !== null ? {
+          used: quotaCount, limit: monthlyLimit, creditsBalance: userProfile.creditsBalance,
+        } : null,
+      });
+    }
     return res.status(500).json({ error: `${err.message} — this attempt was NOT counted against your monthly limit.` });
   }
 }

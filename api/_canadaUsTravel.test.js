@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { canadaUsBaseline, finalizeCanadaUs, routeRuleCacheKey, validCanadaUsCache, isCanadaUs } from './_canadaUsTravel.js';
+import { canadaUsBaseline, canadaUsResearchFallback, finalizeCanadaUs, routeRuleCacheKey, validCanadaUsCache, isCanadaUs } from './_canadaUsTravel.js';
 import handler from './ai-travel.js';
 
 const item = (description, applies_to = 'dog') => ({title:'Travel task', description, applies_to, requirement_type:'airline_policy', source_type:'airline', source_url:'https://www.aircanada.com/'});
@@ -55,13 +55,13 @@ test('safe supplemental logistics survive; other routes retain original behavior
   assert.throws(() => finalizeCanadaUs([null], 'Canada', 'US'), /malformed/);
 });
 function response() { return {statusCode:200, setHeader(){}, status(n){this.statusCode=n;return this;}, json(x){this.body=x;return this;}, end(){return this;}}; }
-test('prewarm pipeline never writes or returns rejected generation; valid output is versioned and cached', async () => {
+test('prewarm caches only reviewed rules with an explicit research notice when extras are rejected', async () => {
   const originalFetch = global.fetch;
   const oldEnv = {...process.env};
   Object.assign(process.env, {CRON_SECRET:'test-only',OPENAI_API_KEY:'test-only',SUPABASE_URL:'https://example.invalid',SUPABASE_SERVICE_KEY:'test-only'});
   delete process.env.ANTHROPIC_API_KEY;
   try {
-    for (const [generated, expected] of [[regressions,500],[[],200]]) {
+    for (const [generated, expected] of [[regressions,'fallback'],[[],'success']]) {
       const calls = [];
       global.fetch = async (url, options = {}) => {
         calls.push({url, options});
@@ -71,11 +71,13 @@ test('prewarm pipeline never writes or returns rejected generation; valid output
       };
       const res = response();
       await handler({method:'POST',headers:{'x-prewarm-secret':'test-only'},body:{messages:[{content:'Research Canada to US'}],originCountry:'Canada',destinationCountry:'United States',transportationType:'air'}},res);
-      assert.equal(res.statusCode,expected);
+      assert.equal(res.statusCode,200);
       const writes = calls.filter(c => c.url.includes('travel_route_cache') && c.options.method === 'POST');
       assert.match(calls.find(c => c.url.includes('travel_route_cache')).url, /ca-us-2026-10-18-v1/);
-      if (expected === 500) {
-        assert.equal(writes.length,0);
+      if (expected === 'fallback') {
+        assert.equal(writes.length,1);
+        assert.deepEqual(JSON.parse(res.body.choices[0].message.content),canadaUsResearchFallback());
+        assert.ok(validCanadaUsCache(JSON.parse(writes[0].options.body).checklist_json, 'Canada', 'US'));
         assert.ok(calls.filter(c => c.url.includes('ai_usage_log')).every(c => JSON.parse(c.options.body).success === false));
       } else {
         assert.equal(writes.length,1);
@@ -144,6 +146,49 @@ test('reviewed land rules retain authentication and Premium gates without chargi
       }
       assert.ok(writes.every(url => url.includes('travel_route_cache') || url.endsWith('/rpc/record_travel_route_demand')));
       if (status !== 200) assert.equal(writes.length,0);
+    }
+  } finally {
+    global.fetch = originalFetch;
+    for (const key of Object.keys(process.env)) if (!(key in oldEnv)) delete process.env[key];
+    Object.assign(process.env,oldEnv);
+  }
+});
+
+test('fallback notice is visible and exact; edited fallback cannot enter cache', () => {
+  const fallback = canadaUsResearchFallback();
+  assert.match(fallback.at(-1).description, /could not be validated/);
+  assert.match(fallback.at(-1).description, /not complete travel clearance/);
+  assert.ok(validCanadaUsCache(fallback,'Canada','US'));
+  fallback.at(-1).description = 'No additional requirements apply';
+  assert.equal(validCanadaUsCache(fallback,'Canada','US'),false);
+});
+
+test('failed air research returns explicit fallback without spending a purchased credit', async () => {
+  const originalFetch = global.fetch;
+  const oldEnv = {...process.env};
+  Object.assign(process.env, {SUPABASE_URL:'https://example.invalid',SUPABASE_SERVICE_KEY:'test-only',OPENAI_API_KEY:'test-only'});
+  delete process.env.ANTHROPIC_API_KEY;
+  try {
+    for (const mode of ['invalid-items','invalid-json','provider-error']) {
+      const calls = [];
+      global.fetch = async (url, options = {}) => {
+        calls.push({url,options});
+        if (url.includes('/auth/')) return new Response(JSON.stringify({id:'synthetic'}));
+        if (url.includes('/profiles')) return new Response(JSON.stringify([{subscription_tier:'premium',travel_credits_balance:2}]));
+        if (url.includes('/ai_usage_log') && !options.method) return new Response('[]',{headers:{'content-range':'0-0/3'}});
+        if (url.includes('openai.com')) {
+          if (mode === 'provider-error') return new Response('{}',{status:503});
+          return new Response(JSON.stringify({output:[{type:'message',content:[{type:'output_text',text:mode === 'invalid-json' ? 'No JSON' : JSON.stringify(regressions)}]}]}));
+        }
+        return new Response('[]');
+      };
+      const res = response();
+      await handler({method:'POST',headers:{authorization:'Bearer test-only'},body:{messages:[],originCountry:'Canada',destinationCountry:'US',transportationType:'air'}},res);
+      assert.equal(res.statusCode,200);
+      assert.deepEqual(JSON.parse(res.body.choices[0].message.content),canadaUsResearchFallback());
+      assert.deepEqual(res.body.usageSummary,{used:3,limit:3,creditsBalance:2});
+      assert.ok(!calls.some(c => c.options.method === 'PATCH'));
+      assert.ok(calls.filter(c => c.url.includes('ai_usage_log') && c.options.method).every(c => JSON.parse(c.options.body).success === false));
     }
   } finally {
     global.fetch = originalFetch;
