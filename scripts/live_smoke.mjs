@@ -1,4 +1,6 @@
 import { chromium } from 'playwright';
+import assert from 'node:assert/strict';
+import { canadaUsBaseline, validCanadaUsCache } from '../api/_canadaUsTravel.js';
 
 const BASE = (process.env.E2E_BASE_URL || 'https://yourpetpass.com').replace(/\/$/, '');
 const OIDC_TOKEN = process.env.E2E_GITHUB_OIDC_TOKEN || '';
@@ -629,6 +631,40 @@ await check('Authenticated production customer flow works end to end', async () 
       if (!Array.isArray(trips[0].pet_ids) || !trips[0].pet_ids.includes(primaryDogId)) throw new Error('Created trip did not include the test pet');
       primaryTripId = trips[0].id;
     });
+
+    // Explicit dispatch only: two real model calls use the existing synthetic
+    // account's normal quota. Never change allowances or use a prewarm bypass.
+    if (process.env.E2E_CANADA_US === 'true') {
+      for (const mode of ['air', 'land']) {
+        await check(`Live Canada–U.S. ${mode} generation and cache`, async () => {
+          const payload = {
+            originCountry: 'Canada', destinationCountry: 'United States',
+            destination: 'Seattle, United States', transportationType: mode,
+            travelArrangementKey: `e2e-${RUN_TAG}-${mode}`,
+            messages: [{ role: 'user', content: `Create a pet travel checklist for a dog and a cat traveling from Vancouver, Canada to Seattle, Washington, United States by ${mode}. Include applicable certificates, endorsement, CDC forms, microchips, cat inspection, state rules and carrier logistics. The animals' full travel history is not yet known. Return a JSON array.` }],
+          };
+          let first;
+          for (const attempt of [0, 1]) {
+            const response = await context.request.post(`${BASE}/api/ai-travel`, {
+              headers: { Authorization: `Bearer ${primarySession.accessToken}` },
+              data: payload, timeout: 180000,
+            });
+            const body = await response.json();
+            assert.equal(response.status(), 200, `Generation failed: ${body.error || response.status()}`);
+            const items = JSON.parse(body.choices?.[0]?.message?.content);
+            assert.ok(validCanadaUsCache(items, 'Canada', 'United States'), 'Live guidance failed reviewed baseline/extra validation');
+            assert.deepEqual(items.slice(0, 7), canadaUsBaseline());
+            assert.equal(body.cached, attempt === 1, 'Expected fresh generation followed by a cache hit');
+            if (attempt === 0) first = body;
+            else {
+              assert.deepEqual(items, JSON.parse(first.choices[0].message.content));
+              assert.deepEqual(body.usageSummary, first.usageSummary, 'Cache hit changed quota or credits');
+            }
+            console.log(`  ✓ ${mode}: ${items.length} validated items; cached=${body.cached}; seven official-source rules intact`);
+          }
+        });
+      }
+    }
 
     await step('Sign out works and a second one-time login preserves records', async () => {
       await page.goto(BASE, { waitUntil: 'domcontentloaded', timeout: 30000 });
