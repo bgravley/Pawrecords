@@ -2,6 +2,7 @@
 from pathlib import Path
 
 migration = Path('supabase/migrations/20261018160000_pet_travel_knowledge_system.sql').read_text(encoding='utf-8').lower()
+index_migration = Path('supabase/migrations/20261018164500_index_pet_travel_knowledge_foreign_keys.sql').read_text(encoding='utf-8').lower()
 api = Path('api/travel-requirements.js').read_text(encoding='utf-8')
 ai = Path('api/ai-travel.js').read_text(encoding='utf-8')
 hub = Path('public/pet-travel-requirements/index.html').read_text(encoding='utf-8')
@@ -24,6 +25,8 @@ for table in tables:
     ])
 
 checks.extend([
+    (index_migration.count('create index if not exists') == 6,
+     'all foreign keys flagged by the database advisor have covering indexes'),
     ('grant select, insert, update, delete on table public.travel_requirements to service_role' in migration,
      'explicit service-role grant survives the October 2026 Data API change'),
     ('security definer' in migration and 'set search_path = \'\'' in migration,
