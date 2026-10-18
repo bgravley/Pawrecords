@@ -11,6 +11,7 @@
 import { verifyUser } from './_verifyUser.js';
 import { setCorsHeaders } from './_cors.js';
 import { isCanadaUs, routeRuleCacheKey, validCanadaUsCache, finalizeCanadaUs, canadaUsResearchInstruction } from './_canadaUsTravel.js';
+import { normalizedDemandSpecies } from './_travelKnowledge.js';
 
 // ── Logging ────────────────────────────────────────────────────────────────
 async function logUsage({ userId, userEmail, model, inputTokens, outputTokens, destination, success, error, feature = 'travel_checklist' }) {
@@ -165,6 +166,38 @@ async function saveToCache(originCountry, destinationCountry, checklistItems, tr
     });
   } catch (e) {
     console.error('Cache save failed (non-critical):', e.message);
+  }
+}
+
+// Aggregate route demand feeds the private editorial queue. This stores only
+// country/species/mode counts — never a user, pet, city, airline, or trip date.
+// It is deliberately non-critical: a temporary analytics failure must not stop
+// a customer from receiving a checklist they are entitled to use.
+async function recordRouteDemand(originCountry, destinationCountry, species, transportMode) {
+  if (!originCountry || !destinationCountry) return;
+  try {
+    const response = await fetch(`${process.env.SUPABASE_URL}/rest/v1/rpc/record_travel_route_demand`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: process.env.SUPABASE_SERVICE_KEY,
+        Authorization: `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
+      },
+      body: JSON.stringify({
+        p_origin_country: String(originCountry).trim().slice(0, 100),
+        p_destination_country: String(destinationCountry).trim().slice(0, 100),
+        p_species: normalizedDemandSpecies(species),
+        p_transportation_mode: ['air', 'land', 'sea', 'bus'].includes(String(transportMode || '').toLowerCase())
+          ? String(transportMode).toLowerCase()
+          : 'unknown',
+      }),
+    });
+    if (!response.ok) {
+      const detail = await response.text().catch(() => '');
+      throw new Error(`RPC failed ${response.status}: ${detail.slice(0, 120)}`);
+    }
+  } catch (error) {
+    console.error('Travel route demand recording failed (non-critical):', error.message);
   }
 }
 
@@ -332,7 +365,7 @@ export default async function handler(req, res) {
     userEmail = auth.email;
   }
 
-  const { messages, destination, originCountry, destinationCountry, transportationType, travelArrangementKey: requestedArrangementKey } = req.body;
+  const { messages, destination, originCountry, destinationCountry, transportationType, species, travelArrangementKey: requestedArrangementKey } = req.body;
   const travelArrangementKey = routeRuleCacheKey(originCountry, destinationCountry, requestedArrangementKey);
 
   if (!messages || !Array.isArray(messages)) {
@@ -357,6 +390,8 @@ export default async function handler(req, res) {
           requiresUpgrade: true,
         });
       }
+
+      await recordRouteDemand(originCountry, destinationCountry, species, transportationType);
     }
 
     // ── Check the route cache — free for everyone, no quota cost ────────────

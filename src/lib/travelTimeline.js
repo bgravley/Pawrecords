@@ -49,3 +49,55 @@ export function parseInstructionSteps(value) {
     return text.slice(start, end).trim();
   }).filter(Boolean);
 }
+
+const UNIT_DAYS = { hours: 1 / 24, days: 1, weeks: 7, months: 30 };
+
+function dateAtNoon(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ""))) return null;
+  const date = new Date(`${value}T12:00:00Z`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function isoDate(date) {
+  return date?.toISOString().slice(0, 10) || null;
+}
+
+function shiftDays(date, days) {
+  return new Date(date.getTime() + Math.round(days * 86400000));
+}
+
+// Turns a reviewed structured timing rule into a trip-specific window. Rules
+// tied to an earlier event (for example, "21 days after primary rabies") stay
+// in Start now because the trip record does not prove that event's date.
+export function calculateRequirementWindow(requirement, { departureDate, arrivalDate } = {}) {
+  const direction = requirement?.timing_direction;
+  if (!['before_departure', 'before_arrival'].includes(direction)) return null;
+  const target = dateAtNoon(direction === 'before_arrival' ? (arrivalDate || departureDate) : departureDate);
+  const unitDays = UNIT_DAYS[requirement?.timing_unit];
+  const minimum = Number(requirement?.timing_min);
+  const maximum = Number(requirement?.timing_max);
+  if (!target || !unitDays || !Number.isFinite(minimum) || !Number.isFinite(maximum) || minimum < 0 || maximum < minimum) return null;
+
+  const windowStart = shiftDays(target, -maximum * unitDays);
+  const windowEnd = shiftDays(target, -minimum * unitDays);
+  return {
+    window_start_date: isoDate(windowStart),
+    window_end_date: isoDate(windowEnd),
+    deadline_date: isoDate(windowEnd),
+    timing_reference: direction === 'before_arrival' ? 'arrival' : 'departure',
+  };
+}
+
+export function requirementToTimelineItem(requirement, tripDates = {}, now = new Date()) {
+  const window = calculateRequirementWindow(requirement, tripDates);
+  const item = {
+    ...requirement,
+    ...(window || {}),
+  };
+  return {
+    ...item,
+    timeline_stage: window
+      ? inferTimelineStage(item, tripDates.departureDate, now)
+      : (VALID_STAGES.has(requirement?.timeline_stage) ? requirement.timeline_stage : 'start_now'),
+  };
+}

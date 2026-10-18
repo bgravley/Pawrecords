@@ -143,6 +143,9 @@ jobs:
       - name: Run time-sensitive travel rule guardrail audit
         run: python3 scripts/travel_rule_guardrail_audit.py
 
+      - name: Run pet travel knowledge system audit
+        run: python3 scripts/travel_knowledge_system_audit.py
+
       - name: Run operational table security audit
         run: python3 scripts/operational_table_security_audit.py
 
