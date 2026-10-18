@@ -57,3 +57,7 @@ YourPetPass travel guides distinguish destination-government requirements from a
 - Privacy Policy: https://www.yourpetpass.com/privacy.html
 - Terms of Service: https://www.yourpetpass.com/terms.html
 - Contact: https://www.yourpetpass.com/contact.html
+
+## Health records essentials
+- Pet Health Records: What to Keep: https://www.yourpetpass.com/pet-health-records.html
+- Pet Medical Records Transfer Checklist: https://www.yourpetpass.com/blog/pet-medical-records-transfer-checklist.html

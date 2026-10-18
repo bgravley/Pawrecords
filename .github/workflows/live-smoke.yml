@@ -2,6 +2,11 @@ name: Live Production Smoke
 
 on:
   workflow_dispatch:
+    inputs:
+      canada_us:
+        description: Verify live Canada-US generation and caching (two normal-quota requests)
+        type: boolean
+        default: false
   push:
     branches:
       - main
@@ -191,6 +196,7 @@ jobs:
         shell: bash
         env:
           E2E_BASE_URL: https://www.yourpetpass.com
+          E2E_CANADA_US: ${{ inputs.canada_us }}
         run: |
           set -euo pipefail
           TOKEN_RESPONSE="$(curl -fsSL \
