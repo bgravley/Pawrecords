@@ -20,6 +20,7 @@ import { buildTravelSummaryHtml, formatTravelDate } from "./lib/travelSummary";
 import { safeExternalUrl } from "./lib/safeExternalUrl";
 import { PACKING_CATEGORIES, buildPackingItems, missedConnectionGuidance, packingProgress } from "./lib/packingChecklist";
 import { SERVICE_DOCUMENT_STATUSES, cleanTravelSupport, feeLabel, isUnitedStatesRoute, normalizeTravelSupport, serviceAnimalWorkflows } from "./lib/travelSupport";
+import { checklistAppliesToSpecies } from "./lib/checklistSpecies";
 import { tripIntentFromSearch } from "./lib/travelIntent";
 
 const logActivity = async (_userId, _userEmail, action, details = {}) => {
@@ -1382,7 +1383,7 @@ const TripDetail = ({ trip, userId, dogs, premium, onUpgrade, onBack, onUpdate, 
       // Itinerary card, which is unaffected by this.
       const { items, usageSummary } = await generateChecklist(trip, tripPets, userId);
       const tripSpecies = new Set(tripPets.map(p => p.species || 'dog'));
-      const filteredItems = items.filter(item => tripSpecies.has(item.applies_to || 'dog'));
+      const filteredItems = items.filter(item => [...tripSpecies].some(species => checklistAppliesToSpecies(item.applies_to, species)));
 
       const daysToDateFrom = (departureDateStr, days) => {
         if (!days && days !== 0) return null;
@@ -1410,7 +1411,7 @@ const TripDetail = ({ trip, userId, dogs, premium, onUpgrade, onBack, onUpdate, 
         responsible_party: item.responsible_party || null,
         document_name: item.document_name || null,
         dependencies: Array.isArray(item.dependencies) ? item.dependencies : [],
-        applies_to_pet_ids: tripPets.filter(p => (p.species || 'dog') === (item.applies_to || 'dog')).map(p => p.id),
+        applies_to_pet_ids: tripPets.filter(p => checklistAppliesToSpecies(item.applies_to, p.species)).map(p => p.id),
         applies_to_species: item.applies_to || null,
         applies_to_segment: item.applies_to_segment || 'whole trip',
         travel_method: item.travel_method || (trip.transportation_type || 'air'),
@@ -1720,7 +1721,7 @@ const TripDetail = ({ trip, userId, dogs, premium, onUpgrade, onBack, onUpdate, 
               // Multiple pets — show one progress bar per pet, since each pet
               // needs their own documents completed (e.g. separate health certificates).
               tripPets.map(pet => {
-                const relevantItems = checklist.filter(i => (i.applies_to_species || i.applies_to || 'dog') === (pet.species || 'dog'));
+                const relevantItems = checklist.filter(i => checklistAppliesToSpecies(i.applies_to_species || i.applies_to, pet.species));
                 const petDone = relevantItems.filter(i => (i.pet_completions || {})[pet.id] === true).length;
                 const petTotal = relevantItems.length;
                 const petAllDone = petTotal > 0 && petDone === petTotal;
