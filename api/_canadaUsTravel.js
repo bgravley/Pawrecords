@@ -44,6 +44,15 @@ export function canadaUsBaseline() {
       'USDA APHIS Veterinary Services has no animal-health import requirements for domestic pet cats, but that does not remove CDC, other federal, state or territory rules. Check your destination authority for vaccination, certificates and quarantine requirements. Hawaii and Guam have local quarantine rules. Check carrier policies separately.', 'state'),
   ];
 }
+// This visible checklist item makes failed optional research explicit. Never
+// include the rejected model output or present the fallback as complete clearance.
+export function canadaUsResearchFallback() {
+  return [...canadaUsBaseline(), item('supplemental-unavailable', 'both',
+    'Check carrier and airport arrangements directly',
+    'Supplemental automated research could not be validated. The reviewed government rules above still apply, but carrier and airport details have not been confirmed. Check your chosen carrier and airports directly for booking, pet acceptance and transport arrangements. This checklist is not complete travel clearance.', 'dogs')];
+}
+const sameItem = (left, right) => left && Object.keys(left).length === Object.keys(right).length &&
+  Object.entries(right).every(([key, value]) => left[key] === value);
 // The model may add logistics, but cannot rewrite the protected legal baseline.
 // Conservative overlap rejection is intentional: do not quietly discard a
 // conflicting item or present it alongside corrected guidance.
@@ -79,7 +88,9 @@ export function validCanadaUsCache(items, origin, destination) {
   if (baseline.some((entry, i) => !items[i] ||
       Object.keys(entry).length !== Object.keys(items[i]).length ||
       Object.entries(entry).some(([key, value]) => items[i][key] !== value))) return false;
-  try { validateCanadaUsExtras(items.slice(baseline.length)); return true; } catch { return false; }
+  const extras = items.slice(baseline.length);
+  if (extras.length === 1 && sameItem(extras[0], canadaUsResearchFallback().at(-1))) return true;
+  try { validateCanadaUsExtras(extras); return true; } catch { return false; }
 }
 export function canadaUsResearchInstruction(origin, destination) {
   if (!isCanadaUs(origin, destination)) return '';
