@@ -42,6 +42,8 @@ test('versions date/arrangement identity and recognizes aliases without changing
 test('cached baseline must be complete and untampered; old and malformed caches miss', () => {
   const baseline = canadaUsBaseline();
   assert.ok(validCanadaUsCache(baseline, 'Canada', 'US'));
+  const jsonbOrder = baseline.map(entry => Object.fromEntries(Object.entries(entry).reverse()));
+  assert.ok(validCanadaUsCache(jsonbOrder, 'Canada', 'US'), 'JSONB object key ordering must not invalidate a cache hit');
   for (const stale of [regressions, [], null, baseline.slice(1)]) assert.equal(validCanadaUsCache(stale, 'Canada', 'US'), false);
   baseline[1].deadline_days_before = 30;
   assert.equal(validCanadaUsCache(baseline, 'Canada', 'US'), false);

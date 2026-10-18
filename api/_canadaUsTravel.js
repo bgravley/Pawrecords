@@ -76,7 +76,9 @@ export function validCanadaUsCache(items, origin, destination) {
   if (!Array.isArray(items)) return false;
   const baseline = canadaUsBaseline();
   // Exact comparison prevents spoofed/stale rule IDs and changed timing fields.
-  if (baseline.some((entry, i) => JSON.stringify(entry) !== JSON.stringify(items[i]))) return false;
+  if (baseline.some((entry, i) => !items[i] ||
+      Object.keys(entry).length !== Object.keys(items[i]).length ||
+      Object.entries(entry).some(([key, value]) => items[i][key] !== value))) return false;
   try { validateCanadaUsExtras(items.slice(baseline.length)); return true; } catch { return false; }
 }
 export function canadaUsResearchInstruction(origin, destination) {
