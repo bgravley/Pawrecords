@@ -60,7 +60,11 @@
       "destination": "/unsubscribe.html"
     },
     {
-      "source": "/((?!api/).*)",
+      "source": "/signup",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/travel-summary/:token",
       "destination": "/index.html"
     }
   ],

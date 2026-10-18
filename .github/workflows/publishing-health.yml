@@ -1,0 +1,46 @@
+name: Publishing Health
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  deployment_status:
+  schedule:
+    - cron: '17,47 * * * *'
+  workflow_dispatch:
+    inputs:
+      alert_drill:
+        description: 'Create an explicitly labeled simulated alert; next healthy real run closes it'
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: publishing-health-${{ github.event_name == 'pull_request' && github.ref || 'production' }}
+  cancel-in-progress: false
+jobs:
+  validate:
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - run: node --test scripts/publishing-health.test.mjs
+  monitor:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'deployment_status' && github.event.deployment.environment == 'Production' && contains(fromJSON('["success","failure","error"]'), github.event.deployment_status.state))
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Check production and send actionable alerts
+        run: node scripts/publishing-alert.mjs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          ALERT_DRILL: ${{ inputs.alert_drill || 'false' }}
