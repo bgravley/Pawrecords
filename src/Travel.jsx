@@ -20,6 +20,7 @@ import { buildTravelSummaryHtml, formatTravelDate } from "./lib/travelSummary";
 import { safeExternalUrl } from "./lib/safeExternalUrl";
 import { PACKING_CATEGORIES, buildPackingItems, missedConnectionGuidance, packingProgress } from "./lib/packingChecklist";
 import { SERVICE_DOCUMENT_STATUSES, cleanTravelSupport, feeLabel, isUnitedStatesRoute, normalizeTravelSupport, serviceAnimalWorkflows } from "./lib/travelSupport";
+import { tripIntentFromSearch } from "./lib/travelIntent";
 
 const logActivity = async (_userId, _userEmail, action, details = {}) => {
   try {
@@ -379,6 +380,7 @@ Only populate fee fields when the same official source explicitly publishes an e
       destination: `${trip.origin_city} to ${trip.destination_city}`,
       originCountry: trip.origin_country,
       destinationCountry: trip.destination_country,
+      species: speciesInvolved.length === 1 ? speciesInvolved[0] : "all",
       transportationType: trip.transportation_type || "air",
       travelArrangementKey: `travel-support-v2:${trip.departure_date || 'date-unknown'}:${arrangementCacheKey(trip.air_travel_arrangements, pets.map(p => p.id))}`,
     }),
@@ -420,6 +422,11 @@ const emptyLeg = () => ({
   departureDate: "", transportationType: "air", airline: "", flightNumber: "",
 });
 
+const intentLeg = () => {
+  const intent = tripIntentFromSearch(typeof window === "undefined" ? "" : window.location.search);
+  return { ...emptyLeg(), ...intent };
+};
+
 const TripForm = ({ trip, userId, dogs, onSave, onClose }) => {
   const [f, setF] = useState(trip ? {
     name: trip.name || "",
@@ -439,7 +446,7 @@ const TripForm = ({ trip, userId, dogs, onSave, onClose }) => {
     destinationCity: trip.destination_city || "", destinationCountry: trip.destination_country || "", destinationAirportCode: "",
     departureDate: trip.departure_date || "", transportationType: trip.transportation_type || "air",
     airline: trip.airline || "", flightNumber: trip.flight_number || "",
-  }] : [emptyLeg()]);
+  }] : [intentLeg()]);
   const [legsLoaded, setLegsLoaded] = useState(!trip);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);

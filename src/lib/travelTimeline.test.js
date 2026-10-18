@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { groupTimelineItems, inferTimelineStage, parseInstructionSteps } from "./travelTimeline.js";
+import { calculateRequirementWindow, groupTimelineItems, inferTimelineStage, parseInstructionSteps, requirementToTimelineItem } from "./travelTimeline.js";
 
 test("preserves explicit travel-event stages", () => {
   assert.equal(inferTimelineStage({ timeline_stage: "transit" }), "transit");
@@ -23,4 +23,30 @@ test("hides empty stages by returning empty arrays", () => {
 test("keeps numbered instructions paired with their text", () => {
   assert.deepEqual(parseInstructionSteps("1. Book the appointment\n2. Bring the microchip record\n3. Save a copy"), ["Book the appointment", "Bring the microchip record", "Save a copy"]);
   assert.deepEqual(parseInstructionSteps("Step 1: Call the airline Step 2: Confirm the reservation"), ["Call the airline", "Confirm the reservation"]);
+});
+
+test("calculates a reviewed before-arrival window from structured timing", () => {
+  assert.deepEqual(calculateRequirementWindow({
+    timing_direction: "before_arrival",
+    timing_min: 0,
+    timing_max: 10,
+    timing_unit: "days",
+  }, { departureDate: "2026-11-18", arrivalDate: "2026-11-20" }), {
+    window_start_date: "2026-11-10",
+    window_end_date: "2026-11-20",
+    deadline_date: "2026-11-20",
+    timing_reference: "arrival",
+  });
+});
+
+test("does not invent dates for rules tied to an unknown earlier event", () => {
+  const item = requirementToTimelineItem({
+    title: "Wait after the primary rabies vaccination",
+    timing_direction: "after_event",
+    timing_min: 21,
+    timing_max: 21,
+    timing_unit: "days",
+  }, { departureDate: "2026-11-18" });
+  assert.equal(item.deadline_date, undefined);
+  assert.equal(item.timeline_stage, "start_now");
 });
