@@ -127,10 +127,21 @@ require("html2pdf.bundle.min.js" in index_html and "integrity=" in index_html an
         "Static CDN JavaScript is protected with Subresource Integrity")
 
 paw_record = read("src/PawRecord.jsx")
-require("pdf.min.js" in paw_record and "script.integrity" in paw_record,
-        "Dynamically loaded PDF.js has Subresource Integrity")
+package_json = read("package.json")
+require('"pdfjs-dist": "6.3.289"' in package_json,
+        "PDF.js is pinned to the reviewed patched package version")
+require('pdfjs-dist/build/pdf.mjs' in paw_record and
+        'pdfjs-dist/build/pdf.worker.mjs?url' in paw_record,
+        "PDF.js and its worker are bundled from the same installed package")
+require("cdnjs.cloudflare.com/ajax/libs/pdf.js" not in paw_record and
+        "pdf.min.js" not in paw_record,
+        "Uploaded-PDF processing no longer depends on the external PDF.js CDN")
 require("isEvalSupported:false" in paw_record,
-        "PDF.js disables the vulnerable eval code path for uploaded PDFs")
+        "PDF.js disables the eval code path for uploaded PDFs")
+require("enableScripting:false" in paw_record,
+        "PDF.js scripting is explicitly disabled for uploaded PDFs")
+require("enableXfa:false" in paw_record,
+        "PDF.js XFA rendering is explicitly disabled for uploaded PDFs")
 
 # 5. Health-certificate content regression
 article = read("public/blog/pet-health-certificates-explained.html")

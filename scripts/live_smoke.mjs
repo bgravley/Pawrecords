@@ -612,7 +612,10 @@ await check('Authenticated production customer flow works end to end', async () 
       await (await fieldControl(modal, 'From Country', 'select')).selectOption('Ecuador');
       await (await fieldControl(modal, 'To City')).fill('Miami');
       await (await fieldControl(modal, 'To Country', 'select')).selectOption('United States');
-      await (await fieldControl(modal, 'Departure Date')).fill('2026-10-15');
+      // Keep this fixture in the upcoming-trip tab as calendar time advances.
+      const departure = new Date();
+      departure.setUTCDate(departure.getUTCDate() + 30);
+      await (await fieldControl(modal, 'Departure Date')).fill(departure.toISOString().slice(0, 10));
       const petChoice = modal.locator('label').filter({ hasText: PET_NAME }).locator('input[type="checkbox"]').first();
       await petChoice.check();
       await modal.getByRole('button', { name: 'Create Trip', exact: true }).click();
