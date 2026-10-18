@@ -10,6 +10,7 @@
 
 import { verifyUser } from './_verifyUser.js';
 import { setCorsHeaders } from './_cors.js';
+import { isCanadaUs, routeRuleCacheKey, validCanadaUsCache, finalizeCanadaUs, canadaUsResearchInstruction } from './_canadaUsTravel.js';
 
 // ── Logging ────────────────────────────────────────────────────────────────
 async function logUsage({ userId, userEmail, model, inputTokens, outputTokens, destination, success, error, feature = 'travel_checklist' }) {
@@ -135,7 +136,8 @@ async function getCachedChecklist(originCountry, destinationCountry, transportMo
       return null;
     }
     const rows = await res.json();
-    return rows?.[0]?.checklist_json || null;
+    const items = rows?.[0]?.checklist_json;
+    return items && validCanadaUsCache(items, originCountry, destinationCountry) ? items : null;
   } catch (e) {
     console.error('Cache lookup failed (non-critical):', e.message);
     return null;
@@ -330,7 +332,8 @@ export default async function handler(req, res) {
     userEmail = auth.email;
   }
 
-  const { messages, destination, originCountry, destinationCountry, transportationType, travelArrangementKey } = req.body;
+  const { messages, destination, originCountry, destinationCountry, transportationType, travelArrangementKey: requestedArrangementKey } = req.body;
+  const travelArrangementKey = routeRuleCacheKey(originCountry, destinationCountry, requestedArrangementKey);
 
   if (!messages || !Array.isArray(messages)) {
     return res.status(400).json({ error: 'messages array required' });
@@ -410,7 +413,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const promptText = messages[messages.length - 1]?.content || '';
+    const promptText = (messages[messages.length - 1]?.content || '') + canadaUsResearchInstruction(originCountry, destinationCountry);
 
     // ── Step 1: GPT-4o researches and generates (with native web search) ───
     const { fullText, usage } = await generateWithGPT4o(promptText);
@@ -428,7 +431,7 @@ export default async function handler(req, res) {
       }
     }
 
-    const gotRealResult = Array.isArray(checklistItems) && checklistItems.length > 0;
+    const gotRealResult = Array.isArray(checklistItems) && (checklistItems.length > 0 || isCanadaUs(originCountry, destinationCountry));
 
     if (!gotRealResult) {
       await logUsage({
@@ -445,7 +448,7 @@ export default async function handler(req, res) {
 
     // ── Step 3: Claude verifies the real result ────────────────────────────
     const verifyResult = await verifyWithClaude(checklistItems);
-    checklistItems = verifyResult.items;
+    checklistItems = finalizeCanadaUs(verifyResult.items, originCountry, destinationCountry);
 
     // Save to cache so the next request for this route is free
     await saveToCache(originCountry, destinationCountry, checklistItems, transportationType, travelArrangementKey);
