@@ -21,7 +21,7 @@
   },
   "overrides": {
     "qs": "6.16.0",
-    "joi": "17.13.7"
+    "joi": "17.13.8"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.0",
