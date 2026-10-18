@@ -40,13 +40,17 @@ async function getPublishedGuide(slug) {
   if (!jurisdiction) return null;
 
   const candidates = await rest(
-    `travel_guide_candidates?destination_jurisdiction_id=eq.${jurisdiction.id}&status=eq.published&noindex=eq.false&select=destination_jurisdiction_id,status,noindex,public_path,proposed_title,scope_label,guide_summary,editorial_reviewed_at&order=published_at.desc&limit=1`
+    `travel_guide_candidates?destination_jurisdiction_id=eq.${jurisdiction.id}&status=eq.published&noindex=eq.false&select=destination_jurisdiction_id,origin_jurisdiction_id,status,noindex,public_path,proposed_title,scope_label,guide_summary,editorial_reviewed_at&order=published_at.desc&limit=1`
   );
-  const guide = publicGuide(candidates?.[0], jurisdiction);
+  const candidate = candidates?.[0];
+  const guide = publicGuide(candidate, jurisdiction);
   if (!guide) return null;
 
+  const originFilter = candidate.origin_jurisdiction_id
+    ? `&origin_jurisdiction_id=eq.${candidate.origin_jurisdiction_id}`
+    : '';
   const requirements = await rest(
-    `travel_requirements?destination_jurisdiction_id=eq.${jurisdiction.id}&review_state=eq.published&select=id,species,transportation_mode,travel_arrangement,requirement_type,title,rule_text,timing_basis,timing_min,timing_max,timing_unit,timing_direction,responsible_party,importance,fee_amount,fee_currency,fee_basis,fee_source_updated_at,effective_date,expires_at,last_reviewed_at,review_state,source_id&order=requirement_type.asc,title.asc`
+    `travel_requirements?destination_jurisdiction_id=eq.${jurisdiction.id}${originFilter}&review_state=eq.published&select=id,species,transportation_mode,travel_arrangement,requirement_type,title,rule_text,timing_basis,timing_min,timing_max,timing_unit,timing_direction,responsible_party,importance,fee_amount,fee_currency,fee_basis,fee_source_updated_at,effective_date,expires_at,last_reviewed_at,review_state,source_id&order=requirement_type.asc,title.asc`
   );
   const sourceIds = safeUuidList(requirements.map(requirement => requirement.source_id));
   const sources = sourceIds.length
