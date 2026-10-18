@@ -68,7 +68,7 @@ export async function run({base, fetcher = fetch} = {}) {
   }
   return failures;
 }
-if(import.meta.url===pathToFileURL(process.argv[1]).href){
+if(process.argv[1] && import.meta.url===pathToFileURL(process.argv[1]).href){
   const failures=await run({base:process.env.PUBLISHING_BASE_URL});
   if(failures.length){console.error(failures.join('\n'));process.exitCode=1;}else console.log('Publishing content, metadata, discovery and routing checks passed.');
 }
