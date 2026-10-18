@@ -1,0 +1,78 @@
+Canada-to-U.S. travel remediation — 2026-10-18
+
+Baseline inspected
+main / production: 96a263d88eb836877c58ffb8667a37206852ba64
+Vercel production: dpl_9TV3HrdAgHeJvbQWeF9ZbBnErE4U READY
+Supabase Pawrecords: pqqfwgwbwofzfpzzuilq (read-only queries)
+Cache: 7 air + 6 land rows; one per mode within seven-day TTL.
+Newest rows: ff582b1d-aec7-4e1b-a5fd-681f052f2f31 (air),
+56744e24-62fb-4031-8701-d227a70d01af (land), both October 12.
+Confirmed incorrect cat endorsement, universal dog certificate, 30-day form
+window, microchip form field and absent cat entry requirements.
+
+Authorities opened and checked on 2026-10-18
+https://inspection.canada.ca/en/animal-health/terrestrial-animals/exports/pets/export-cats-and-ferrets-united-states
+  Cat documents: licensed Canadian vet; no CFIA endorsement. State rules separate.
+https://inspection.canada.ca/en/animal-health/terrestrial-animals/exports/pets/dogs-usa
+  Dog requirements depend on full six-month history, with restrictions for high-risk history.
+https://www.cdc.gov/importation/dogs/rabies-free-low-risk-countries.html
+  Eligible dogs: receipt, healthy, at least six months, readable microchip.
+  Form can be completed on travel day or up to six months before; validity is
+  six calendar months from issuance with departure-country/risk restrictions.
+https://www.cdc.gov/importation/dogs/dog-import-form-instructions.html
+  Low-risk animal information fields exclude microchip number; high-risk differs.
+https://www.cdc.gov/importation/bringing-an-animal-into-the-us/index.html
+  Cat health/inspection, illness examination and local requirements; states or
+  carriers may require health certificates. Hawaii/Guam quarantine rules.
+https://www.aphis.usda.gov/pet-travel/another-country-to-us-import/cats
+  No APHIS Veterinary Services pet-cat import health requirements, but other
+  federal and state/territory authorities still apply.
+
+Implementation and limits
+Server inserts seven reviewed conditional baseline tasks after AI verification.
+AI may add only carrier/airport logistics, with typed HTTPS sources. Overlap
+with protected legal topics fails the request before cache write or successful
+usage accounting. Warning labels do not override this check. This intentionally
+favors correctness over availability: even a correct overlapping AI supplement
+can be rejected. No regex can verify all possible paraphrases or source content;
+this is a bounded guardrail plus deterministic baseline, not universal legal verification.
+Unknown/high-risk history is explicitly referred to authorities; Canada departure
+alone never grants low-risk eligibility. State-specific clearance is not inferred.
+Six calendar months is not converted to an invented 180/182-day deadline.
+
+Both normal requests and cron/admin prewarming use the same server path.
+Version prefix preserves the existing departure-date/arrangement key. Old rows
+are unreachable after deployment, and new cache hits must contain the unchanged
+baseline and valid supplements. Other routes and auth/tier/quota controls retain
+existing behavior. No database schema change or production mutation performed.
+Previously saved trip checklists are not rewritten by this patch.
+
+Validation and release gates
+Local lockfile install, production build, complete Node suite, and all Site Audit
+workflow commands passed before PR creation. CI must pass on final PR head.
+Required independent reviewer must inspect source accuracy, fail-closed behavior,
+cache separation and tests. Do not merge or deploy until review and required checks.
+After reviewed deployment, verify exact production SHA, run authenticated air/land
+checks for both species (including high-risk/unknown-history branches), then run
+scoped prewarm under authorized operational controls and inspect new versioned rows.
+Keep legacy cache rows for evidence; deletion is unnecessary for invalidation.
+Do not regenerate/cache against the old production generator. Verify any rollback
+cannot resume serving the old guidance. Saved trip checklists need separate scoped
+inventory and correction review; avoid bulk updates of customer records.
+
+GitHub issue #140
+Live API initially showed no main protection/rulesets, with admin permission.
+Applied main protection: one approving review; dismiss stale approvals; latest
+push approval; resolved conversations; strict audit and scan-history checks bound
+to GitHub Actions app 15368; admin enforcement; no force pushes or deletion.
+No existing protections removed. Routine direct-to-main publishing must use PRs.
+An administrator can still edit repository settings; this is not an immutable
+external separation-of-duties control.
+
+PR #138
+Head a4f6ac7e6c900b49a8f36799de10eea8508d7db3; zero submitted reviews.
+Site Audit and secret-history checks successful, preview READY.
+Local npm ci and production build passed; matching self-hosted worker emitted.
+Hosted preview requires Vercel authentication. Temporary access link creation
+requires explicit approval after automatic review rejected access expansion.
+Do not self-approve or merge. Local renderer testing is not hosted preview proof.
