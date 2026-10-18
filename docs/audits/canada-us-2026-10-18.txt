@@ -48,8 +48,14 @@ existing behavior. No database schema change or production mutation performed.
 Previously saved trip checklists are not rewritten by this patch.
 
 Validation and release gates
-Local lockfile install, production build, complete Node suite, and all Site Audit
-workflow commands passed before PR creation. CI must pass on final PR head.
+Local lockfile install, production build and 91/91 Node tests passed. Local
+Site Audit commands returned success, but the npm vulnerability lookup was
+unavailable in the sandbox and emitted a reminder. CI on 07621d7 failed on
+existing Joi <17.13.8 (GHSA-wr44-6hxh-3jwq); remaining CI steps were skipped.
+The existing publishing PR #142 also contains the Joi patch. This travel PR
+includes only the minimal Joi 17.13.8 prerequisite in a separate commit so it
+does not depend on unrelated publishing changes; no audit exception was added. The network-enabled full local audit passes with Joi 17.13.8. CI must pass on
+the final PR head.
 Required independent reviewer must inspect source accuracy, fail-closed behavior,
 cache separation and tests. Do not merge or deploy until review and required checks.
 After reviewed deployment, verify exact production SHA, run authenticated air/land
@@ -73,6 +79,8 @@ PR #138
 Head a4f6ac7e6c900b49a8f36799de10eea8508d7db3; zero submitted reviews.
 Site Audit and secret-history checks successful, preview READY.
 Local npm ci and production build passed; matching self-hosted worker emitted.
-Hosted preview requires Vercel authentication. Temporary access link creation
-requires explicit approval after automatic review rejected access expansion.
+Temporary preview access was explicitly approved and established after the
+automatic approval rejection. The app itself still requires test-account sign-in.
+Local exact-source PDF-to-image function rendered a synthetic two-page PDF using
+the locally built module and matching worker; both pages visually inspected.
 Do not self-approve or merge. Local renderer testing is not hosted preview proof.
