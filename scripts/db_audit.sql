@@ -58,7 +58,9 @@ SELECT unnest(ARRAY[
   'activity_log','affiliate_commissions','affiliates','ai_usage_log','airport_relief_areas','allergies',
   'bug_reports','documents','dogs','emergency_contacts','error_log','medications',
   'newsletter_subscribers','prewarm_routes','profiles','rate_limit_log','saved_vets',
-  'travel_route_cache','trip_checklist_items','trip_documents','trip_legs','trips',
+  'travel_guide_candidates','travel_jurisdictions','travel_requirement_versions',
+  'travel_requirements','travel_route_cache','travel_route_demand','travel_sources',
+  'trip_checklist_items','trip_documents','trip_legs','trips',
   'vaccinations','vet_visits','weights'
 ]) AS expected_table
 EXCEPT
