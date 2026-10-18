@@ -64,8 +64,8 @@ JOIN pg_namespace n ON n.oid = c.relnamespace
 WHERE n.nspname = 'public' AND c.relkind = 'r'
 ORDER BY c.relrowsecurity, c.relname;
 -- NOTE: rls_enabled = true with policy_count = 0 is INTENTIONAL and safe for
--- backend-only tables (rate_limit_log, travel_route_cache,
--- newsletter_subscribers, bug_reports) — only the service key touches them.
+-- backend-only tables (rate_limit_log, travel_route_cache, travel knowledge
+-- tables, newsletter_subscribers, bug_reports) — only the service key touches them.
 -- It is a PROBLEM for any table the browser reads/writes directly.
 
 

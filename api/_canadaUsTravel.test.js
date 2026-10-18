@@ -128,6 +128,7 @@ test('reviewed land rules retain authentication and Premium gates without chargi
       const writes = [];
       global.fetch = async (url, options = {}) => {
         if (options.method) writes.push(url);
+        if (url.endsWith('/rpc/record_travel_route_demand')) return new Response('null');
         if (url.includes('/auth/')) return new Response(JSON.stringify({id:'synthetic',email:'test@example.invalid'}));
         if (url.includes('/profiles')) return new Response(JSON.stringify([{subscription_tier:tier,travel_credits_balance:2}]));
         if (url.includes('/ai_usage_log')) return new Response('[]',{headers:{'content-range':'0-0/3'}});
@@ -141,7 +142,7 @@ test('reviewed land rules retain authentication and Premium gates without chargi
         assert.deepEqual(res.body.usageSummary,{used:3,limit:3,creditsBalance:2});
         assert.deepEqual(JSON.parse(res.body.choices[0].message.content),canadaUsBaseline());
       }
-      assert.ok(writes.every(url => url.includes('travel_route_cache')));
+      assert.ok(writes.every(url => url.includes('travel_route_cache') || url.endsWith('/rpc/record_travel_route_demand')));
       if (status !== 200) assert.equal(writes.length,0);
     }
   } finally {
