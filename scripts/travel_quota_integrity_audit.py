@@ -14,7 +14,7 @@ checks = [
      'Quota lookup counts only primary successful checklist rows'),
     ("usageSummary" in api and "used: quotaCount + 1" in api,
      'Server returns authoritative usage summary after a paid generation'),
-    ("usageSummary" in api and "cached: true" in api,
+    ("usageSummary" in api and "cached: cacheHit" in api and "const cacheHit = Boolean(cached)" in api,
      'Cached responses can return current quota summary without charging usage'),
     ("supabase.from('ai_usage_log')" not in travel,
      'Browser no longer reads server-only ai_usage_log directly'),
