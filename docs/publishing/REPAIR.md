@@ -23,3 +23,11 @@ The build publishes a non-sensitive commit and content-hash manifest at `/publis
 Add pending work to `backlog.json` with `status: "draft"`, an ISO `dueAt`, owner, and concrete nextAction. No publication for seven days alone is not a failure: due work is what triggers the backlog alert. `published` entries describe the expected released state; live checks must pass before reporting those entries as actually published.
 
 Run `workflow_dispatch` with `alert_drill: true` to test a clearly labeled simulated failure without breaking production. A subsequent normal healthy run closes the drill issue. Verify both runs and the issue; account-level email/push receipt requires the recipient to confirm delivery.
+
+## Release QA and dependency gate
+
+- Preview `e858667` confirmed a nonexistent blog URL returns HTTP 404 with the custom missing-page document.
+- Phone (375px) and desktop (1440px) checks cover all three guides, Pet Guides and 404: no horizontal overflow or broken images.
+- The existing release audit exposed Joi GHSA-wr44-6hxh-3jwq. The override is patched from 17.13.7 to 17.13.8 with its lockfile and existing Wallet audit assertion updated. All 84 behavior tests and 33 Wallet checks pass locally.
+- The pre-existing node-forge advisory exception remains unchanged and expires November 1, 2026. This release does not broaden it or alter Wallet signing behavior.
+- Rollback target is the previously verified production commit `96a263d88eb836877c58ffb8667a37206852ba64`.
