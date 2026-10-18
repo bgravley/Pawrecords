@@ -27,7 +27,7 @@ Authenticated checklist requests increment an atomic aggregate of origin country
 
 YourPetPass uses the owner-approved solo-maintainer exception when an independent reviewer is unavailable. A production release still requires documented source review, automated tests and audits, an exact deployed commit, database security checks, and live flow verification. The reviewer field records that exception rather than implying an independent review occurred.
 
-## Initial cohort
+## Published cohort
 
-Canada and France are the first structured destinations because reviewed public guides already exist. Their structured records are scoped to United States-origin dogs and cats and link current official government sources. A country label is never treated as a universal rule for every origin, species or movement category.
+Canada and France were the first structured destinations because reviewed public guides already existed. The United States guide was promoted next from aggregate Canada-origin route demand after source and editorial review. It combines air and land travel in one route page because the federal decision tree is shared, while structured requirements preserve mode-specific instructions. A country label is never treated as a universal rule for every origin, species or movement category.
 

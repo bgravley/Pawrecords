@@ -3,12 +3,15 @@ from pathlib import Path
 
 migration = Path('supabase/migrations/20261018160000_pet_travel_knowledge_system.sql').read_text(encoding='utf-8').lower()
 index_migration = Path('supabase/migrations/20261018164500_index_pet_travel_knowledge_foreign_keys.sql').read_text(encoding='utf-8').lower()
+us_guide_migration = Path('supabase/migrations/20261018170000_publish_canada_to_united_states_guide.sql').read_text(encoding='utf-8').lower()
 api = Path('api/travel-requirements.js').read_text(encoding='utf-8')
 ai = Path('api/ai-travel.js').read_text(encoding='utf-8')
 hub = Path('public/pet-travel-requirements/index.html').read_text(encoding='utf-8')
 finder = Path('public/pet-travel-requirements/finder.js').read_text(encoding='utf-8')
 timeline = Path('src/lib/travelTimeline.js').read_text(encoding='utf-8')
 travel = Path('src/Travel.jsx').read_text(encoding='utf-8')
+us_guide = Path('public/pet-travel-requirements/united-states/index.html').read_text(encoding='utf-8')
+sitemap = Path('public/sitemap.xml').read_text(encoding='utf-8')
 
 tables = (
     'travel_jurisdictions', 'travel_sources', 'travel_requirements',
@@ -39,6 +42,8 @@ checks.extend([
      'public API queries published requirements and verified sources only'),
     ('publishedKnowledge(requirements, sources)' in api,
      'public API applies a second in-process publication gate'),
+    ('origin_jurisdiction_id=eq.${candidate.origin_jurisdiction_id}' in api,
+     'public API keeps destination requirements scoped to the published guide origin'),
     ('SUPABASE_SERVICE_KEY' in api and 'SUPABASE_SERVICE_KEY' not in hub and 'SUPABASE_SERVICE_KEY' not in finder,
      'service credentials stay server-side'),
     ('record_travel_route_demand' in ai and 'p_origin_country' in ai,
@@ -59,6 +64,29 @@ checks.extend([
      'exact official fees have amount, currency/basis, and source-date fields'),
     ('estimated_fee' not in migration and 'trip_cost' not in migration,
      'knowledge system does not introduce estimated fees or a trip-cost calculator'),
+    ("'/pet-travel-requirements/united-states/'" in us_guide_migration and
+     "'published', false" in us_guide_migration,
+     'Canada-to-U.S. demand is promoted through the reviewed publication gate'),
+    ("status = 'withdrawn'" in us_guide_migration and 'superseded by the reviewed combined' in us_guide_migration,
+     'duplicate air and land candidates stay private and are superseded explicitly'),
+    ('cdc dog import form' in us_guide.lower() and 'six-month' in us_guide.lower() and
+     'air travel from canada' in us_guide.lower() and 'land travel from canada' in us_guide.lower(),
+     'United States guide covers the reviewed dog decision point and both requested modes'),
+    ('cdc does not require proof of rabies vaccination' in us_guide.lower() and
+     'hawaii and guam' in us_guide.lower(),
+     'United States guide keeps cat federal and destination rules distinct'),
+    ('including service animals and dogs returning to the united states' in us_guide.lower() and
+     'service-animal status should remain separate' in us_guide.lower(),
+     'service classification remains separate from physical travel arrangement'),
+    ('fee_amount, fee_currency, fee_basis, fee_source_updated_at' in us_guide_migration and
+     "0::numeric, 'usd', 'per cdc dog import form', '2024-07-22'::date" in us_guide_migration,
+     'the official free CDC form is stored as an exact sourced fee without a trip total'),
+    ('official sources reviewed october 18, 2026' in us_guide.lower() and
+     us_guide.lower().count('checked october 18, 2026') >= 7,
+     'the guide displays its review date and source check dates'),
+    ('/pet-travel-requirements/united-states/' in hub and
+     'https://www.yourpetpass.com/pet-travel-requirements/united-states/' in sitemap,
+     'the reviewed United States guide is discoverable from the hub and sitemap'),
 ])
 
 failed = [message for passed, message in checks if not passed]
