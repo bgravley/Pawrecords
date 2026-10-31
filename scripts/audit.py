@@ -429,8 +429,12 @@ ok(f"Found {len(env_vars)} environment variables (see inventory below)")
 
 print("[17/28] Checking endpoint authentication...")
 intentionally_public = {"api/contact-form.js", "api/newsletter-signup.js", "api/report-bug.js", "api/create-checkout.js", "api/stripe-webhook.js", "api/prewarm-cache.js", "api/send-notifications.js", "api/notify-error.js", "api/notify-signup.js", "api/notify-affiliate.js", "api/notify-user-action.js"}
+admin_auth_helper = read("api/_requireAdmin.js")
 def endpoint_verifies_identity(content):
-    return any(token in content for token in ["verifyUser(", "/auth/v1/user", "constructEvent", "verifyCronRequest(", "CRON_SECRET", "WEBHOOK_SECRET", "SIGNUP_WEBHOOK_SECRET", "verifyUnsubscribeToken("])
+    admin_auth_verified = ("requireAdmin(req)" in content
+                           and "verifyUser(req)" in admin_auth_helper
+                           and "profiles?.[0]?.is_admin !== true" in admin_auth_helper)
+    return admin_auth_verified or any(token in content for token in ["verifyUser(", "/auth/v1/user", "constructEvent", "verifyCronRequest(", "CRON_SECRET", "WEBHOOK_SECRET", "SIGNUP_WEBHOOK_SECRET", "verifyUnsubscribeToken("])
 endpoint_auth_issues = []
 for f in sorted(all_files(("api",), (".js",))):
     if os.path.basename(f).startswith("_") or f in intentionally_public:
