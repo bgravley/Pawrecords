@@ -18,6 +18,7 @@
 
 import { setCorsHeaders } from './_cors.js';
 import { verifyCronRequest } from './_cronAuth.js';
+import { requireAdmin } from './_requireAdmin.js';
 
 async function loadActiveRoutes() {
   const res = await fetch(
@@ -76,33 +77,9 @@ export default async function handler(req, res) {
   const cron = verifyCronRequest(req);
   if (cron.status === 503) return res.status(503).json({ error: cron.error });
   const isCron = cron.ok;
-  let isAdmin = false;
-
   if (!isCron) {
-    const authHeader = req.headers.authorization;
-    if (authHeader) {
-      const userToken = authHeader.replace('Bearer ', '');
-      const verifyRes = await fetch(`${process.env.SUPABASE_URL}/auth/v1/user`, {
-        headers: { 'Authorization': `Bearer ${userToken}`, 'apikey': process.env.SUPABASE_SERVICE_KEY },
-      });
-      if (verifyRes.ok) {
-        const userData = await verifyRes.json();
-        const profileRes = await fetch(
-          `${process.env.SUPABASE_URL}/rest/v1/profiles?id=eq.${userData.id}&select=is_admin,email`,
-          { headers: { 'apikey': process.env.SUPABASE_SERVICE_KEY, 'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}` } }
-        );
-        if (!profileRes.ok) {
-          console.error('Admin profile check failed (failing closed, denying access):', profileRes.status);
-        } else {
-          const profiles = await profileRes.json();
-          isAdmin = profiles?.[0]?.is_admin === true || profiles?.[0]?.email === 'bgravley@rdmarketingllc.com';
-        }
-      }
-    }
-  }
-
-  if (!isCron && !isAdmin) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    const auth = await requireAdmin(req);
+    if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
   }
 
   // Vercel cron only supports fixed weekly/daily-style schedules, not "every

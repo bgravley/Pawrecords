@@ -20,7 +20,6 @@ const TravelSummary = lazy(() => import("./TravelSummary.jsx"));
 const AffiliatePortal = lazy(() => import("./AffiliatePortal.jsx"));
 
 // Your admin email — only this account sees the admin dashboard
-const ADMIN_EMAIL = "bgravley@rdmarketingllc.com";
 
 function ResetPasswordScreen({ onDone }) {
   const [password, setPassword] = useState('');
@@ -183,11 +182,22 @@ export default function App() {
     const code = localStorage.getItem('ypref');
     if (!code) return;
     try {
-      const { data: prof } = await supabase.from('profiles').select('referral_code_used').eq('id', userId).single();
-      if (prof && !prof.referral_code_used) {
-        await supabase.from('profiles').update({ referral_code_used: code }).eq('id', userId);
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      if (currentSession?.user?.id !== userId || !currentSession?.access_token) return;
+
+      const response = await fetch('/api/apply-referral', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${currentSession.access_token}`,
+        },
+        body: JSON.stringify({ referralCode: code }),
+      });
+      // An invalid or self-referral cannot be retried successfully. Retain the
+      // code for a transient server failure or an account-creation race.
+      if (response.ok || response.status === 400 || response.status === 403) {
+        localStorage.removeItem('ypref');
       }
-      localStorage.removeItem('ypref');
     } catch (e) {
       console.error('Referral apply error:', e);
     }
@@ -351,7 +361,9 @@ export default function App() {
     return <LegalAttestationScreen onConfirm={confirmLegalAttestation} onSignOut={handleSignOut} />;
   }
 
-  const isAdmin = session.user.email === ADMIN_EMAIL || profile?.is_admin === true;
+  // This server-managed flag is not writable through the customer Data API.
+  // The server still performs its own authorization for every admin action.
+  const isAdmin = profile?.is_admin === true;
 
   if (showAdmin && isAdmin) {
     return <Admin onBack={() => setShowAdmin(false)} />;

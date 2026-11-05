@@ -2,7 +2,7 @@
 // Recipient and affiliate details are re-read from Supabase; the browser is
 // never trusted to choose who receives YourPetPass-branded mail.
 
-import { verifyUser } from './_verifyUser.js';
+import { requireAdmin } from './_requireAdmin.js';
 import { setCorsHeaders } from './_cors.js';
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
@@ -35,18 +35,6 @@ async function rest(path) {
     throw new Error(`Supabase lookup failed (${response.status}): ${detail.slice(0, 160)}`);
   }
   return response.json();
-}
-
-async function requireAdmin(req) {
-  const auth = await verifyUser(req);
-  if (!auth.ok) return auth;
-  const rows = await rest(
-    `profiles?id=eq.${encodeURIComponent(auth.userId)}&select=is_admin,email&limit=1`
-  );
-  const profile = rows?.[0];
-  const allowed = profile?.is_admin === true || profile?.email === ADMIN_EMAIL;
-  if (!allowed) return { ok: false, status: 403, error: 'Admin access required' };
-  return auth;
 }
 
 async function loadAffiliate(referralCode) {

@@ -4,10 +4,11 @@ affiliate = Path('api/notify-affiliate.js').read_text()
 signup = Path('api/notify-signup.js').read_text()
 error = Path('api/notify-error.js').read_text()
 helper = Path('api/_webhookAuth.js').read_text()
+admin_helper = Path('api/_requireAdmin.js').read_text()
 
 checks = {
-    'affiliate email verifies signed-in user': "const auth = await verifyUser(req);" in affiliate,
-    'affiliate email requires administrator': "Admin access required" in affiliate and "is_admin" in affiliate,
+    'affiliate email verifies signed-in user': "const auth = await requireAdmin(req);" in affiliate and "verifyUser(req)" in admin_helper,
+    'affiliate email requires administrator': "profiles?.[0]?.is_admin !== true" in admin_helper and "ADMIN_EMAIL" not in admin_helper,
     'affiliate recipient comes from Supabase profile': "to: affiliate.email" in affiliate and "profiles?id=eq." in affiliate,
     'affiliate request only selects referral code': "const referralCode = typeof req.body?.referralCode" in affiliate,
     'affiliate notes are escaped': "const safeNotes = affiliate.notes ? esc(affiliate.notes) : '';" in affiliate,
