@@ -1,46 +1,29 @@
-# YourPetPass High-Risk Security Review Policy
+# YourPetPass Security Release Policy
 
-Independent review is preferred before production merge/deployment for changes that affect:
-- authentication or sessions
-- authorization or Supabase RLS
-- private file/storage access
-- payments, Stripe webhooks, entitlements, refunds, or billing state
-- new or materially changed unauthenticated/public endpoints
-- secrets, credentials, signing keys, or security headers
-- privacy controls or public sharing
-- database migrations that change ownership, access, or security policy
+Effective November 8, 2026. The sole founder/owner is the sole human reviewer and release authority. There is **no independent-reviewer requirement** and no second-person sign-off, including for high-risk changes. This replaces the previous independent-review / solo-maintainer-exception policy.
 
-When an independent reviewer is available, the reviewer must inspect the actual diff and challenge its trust assumptions. A second AI review is useful but is not automatically independent simply because a different model produced it.
+## Owner-authorized release process
 
-## Solo-maintainer exception
+High-risk changes affecting authentication, authorization/RLS, private records, payments, secrets, privacy, or schema permissions must follow all applicable technical checks below. None requires an outside reviewer or a paid staging environment.
 
-YourPetPass currently has one repository owner. When no qualified independent reviewer is reasonably available, a high-risk release may proceed through the solo-maintainer exception instead of remaining permanently blocked.
+1. Document the specific vulnerability, affected controls, proposed code and database changes, and any material remaining risk.
+2. Record the owner's explicit release authorization and scope in the PR or release record. The November 8, 2026 conversation expressly authorizes security PR #159, its matching database migration, and the existing no-additional-cost production workflow.
+3. Run available build, behavioral, dependency/secret, and authorization regression checks. Use existing GitHub CI and disposable CI database fixtures; do not create a billable Supabase project or branch.
+4. Verify that any new application code and database migration are compatible and execute them in an order that avoids privilege exposure or data loss.
+5. Preserve least privilege, RLS tenant isolation, and server-side administrator/billing checks; do not bypass a failed security gate to accelerate deployment.
+6. Confirm the production SHA, environment, and database migration status. Verify live permissions and smoke-test supported anonymous/customer/admin flows after release.
+7. Record release SHA, database migration name, test results, remaining risks, monitoring findings, and rollback/recovery steps.
 
-The exception requires all of the following:
+## Stop conditions
 
-- the owner gives explicit approval for the named pull request and exact release scope;
-- the pull request records that the solo-maintainer exception is being used and why;
-- the complete automated test suite, security audits, secret-history scan, and production build pass on the exact release SHA;
-- the exact release SHA has a successful Vercel preview deployment;
-- database migrations are reviewed for backward compatibility, least privilege, and a documented recovery path before application;
-- the production deployment uses the approved and verified SHA, without unrelated changes;
-- authenticated production smoke tests cover anonymous, User A, and User B isolation where applicable;
-- post-deployment health and error signals are checked, with a rollback target identified;
-- the date, production SHA, verification results, and any accepted residual risk are recorded in the pull request or audit control register.
+Do not ship when build/security tests fail, the migration differs materially from the reviewed content, the production target is uncertain, a secret may be exposed, or a fix could cause irreversible loss of customer data without a recovery path. Resolve the technical blocker and then continue under the owner's existing authorization if the release scope is unchanged.
 
-The exception must not be used to ignore a failed gate, unresolved critical finding, unexplained secret exposure, destructive migration without recovery evidence, or a production smoke-test failure. Any such result stops the release until it is resolved.
+## Cost controls
 
-Time-limited dependency exceptions may be recorded only when no patched upstream release exists, the affected code path is demonstrably unreachable, the exact advisory and rationale are enforced by an automated gate, and the exception has a near-term expiry date that makes the gate fail closed. These exceptions remain accepted residual risk and must be listed in the release record.
+Do not create paid staging projects, external reviewers, additional subscriptions, paid scanners, or chargeable resources. Existing GitHub Actions, Vercel and Supabase production features may be used within their normal account limits. If a particular change requires an incremental charge, present that choice to the owner separately; do not incur it without explicit authorization.
 
-At minimum, review should consider:
-- cross-user/IDOR access
-- fail-open behavior
-- service-role key exposure or overuse
-- missing rate/abuse controls
-- unsafe URL rendering
-- public data leakage
-- incorrect identity binding
-- missing negative tests
-- live configuration drift outside Git
+## Verification criteria
 
-For high-risk controls, verification evidence should include both code evidence and live-production evidence when the control can change outside Git.
+Review includes cross-user/IDOR and unauthorized write tests; denial by default; Supabase service-role isolation; protected billing and admin fields; authenticated API identity; storage access control; prompt-data boundaries; dependency risk; and current live database grants. Passing repository checks is not proof that migrations or dashboard settings were applied to production.
+
+This policy is maintained by the founder. The founder may revise it explicitly at any time.
