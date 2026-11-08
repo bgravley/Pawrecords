@@ -133,7 +133,7 @@ export default async function handler(req, res) {
     }
     if (
       authData.user.email !== account.email ||
-      authData.user.user_metadata?.e2e_test !== true
+      authData.user.app_metadata?.ypp_legal_attestation_method !== 'synthetic_e2e'
     ) {
       return res.status(403).json({ error: 'Synthetic Auth marker check failed' });
     }
