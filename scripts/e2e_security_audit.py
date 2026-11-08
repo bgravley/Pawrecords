@@ -10,6 +10,8 @@ def read(path):
 
 OIDC = read("api/_github-actions-oidc.js")
 LOGIN = read("api/e2e-login.js")
+DELETE = read("api/e2e-delete-account.js")
+ACCOUNTS = read("api/_e2eAccounts.js")
 SMOKE = read("scripts/live_smoke.mjs")
 WORKFLOW = read(".github/workflows/live-smoke.yml")
 
@@ -34,8 +36,10 @@ check("Token expiry/issued-at checked", all(token in OIDC for token in ["claims.
 # Bootstrap endpoint must be fixed-account, OIDC-only, and low privilege.
 check("E2E endpoint POST-only", "req.method !== 'POST'" in LOGIN)
 check("E2E endpoint verifies GitHub OIDC", "verifyGitHubActionsOidc" in LOGIN and "readGitHubOidcBearer" in LOGIN)
-check("Only fixed primary synthetic email", "e2e-primary@yourpetpass.com" in LOGIN)
-check("Only fixed secondary synthetic email", "e2e-secondary@yourpetpass.com" in LOGIN)
+check("Only fixed primary synthetic email", "e2e-primary@yourpetpass.com" in ACCOUNTS)
+check("Only fixed secondary synthetic email", "e2e-secondary@yourpetpass.com" in ACCOUNTS)
+check("Login uses shared E2E accounts", "E2E_TEST_ACCOUNTS" in LOGIN and "from './_e2eAccounts.js'" in LOGIN)
+check("Delete verifier uses shared E2E accounts", "E2E_TEST_ACCOUNTS" in DELETE and "from './_e2eAccounts.js'" in DELETE)
 check("Caller cannot supply arbitrary email", "req.body?.email" not in LOGIN and "req.body.email" not in LOGIN)
 check("Synthetic accounts never admin", "is_admin: false" in LOGIN)
 check("Synthetic accounts cover Premium paths", "subscription_tier: 'premium'" in LOGIN)
@@ -43,6 +47,15 @@ check("Reset deletes are user-scoped", ".delete().eq('user_id', userId)" in LOGI
 check("Storage cleanup is user-root constrained", "path.startsWith(`${userId}/`)" in LOGIN)
 check("Magic links generated server-side", "auth.admin.generateLink" in LOGIN and "type: 'magiclink'" in LOGIN)
 check("Magic-link response is no-store", "Cache-Control" in LOGIN and "no-store" in LOGIN)
+
+# Destructive deletion test must be narrower than the login bootstrap.
+check("E2E deletion endpoint POST-only", "req.method !== 'POST'" in DELETE)
+check("E2E deletion verifies GitHub OIDC", "verifyGitHubActionsOidc" in DELETE and "readGitHubOidcBearer" in DELETE)
+check("Deletion caller cannot supply arbitrary email", "req.body?.email" not in DELETE and "req.body.email" not in DELETE)
+check("Deletion requires E2E Auth marker", "user_metadata?.e2e_test !== true" in DELETE)
+check("Deletion rejects admin profile", "profile.is_admin === true" in DELETE)
+check("Deletion uses shared destructive helper", "deleteAccountById" in DELETE)
+check("Deletion verifies Auth/DB/Storage absence", all(token in DELETE for token in ["verifyDeleted", "auth_user", "storage_objects", "remainingRows"]))
 
 # Workflow must use ephemeral identity, never static customer passwords.
 check("Workflow can mint OIDC token", "id-token: write" in WORKFLOW)
@@ -79,6 +92,7 @@ for label, needle in [
     ("Travel creation coverage", "Travel planner can create a real trip tied to the pet"),
     ("Logout/re-login coverage", "Sign out works and a second one-time login preserves records"),
     ("Cross-account RLS coverage", "RLS and private Storage isolate one signed-in customer from another"),
+    ("Deletion coverage", "Synthetic account deletion removes Auth, database rows, and private Storage"),
     ("Cleanup coverage", "Synthetic E2E records are cleaned after the run"),
 ]:
     check(label, needle in SMOKE)
