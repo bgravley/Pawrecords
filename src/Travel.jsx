@@ -210,7 +210,7 @@ const inp = {
 const generateChecklist = async (trip, pets, userId) => {
   const speciesInvolved = [...new Set(pets.map(p => p.species || 'dog'))]; // ['dog'] | ['cat'] | ['dog','cat']
   const petList = pets.map(p =>
-    `${p.name} (${p.species === 'cat' ? 'Cat' : 'Dog'}, ${p.breed || 'mixed'}${p.is_service_animal ? ', SERVICE ANIMAL' : ''}${p.is_esa ? ', ESA' : ''})`
+    `${p.species === 'cat' ? 'Cat' : 'Dog'} (${p.breed || 'mixed'}${p.is_service_animal ? ', SERVICE ANIMAL' : ''}${p.is_esa ? ', ESA' : ''})`
   ).join('; ');
 
   // US territories count as USA for all federal pet travel requirements

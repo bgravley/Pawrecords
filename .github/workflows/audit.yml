@@ -12,6 +12,35 @@ name: Site Audit
   workflow_dispatch:
 
 jobs:
+  postgres_security:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: local-test-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Validate privileged-column migration against real PostgreSQL roles
+        env:
+          PGPASSWORD: local-test-only
+          PGHOST: localhost
+          PGUSER: postgres
+        run: |
+          psql -d postgres -v ON_ERROR_STOP=1 -c 'create database ypp_security_test'
+          psql -d ypp_security_test -v ON_ERROR_STOP=1 -f scripts/privileged_column_fixture.sql
+          psql -d ypp_security_test -v ON_ERROR_STOP=1 -f supabase/migrations/20261031213433_lock_privileged_profile_affiliate_columns.sql
+          psql -d ypp_security_test -v ON_ERROR_STOP=1 -f scripts/privileged_column_rls_regression.sql
+
   audit:
     runs-on: ubuntu-latest
     steps:
@@ -55,6 +84,12 @@ jobs:
 
       - name: Run backend-only table grant audit
         run: python3 scripts/backend_table_grants_audit.py
+
+      - name: Run privileged-column escalation regression audit
+        run: python3 scripts/privileged_column_security_audit.py
+
+      - name: Run AI input and privacy-boundary regression audit
+        run: python3 scripts/ai_data_boundary_security_audit.py
 
       - name: Run repository artifact hygiene audit
         run: python3 scripts/repository_artifact_hygiene_audit.py

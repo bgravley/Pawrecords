@@ -4,6 +4,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { setCorsHeaders } from './_cors.js';
+import { requireAdmin } from './_requireAdmin.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -100,35 +101,9 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Server not configured' });
   }
 
-  const { type, userId } = req.body;
-
-  const authHeader = req.headers.authorization;
-  if (!authHeader) return res.status(401).json({ error: 'Unauthorized' });
-
-  const userToken = authHeader.replace('Bearer ', '');
-
-  const verifyRes = await fetch(`${supabaseUrl}/auth/v1/user`, {
-    headers: { 'Authorization': `Bearer ${userToken}`, 'apikey': serviceKey }
-  });
-
-  if (!verifyRes.ok) return res.status(401).json({ error: 'Invalid token' });
-
-  const userData = await verifyRes.json();
-  const requestingUserId = userData.id;
-
-  const profileRes = await fetch(
-    `${supabaseUrl}/rest/v1/profiles?id=eq.${requestingUserId}&select=is_admin,email`,
-    { headers: { 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}` } }
-  );
-  if (!profileRes.ok) {
-    console.error('Admin profile lookup failed:', profileRes.status, await profileRes.text().catch(() => ''));
-    return res.status(502).json({ error: 'Could not verify admin status — please try again.' });
-  }
-  const profiles = await profileRes.json();
-  const isAdmin = profiles?.[0]?.is_admin === true ||
-    profiles?.[0]?.email === 'bgravley@rdmarketingllc.com';
-
-  if (!isAdmin) return res.status(403).json({ error: 'Admin access required' });
+  const { type, userId } = req.body || {};
+  const auth = await requireAdmin(req);
+  if (!auth.ok) return res.status(auth.status).json({ error: auth.error });
 
   const headers = {
     'apikey': serviceKey,
