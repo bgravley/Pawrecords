@@ -52,7 +52,7 @@ check("Magic-link response is no-store", "Cache-Control" in LOGIN and "no-store"
 check("E2E deletion endpoint POST-only", "req.method !== 'POST'" in DELETE)
 check("E2E deletion verifies GitHub OIDC", "verifyGitHubActionsOidc" in DELETE and "readGitHubOidcBearer" in DELETE)
 check("Deletion caller cannot supply arbitrary email", "req.body?.email" not in DELETE and "req.body.email" not in DELETE)
-check("Deletion requires E2E Auth marker", "user_metadata?.e2e_test !== true" in DELETE)
+check("Deletion requires E2E Auth marker", "ypp_legal_attestation_method !== 'synthetic_e2e'" in DELETE)
 check("Deletion rejects admin profile", "profile.is_admin === true" in DELETE)
 check("Deletion uses shared destructive helper", "deleteAccountById" in DELETE)
 check("Deletion verifies Auth/DB/Storage absence", all(token in DELETE for token in ["verifyDeleted", "auth_user", "storage_objects", "remainingRows"]))
