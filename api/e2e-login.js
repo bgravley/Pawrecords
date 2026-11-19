@@ -5,19 +5,9 @@ import {
   verifyGitHubActionsOidc,
 } from './_github-actions-oidc.js';
 import { createUnsubscribeToken } from './_unsubscribe.js';
+import { E2E_TEST_ACCOUNTS } from './_e2eAccounts.js';
 
 const LEGAL_ATTESTATION_VERSION = '2026-09-07';
-
-const TEST_ACCOUNTS = Object.freeze({
-  primary: {
-    email: 'e2e-primary@yourpetpass.com',
-    fullName: 'YourPetPass E2E Primary',
-  },
-  secondary: {
-    email: 'e2e-secondary@yourpetpass.com',
-    fullName: 'YourPetPass E2E Secondary',
-  },
-});
 
 function noStore(res) {
   res.setHeader('Cache-Control', 'private, no-store, max-age=0');
@@ -103,7 +93,7 @@ export default async function handler(req, res) {
     const claims = await verifyUser(req);
 
     const role = req.body?.role;
-    const account = TEST_ACCOUNTS[role];
+    const account = E2E_TEST_ACCOUNTS[role];
     if (!account) return res.status(400).json({ error: 'role must be primary or secondary' });
 
     const supabase = adminClient();

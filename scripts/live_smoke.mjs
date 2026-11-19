@@ -226,6 +226,28 @@ async function bootstrap(role, reset = false, deploymentWait = false) {
   throw new Error(`E2E bootstrap did not become ready (last status ${lastStatus}: ${lastMessage})`);
 }
 
+async function deleteSyntheticAccount(role) {
+  const oidcToken = await currentOidcToken();
+  const response = await fetch(`${BASE}/api/e2e-delete-account`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${oidcToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ role }),
+  });
+
+  const type = response.headers.get('content-type') || '';
+  const body = type.includes('application/json') ? await response.json() : null;
+  if (!response.ok) {
+    throw new Error(`Synthetic deletion rejected (${response.status}): ${body?.error || 'unknown error'}`);
+  }
+  if (body?.deleted !== true || body?.verified !== true) {
+    throw new Error('Synthetic deletion did not return verified=true');
+  }
+  return body;
+}
+
 async function loginWithActionLink(page, actionLink) {
   await page.goto(actionLink, { waitUntil: 'domcontentloaded', timeout: 30000 });
   await page.waitForFunction(() => {
@@ -775,6 +797,110 @@ await check('Signed unsubscribe link disables reminder emails and is idempotent'
     if (response.status !== 200) throw new Error(`Signed unsubscribe returned ${response.status}`);
     const result = await response.json();
     if (result?.success !== true) throw new Error('Signed unsubscribe did not return success');
+  }
+});
+
+await check('Synthetic account deletion removes Auth, database rows, and private Storage', async () => {
+  const secondary = await bootstrap('secondary', true, false);
+  const context = await browser.newContext({
+    viewport: { width: 1280, height: 900 },
+    userAgent: 'YourPetPass-Deletion-E2E/1.0',
+  });
+  const page = await context.newPage();
+  attachPageErrorCollector(page, 'Synthetic deletion');
+  const secondarySupabase = captureSupabase(page);
+
+  let deletedUserId = null;
+  let privatePath = null;
+
+  try {
+    await loginWithActionLink(page, secondary.actionLink);
+    await chooseEssentialAnalytics(page);
+    const session = await readBrowserSession(page);
+    deletedUserId = session.userId;
+
+    for (let i = 0; i < 20 && (!secondarySupabase.origin || !secondarySupabase.anonKey); i += 1) await sleep(250);
+    if (!secondarySupabase.origin || !secondarySupabase.anonKey) {
+      throw new Error('Synthetic deletion test did not observe Supabase connection details');
+    }
+
+    const dogResponse = await context.request.post(`${secondarySupabase.origin}/rest/v1/dogs`, {
+      headers: authHeaders(secondarySupabase, session, {
+        'Content-Type': 'application/json',
+        Prefer: 'return=representation',
+      }),
+      data: {
+        user_id: session.userId,
+        name: `E2E Deletion Pet ${RUN_TAG}`,
+        species: 'dog',
+      },
+    });
+    if (![200, 201].includes(dogResponse.status())) {
+      throw new Error(`Deletion seed pet insert returned ${dogResponse.status()}: ${(await dogResponse.text()).slice(0, 200)}`);
+    }
+    const dogRows = await dogResponse.json();
+    const dog = Array.isArray(dogRows) ? dogRows[0] : dogRows;
+    if (!dog?.id) throw new Error('Deletion seed pet did not return an ID');
+
+    const vaccination = await context.request.post(`${secondarySupabase.origin}/rest/v1/vaccinations`, {
+      headers: authHeaders(secondarySupabase, session, {
+        'Content-Type': 'application/json',
+        Prefer: 'return=minimal',
+      }),
+      data: {
+        dog_id: dog.id,
+        user_id: session.userId,
+        name: 'E2E Rabies',
+        date_given: '2026-10-01',
+      },
+    });
+    if (![200, 201].includes(vaccination.status())) {
+      throw new Error(`Deletion seed vaccination insert returned ${vaccination.status()}: ${(await vaccination.text()).slice(0, 200)}`);
+    }
+
+    const privateDocument = await createPrivateDocument(
+      context,
+      secondarySupabase,
+      session,
+      dog.id,
+    );
+    privatePath = privateDocument.path;
+
+    const activity = await context.request.post(`${secondarySupabase.origin}/rest/v1/activity_log`, {
+      headers: authHeaders(secondarySupabase, session, {
+        'Content-Type': 'application/json',
+        Prefer: 'return=minimal',
+      }),
+      data: {
+        user_id: session.userId,
+        user_email: null,
+        action: 'e2e_deletion_seed',
+        details: { runTag: RUN_TAG },
+      },
+    });
+    if (![200, 201].includes(activity.status())) {
+      throw new Error(`Deletion seed activity insert returned ${activity.status()}: ${(await activity.text()).slice(0, 200)}`);
+    }
+
+    const result = await deleteSyntheticAccount('secondary');
+    if (result.removedStorageObjects < 1) {
+      throw new Error('Synthetic deletion did not report removing the private Storage object');
+    }
+
+    const oldFile = await context.request.get(
+      `${BASE}/api/storage-file?path=${encodeURIComponent(privatePath)}`,
+    );
+    if (oldFile.status() === 200) {
+      throw new Error('Deleted synthetic private file remained accessible');
+    }
+  } finally {
+    await context.close();
+  }
+
+  const recreated = await bootstrap('secondary', true, false);
+  if (!recreated?.userId) throw new Error('Synthetic secondary account was not recreated after deletion');
+  if (recreated.userId === deletedUserId) {
+    throw new Error('Synthetic Auth account ID did not change after delete/recreate cycle');
   }
 });
 

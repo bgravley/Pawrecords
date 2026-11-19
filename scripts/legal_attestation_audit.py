@@ -8,6 +8,7 @@ auth = (ROOT / 'src/components/Auth.jsx').read_text(encoding='utf-8')
 app = (ROOT / 'src/App.jsx').read_text(encoding='utf-8')
 endpoint = (ROOT / 'api/confirm-legal-attestation.js').read_text(encoding='utf-8')
 e2e = (ROOT / 'api/e2e-login.js').read_text(encoding='utf-8')
+e2e_accounts = (ROOT / 'api/_e2eAccounts.js').read_text(encoding='utf-8')
 smoke = (ROOT / 'scripts/live_smoke.mjs').read_text(encoding='utf-8')
 
 checks = []
@@ -92,8 +93,8 @@ check("current.ypp_legal_attestation_version === LEGAL_ATTESTATION_VERSION" in e
 # Synthetic production smoke remains fixed-account/OIDC-only and cannot become a customer bypass.
 check("ypp_legal_attestation_method: 'synthetic_e2e'" in e2e and 'app_metadata:' in e2e,
       'fixed synthetic E2E accounts receive protected test-only attestation metadata')
-check("e2e-primary@yourpetpass.com" in e2e and "e2e-secondary@yourpetpass.com" in e2e and 'verifyGitHubActionsOidc' in e2e,
-      'synthetic bypass remains constrained to the two OIDC-gated test accounts')
+check("e2e-primary@yourpetpass.com" in e2e_accounts and "e2e-secondary@yourpetpass.com" in e2e_accounts and 'verifyGitHubActionsOidc' in e2e,
+      'synthetic bypass remains constrained to the two fixed OIDC-gated test accounts')
 check('synthetic_e2e' not in app and 'e2e-primary@yourpetpass.com' not in app and 'e2e-secondary@yourpetpass.com' not in app,
       'customer app contains no synthetic-email or synthetic-method bypass')
 
